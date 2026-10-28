@@ -8,13 +8,26 @@ spring:
     url: jdbc:postgresql://localhost:5432/product_db
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
+  flyway:
+    schemas: product_service
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
     properties:
       hibernate:
         format_sql: true
+
+springdoc:
+  # 不把 @RestControllerAdvice 的所有錯誤碼套到每支 API，改由各 API 的 @ApiResponses 明確標示
+  override-with-generic-response: false
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    # 依 API 路徑與 HTTP 方法排序，方便尋找
+    operations-sorter: method
+    tags-sorter: alpha
 
 management:
   endpoints:
