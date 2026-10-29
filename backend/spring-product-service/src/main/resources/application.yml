@@ -17,7 +17,13 @@ spring:
     properties:
       hibernate:
         format_sql: true
-
+    show-sql: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 500ms # 每個指令最多等多久
+      connect-timeout: 1s # 建立連線最多等多久
 springdoc:
   # 不把 @RestControllerAdvice 的所有錯誤碼套到每支 API，改由各 API 的 @ApiResponses 明確標示
   override-with-generic-response: false

@@ -9,8 +9,10 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.mymicroservice.product.cache.CategoryTreeCache;
 import com.mymicroservice.product.dto.category.addOneNewCategory.AddOneNewCategoryReq;
 import com.mymicroservice.product.dto.category.addOneNewCategory.AddOneNewCategoryRes;
 import com.mymicroservice.product.dto.category.getCategoriesTree.CategoryTreeNode;
@@ -37,6 +39,7 @@ public class CategoryServiceImpl implements CategoryService {
             .thenComparing(Category::getName);
 
     private final CategoryRepository categoryRepository;
+    private final CategoryTreeCache categoryTreeCache;
 
     @Override
     public AddOneNewCategoryRes addOneNewCategory(AddOneNewCategoryReq addOneNewCategoryReq) {
@@ -58,12 +61,14 @@ public class CategoryServiceImpl implements CategoryService {
         }
 
         Category savedCategory = categoryRepository.save(addOneNewCategoryReq.toEntity());
+        categoryTreeCache.evictAfterCommit();
         return AddOneNewCategoryRes.from(savedCategory);
     }
 
     @Override
     public void deleteOneCategoryById(UUID id) {
         categoryRepository.deleteById(id);
+        categoryTreeCache.evictAfterCommit();
     }
 
     @Override
@@ -83,9 +88,19 @@ public class CategoryServiceImpl implements CategoryService {
                 .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
     }
 
+    // 不開交易：快取命中時不需要拿 DB 連線；查 DB 時由 repository 自己開唯讀交易
+    // 組樹只用到 id、name、slug、parentId，沒有 lazy 關聯，在交易外讀取不會出錯
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public GetCategoriesTreeRes getCategoriesTree() {
+        return categoryTreeCache.get().orElseGet(() -> {
+            GetCategoriesTreeRes tree = loadCategoriesTree();
+            categoryTreeCache.put(tree);
+            return tree;
+        });
+    }
+
+    private GetCategoriesTreeRes loadCategoriesTree() {
         // 前台使用，只取啟用中的分類；父分類停用時，其子樹也會一併隱藏
         List<Category> categories = categoryRepository.findAllByActiveTrue();
 
@@ -148,6 +163,7 @@ public class CategoryServiceImpl implements CategoryService {
         // category 為 managed 狀態，不需 save；flush 後 updatedAt 與 version 才會更新
         updateOneCategoryReq.applyTo(category);
         categoryRepository.flush();
+        categoryTreeCache.evictAfterCommit();
         return UpdateOneCategoryRes.from(category);
     }
 

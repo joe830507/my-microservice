@@ -19,6 +19,16 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-
+  product-redis:
+    image: redis:8.2
+    container_name: my-microservice-product-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 volumes:
   product-db-data:
