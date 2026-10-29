@@ -2,13 +2,16 @@ package com.mymicroservice.product.service.impl;
 
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.mymicroservice.product.cache.ProductDetailCache;
 import com.mymicroservice.product.dto.product.addOneNewProduct.AddOneNewProductReq;
 import com.mymicroservice.product.dto.product.addOneNewProduct.AddOneNewProductRes;
 import com.mymicroservice.product.dto.product.changeProductStatus.ChangeProductStatusReq;
@@ -38,25 +41,50 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductImageRepository productImageRepository;
+    private final ProductDetailCache productDetailCache;
 
     @Override
     public AddOneNewProductRes addOneNewProduct(AddOneNewProductReq addOneNewProductReq) {
         Product savedProduct = productRepository.save(addOneNewProductReq.toEntity());
+
+        // 建立前可能有人查過這個 sku，查不到的結果會被短暫快取
+        productDetailCache.evictSkuMappingAfterCommit(savedProduct.getSku());
         return AddOneNewProductRes.from(savedProduct);
     }
 
+    // 不開交易：快取命中時不需要拿 DB 連線；查 DB 時由 ProductDetailCache 自己開唯讀交易
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public GetProductByIdRes getProductById(UUID id) {
-        return productRepository.findById(id).map(GetProductByIdRes::from)
+        return productDetailCache.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
     }
 
+    // 不開交易的原因同 getProductById
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public GetProductBySkuRes getProductBySku(String sku) {
-        return productRepository.findBySku(sku).map(GetProductBySkuRes::from)
+        // 對照本身查不到，代表 sku 不存在（查不到的結果也有快取），直接回 404，不重查 DB
+        if (productDetailCache.findIdBySku(sku).isEmpty()) {
+            throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+        }
+
+        // 對照存在但商品的 sku 已經不同，代表 sku 被改過、對照過期，刪掉後再從 DB 查一次
+        Optional<GetProductByIdRes> detail = findDetailBySku(sku);
+        if (detail.isEmpty()) {
+            productDetailCache.evictSkuMapping(sku);
+            detail = findDetailBySku(sku);
+        }
+
+        return detail.map(GetProductBySkuRes::from)
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+    }
+
+    // 先由 sku 對照出 id，再取商品詳情，並確認詳情的 sku 與查詢的一致
+    private Optional<GetProductByIdRes> findDetailBySku(String sku) {
+        return productDetailCache.findIdBySku(sku)
+                .flatMap(productDetailCache::findById)
+                .filter(detail -> detail.sku().equals(sku));
     }
 
     @Override
@@ -132,8 +160,16 @@ public class ProductServiceImpl implements ProductService {
         }
 
         // product 為 managed 狀態，不需 save；flush 後 updatedAt 與 version 才會更新
+        String oldSku = product.getSku();
         updateOneProductReq.applyTo(product);
         productRepository.flush();
+
+        // sku 有改的話，舊 sku 的對照會過期，新 sku 可能有快取到查不到的結果，兩者都要刪
+        productDetailCache.evictAfterCommit(id);
+        productDetailCache.evictSkuMappingAfterCommit(oldSku);
+        if (!oldSku.equals(product.getSku())) {
+            productDetailCache.evictSkuMappingAfterCommit(product.getSku());
+        }
         return UpdateOneProductRes.from(product);
     }
 
@@ -161,6 +197,7 @@ public class ProductServiceImpl implements ProductService {
         product.setStatus(ProductStatus.ACTIVE);
         product = productRepository.saveAndFlush(product);
 
+        productDetailCache.evictAfterCommit(id);
         return ChangeProductStatusRes.from(product);
     }
 
@@ -178,6 +215,7 @@ public class ProductServiceImpl implements ProductService {
         product.setStatus(ProductStatus.INACTIVE);
         product = productRepository.saveAndFlush(product);
 
+        productDetailCache.evictAfterCommit(id);
         return ChangeProductStatusRes.from(product);
     }
 
@@ -195,12 +233,14 @@ public class ProductServiceImpl implements ProductService {
         product.setStatus(ProductStatus.ARCHIVED);
         product = productRepository.saveAndFlush(product);
 
+        productDetailCache.evictAfterCommit(id);
         return ChangeProductStatusRes.from(product);
     }
 
     private Product findProductWithVersionCheck(UUID id, Long version) {
         // 1. 查詢product
-        Product product = productRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
         // 2. 比對Version
         if (!version.equals(product.getVersion())) {

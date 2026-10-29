@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+import com.mymicroservice.product.dto.product.getProductById.GetProductByIdRes;
 import com.mymicroservice.product.entity.Product;
 import com.mymicroservice.product.entity.ProductStatus;
 
@@ -47,5 +48,22 @@ public record GetProductBySkuRes(
                 product.getCreatedAt(),
                 product.getUpdatedAt(),
                 product.getVersion());
+    }
+
+    // 快取只存一份 GetProductByIdRes，以 sku 查詢時由它轉換
+    public static GetProductBySkuRes from(GetProductByIdRes res) {
+        return new GetProductBySkuRes(
+                res.id(),
+                res.sku(),
+                res.name(),
+                res.description(),
+                res.categoryId(),
+                res.brand(),
+                res.price(),
+                res.originalPrice(),
+                res.status(),
+                res.createdAt(),
+                res.updatedAt(),
+                res.version());
     }
 }
