@@ -3,6 +3,7 @@ package com.mymicroservice.product.dto.product.getProductsByIds;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import com.mymicroservice.product.dto.product.getProductById.GetProductByIdRes;
 import com.mymicroservice.product.entity.Product;
 import com.mymicroservice.product.entity.ProductStatus;
 
@@ -24,5 +25,15 @@ public record ProductBatchItem(
                 product.getName(),
                 product.getPrice(),
                 product.getStatus());
+    }
+
+    // 批次查詢與 getProductById 共用商品詳情快取，由它轉換
+    public static ProductBatchItem from(GetProductByIdRes res) {
+        return new ProductBatchItem(
+                res.id(),
+                res.sku(),
+                res.name(),
+                res.price(),
+                res.status());
     }
 }

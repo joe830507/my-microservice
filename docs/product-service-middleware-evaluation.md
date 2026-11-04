@@ -2,7 +2,7 @@
 
 > 評估日期：2026-10-28
 > 目標情境：大流量、多場景（多前端、多服務協作）
-> 狀態：評估中，尚未導入
+> 狀態：Redis 已導入（2026-11-04），其餘評估中
 
 ## 現況
 
@@ -40,6 +40,26 @@
 - `CommonEntity` 已經有 `@Version`，可以用來做 ETag，也能判斷快取是否為最新版本
 - 寫入時採「先更新 DB，再刪除快取」；多實例下本機快取的失效需要靠 MQ 廣播（見第 3 點）
 - Redis 之後也是 Gateway 限流、分散式鎖的基礎
+
+### 導入進度（2026-11-04）
+
+| 項目 | 狀態 | 位置 / 備註 |
+|---|---|---|
+| 分類樹快取 | 已完成 | `CategoryTreeCache`，TTL 1h + 隨機秒數 |
+| 商品詳情 / SKU 快取 | 已完成 | `ProductDetailCache`，SKU 只存 sku → id 對照 |
+| 批次查詢 `getProductsByIds` | 已完成 | MGET 逐筆讀 `productDetail`，與單筆查詢共用同一份快取 |
+| 快取穿透 | 已完成 | 查不到時快取 null，TTL 90 秒 |
+| 快取雪崩 | 已完成 | TTL 加隨機值 |
+| 寫入一致性 | 已完成 | 先寫 DB，commit 後才刪快取 |
+| Redis 故障降級 | 已完成 | `REJECT_COMMANDS` + `CacheErrorHandler`，直接查 DB |
+| 快取擊穿 | 延後 | 目前規模可接受；要做時自行實作 per-key 鎖，最後用 `put` 寫入 |
+| Caffeine 本機快取 | 延後 | 多實例失效需 MQ 廣播，等 Kafka 導入後再做 |
+| Bloom filter、ETag | 延後 | 非必要 |
+
+### 踩過的坑
+
+- **`@Cacheable(sync = true)` 會讓依 value 計算的 TTL 失效**：sync 走 `Cache#get(key, Callable)`，`RedisCache` 在載入前就計算 TTL，TTL function 拿到的 value 永遠是 null，所有資料都被當成「查不到」只存 90 秒
+- **Lettuce 下 `RedisCacheWriter` 預設非同步寫入**：`put` / `evict` 回傳時指令可能還沒執行，「commit 後刪快取」失去保證，舊資料的 `put` 也可能蓋在 `evict` 之後；`RedisConfig` 已改用 `immediateWrites()`
 
 ---
 

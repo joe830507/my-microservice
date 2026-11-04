@@ -127,10 +127,11 @@ public class ProductServiceImpl implements ProductService {
         return keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
+    // 不開交易的原因同 getProductById
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public GetProductsByIdsRes getProductsByIds(List<UUID> ids) {
-        return GetProductsByIdsRes.from(productRepository.findAllById(ids));
+        return GetProductsByIdsRes.fromDetails(productDetailCache.findAllByIds(ids));
     }
 
     @Override
