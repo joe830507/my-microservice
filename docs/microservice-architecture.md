@@ -158,6 +158,7 @@ backend/
 - **不需要 Spring Cloud Kubernetes 或 discovery client**：K8s Service 本身就提供 DNS 與負載均衡，`uri` 直接寫 Service 名稱
 - 目標 URI 用 profile 切換：本機用 `localhost:{port}`，叢集內用 `{service}:{port}`。服務之間的內部呼叫也用同樣方式設定 base URL
 - 不需登入的路由：`/api/v1/auth/**`、`GET /api/v1/products/**`、`GET /api/v1/categories/**`；其餘都要 JWT，後台路由另外檢查 `ADMIN`
+- **先移除用戶端送來的 `X-User-*` header**，再填入從 JWT 解出的值；否則任何人都能自己帶 `X-User-Id` 冒充別人
 - `/internal/**` 一律不建路由；之後在 K8s 加 NetworkPolicy，限制只有特定服務能互相呼叫
 
 ---

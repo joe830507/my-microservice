@@ -98,6 +98,34 @@
 
 ## Step 4：註冊、登入
 
+### CommonEntity 與稽核
+
+**不拆分，沿用 product 的 `CommonEntity`**（稽核欄位 + `@Version`）。
+
+- user-service 裡只有 `User` 需要稽核欄位和樂觀鎖；`RefreshToken` 只有 `created_at`，直接不繼承就好
+- 改用條件式 UPDATE 的表，`@LastModifiedDate` 本來就不會觸發，拆出「只有稽核、沒有版本」的父類別也沒有用處
+- 等到真的出現「需要稽核但不需要版本」的 entity 時再拆
+
+| 項目 | 決定 |
+|---|---|
+| 位置 | `com.mymicroservice.user.entity.CommonEntity`（從 product 複製，改 package） |
+| 欄位 | `createdAt`、`updatedAt`（`Instant`）、`createdBy`、`updatedBy`（`UUID`）、`version`（`Long`） |
+| `version` 型別 | 必須用 `Long`，不能用 `long`：新建時是 `null`，Spring Data 的 `save()` 才會判斷為新資料而用 `persist`，不會先 SELECT 再 `merge` |
+| `User.id` | 和 product 一樣用 `@UuidGenerator(style = Style.VERSION_7)`，加上 `@Setter(AccessLevel.NONE)` |
+
+### AuditorAware
+
+| 情況 | 記錄的操作人 |
+|---|---|
+| 有 `X-User-Id` header（經過 Gateway 的已登入請求） | header 的值 |
+| 沒有 header（自己註冊、登入、refresh） | `SYSTEM_USER_ID`（`new UUID(0L, 0L)`） |
+| header 不是合法 UUID | `SYSTEM_USER_ID`，並記一筆 warn log |
+| 不在 HTTP 請求中（排程、測試） | `SYSTEM_USER_ID` |
+
+- 用 `RequestContextHolder.getRequestAttributes()` 取得目前請求，`null` 表示不在請求中
+- user-service 沒有 Spring Security，**不要**照 product 的 TODO 去讀 `SecurityContext`；之後 product 也要改成讀 header
+- header 名稱定義成常數，之後各服務共用同一個名稱
+
 ### API
 
 | 方法 | 路徑 | 說明 |
