@@ -104,7 +104,7 @@ SKU 雛型階段不檢查 product-service 裡是否存在；之後改成接收 `
 - body 裡的 `reserved` 會被忽略
 - 小數（例如 `1.5`）回 400：Jackson 預設會默默轉成 1，已用 `spring.jackson.deserialization.accept-float-as-int: false` 關掉
 - 併發測試：讀出庫存後，另一個交易模擬預扣並 commit，PUT 回 409 `VERSION_CONFLICT`，預扣的結果保留
-- 已知限制：同一個方法同時有路徑參數約束與 `@Valid` body 時，Spring 改用方法層級驗證，common 回的 `detail` 只有訊息、沒有欄位名稱；之後可以改 common 的 `handleHandlerMethodValidationException` 補上欄位名稱
+- 同一個方法同時有路徑參數約束與 `@Valid` body 時，Spring 改用方法層級驗證；common 的 `handleHandlerMethodValidationException` 已補上欄位名稱（例如 `available: must be greater than or equal to 0`、`sku: size must be between 0 and 64`）
 
 ---
 
