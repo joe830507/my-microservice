@@ -203,7 +203,7 @@ Kafka + Outbox 導入後，把步驟 6 和「逾時釋放」改成事件，變�
 
 | 順序 | 項目 | 重點 |
 |---|---|---|
-| 1 | user-service | Gateway 驗 JWT 需要它，最先做 |
+| 1 | user-service | Gateway 驗 JWT 需要它，最先做；步驟見 [user-service-implementation-plan.md](user-service-implementation-plan.md) |
 | 2 | api-gateway | 先接 product + user；驗證 JWT 驗簽、`X-User-Id` 傳遞、`/internal` 封鎖 |
 | 3 | 上 K8s | 用 kind 或 minikube 部署 gateway、product、user；熟悉 Deployment、Service、ConfigMap、Secret |
 | 4 | inventory-service | 預扣、確認、釋放與冪等 |
