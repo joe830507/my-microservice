@@ -11,6 +11,8 @@
 | 服務發現 / 設定中心 | **Kubernetes 原生**（Service DNS、ConfigMap、Secret） | 業界主流；不另外架 Nacos / Consul / Eureka |
 | 路由前綴 | 所有服務統一用 `/api/v1/{resource}` | Gateway 可以直接用 path 分流 |
 | 資料庫 | **每個服務各自一個 DB，互相隔離** | 依需求在 `infra/docker-compose.yml` 加入對應的 DB |
+| 建置結構 | `backend/pom.xml` 只做**聚合**，各服務仍以 `spring-boot-starter-parent` 為 parent | 一次匯入、一次建置；各服務仍可各自升級 Boot 版本 |
+| 共用程式碼 | `backend/common` 模組，**只放技術性的共通元件**，不放業務模型 | 錯誤格式、稽核、身分 header 是跨服務的約定，複製多份必定走樣 |
 
 ---
 
@@ -57,6 +59,34 @@
 | payment-service | 8085 | 5436 |
 
 > 現有的 `GET /api/v1/products/batch` 主要給 order-service 用。之後可以搬到 `/internal/v1/products/batch`，或是對內、對外各留一支；雛型階段先不動。
+
+---
+
+## 後端專案結構
+
+```
+backend/
+├── pom.xml                    聚合 pom（packaging pom，只有 <modules>）
+├── common/                    共用模組（Spring Boot auto-configuration）
+├── spring-product-service/    parent：spring-boot-starter-parent，依賴 common
+├── spring-user-service/       同上
+├── ...
+└── spring-api-gateway/        不依賴 common（reactive、沒有 JPA）
+```
+
+### common 放什麼
+
+| 放 | 不放 |
+|---|---|
+| `AppException`、`GlobalExceptionHandler`（ProblemDetail + `code`） | Entity、DTO 等業務模型 |
+| `ErrorCode` interface + 共用錯誤碼 `CommonErrorCode` | 服務間呼叫的請求、回應類別（由呼叫方自己定義） |
+| `CommonEntity`（稽核欄位 + `@Version`） | 只有單一服務用到的設定（例如 product 的 `RedisConfig`） |
+| `X-User-*` header 常數、讀 header 的 `AuditorAware` | |
+
+- 版本固定 `0.0.1-SNAPSHOT`，透過聚合 pom 一起建置，不發佈到 repository
+- 單獨建置某個服務：`./mvnw -pl spring-user-service -am package`（`-am` 會先建置 common）
+- 改 common 等於所有服務都要重新建置，所以要保持精簡
+- 實作步驟見 [backend-common-implementation-plan.md](backend-common-implementation-plan.md)
 
 ---
 

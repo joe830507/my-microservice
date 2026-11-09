@@ -1,8 +1,10 @@
-package com.mymicroservice.product.exception;
+package com.mymicroservice.common.exception;
 
 import java.util.stream.Collectors;
 
 import org.springframework.context.MessageSourceResolvable;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
@@ -21,8 +23,11 @@ import lombok.extern.slf4j.Slf4j;
 
 // 錯誤回應統一為 ProblemDetail（RFC 9457，Content-Type: application/problem+json），並附上 code 欄位
 // 繼承 ResponseEntityExceptionHandler：JSON 格式錯誤、路徑不存在、HTTP 方法不支援等 Spring MVC 例外會回正確的 4xx，而非落到 500
+// 由 CommonAutoConfiguration 註冊為 bean；@RestControllerAdvice 仍需保留，Spring MVC 靠它辨識
+// 優先序最低：服務自己的 @RestControllerAdvice 會先處理，不會被這裡的 Exception 兜底搶走
 @Slf4j
 @RestControllerAdvice
+@Order(Ordered.LOWEST_PRECEDENCE)
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(exception = AppException.class)
@@ -33,19 +38,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     // 版本比對通過後、flush 前被他人搶先更新時，由 Hibernate 的 @Version 檢查擋下
     @ExceptionHandler(exception = ObjectOptimisticLockingFailureException.class)
     public ProblemDetail handleOptimisticLockingFailureException(ObjectOptimisticLockingFailureException exception) {
-        return toProblemDetail(ErrorCode.VERSION_CONFLICT, ErrorCode.VERSION_CONFLICT.getMessage());
+        return toProblemDetail(CommonErrorCode.VERSION_CONFLICT, CommonErrorCode.VERSION_CONFLICT.getMessage());
     }
 
     // 併發寫入時繞過 service 檢查，最後由 DB 唯一約束擋下
     @ExceptionHandler(exception = DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrityViolationException(DataIntegrityViolationException exception) {
-        return toProblemDetail(ErrorCode.DATA_CONFLICT, ErrorCode.DATA_CONFLICT.getMessage());
+        return toProblemDetail(CommonErrorCode.DATA_CONFLICT, CommonErrorCode.DATA_CONFLICT.getMessage());
     }
 
     @ExceptionHandler(exception = Exception.class)
     public ProblemDetail handleUnknownException(Exception exception) {
         log.error("unexpected exception", exception);
-        return toProblemDetail(ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.getMessage());
+        return toProblemDetail(CommonErrorCode.INTERNAL_ERROR, CommonErrorCode.INTERNAL_ERROR.getMessage());
     }
 
     // @RequestBody、@ParameterObject 的欄位驗證失敗
@@ -57,8 +62,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                         ? fieldError.getField() + ": " + fieldError.getDefaultMessage()
                         : error.getDefaultMessage())
                 .collect(Collectors.joining("; "));
-        return ResponseEntity.status(ErrorCode.VALIDATION_FAILED.getStatus())
-                .body(toProblemDetail(ErrorCode.VALIDATION_FAILED, detail));
+        return ResponseEntity.status(CommonErrorCode.VALIDATION_FAILED.getStatus())
+                .body(toProblemDetail(CommonErrorCode.VALIDATION_FAILED, detail));
     }
 
     // 方法參數上的約束驗證失敗，例如 @RequestParam 的 @Size
@@ -68,8 +73,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         String detail = exception.getAllErrors().stream()
                 .map(MessageSourceResolvable::getDefaultMessage)
                 .collect(Collectors.joining("; "));
-        return ResponseEntity.status(ErrorCode.VALIDATION_FAILED.getStatus())
-                .body(toProblemDetail(ErrorCode.VALIDATION_FAILED, detail));
+        return ResponseEntity.status(CommonErrorCode.VALIDATION_FAILED.getStatus())
+                .body(toProblemDetail(CommonErrorCode.VALIDATION_FAILED, detail));
     }
 
     private ProblemDetail toProblemDetail(ErrorCode errorCode, String detail) {
