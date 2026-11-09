@@ -24,3 +24,4 @@ jwt:
   key-id: user-service-2026-11
   issuer: user-service
   access-token-ttl: 15m
+  refresh-token-ttl: 14d

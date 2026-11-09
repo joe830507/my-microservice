@@ -26,6 +26,9 @@ public record JwtProperties(
         @NotBlank String issuer,
 
         // access token 有效時間，yml 可寫 15m 這種格式
-        @NotNull Duration accessTokenTtl) {
+        @NotNull Duration accessTokenTtl,
+
+        // refresh token 有效時間，例如 14d；每次 refresh 換新的 token 時重新計算
+        @NotNull Duration refreshTokenTtl) {
 
 }

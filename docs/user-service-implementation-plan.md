@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/user-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「user-service」
-> 狀態：Step 1～5 完成（2026-11-09），下一步 Step 6
+> 狀態：Step 1～5 完成，Step 6 的 refresh 完成（2026-11-09），下一步 `/logout`
 
 ## 進度
 
@@ -14,7 +14,7 @@
 | 3 | 第一個 migration（使用者、角色） | 完成 |
 | 4 | 註冊、登入（密碼雜湊、簽發 JWT） | 完成（待確認事項見下方） |
 | 5 | JWKS endpoint、`/users/me`、後台使用者列表、dev 的 ADMIN 初始化 | 完成 |
-| 6 | Refresh token（存放、輪替） | 未開始 |
+| 6 | Refresh token（存放、輪替） | 進行中（refresh 完成，logout 未做） |
 
 **第一個里程碑（Step 1～3）**：服務能連上自己的 DB 並啟動，Flyway 建好資料表。
 
@@ -371,6 +371,32 @@ set -a; . secrets/dev.env; set +a
 |---|---|
 | `REFRESH_TOKEN_INVALID` | 不存在、已過期或已撤銷 |
 
+### 完成內容：`POST /api/v1/auth/refresh`
+
+**已完成**：`V3__create_refresh_token_table.sql`、`RefreshToken`、`RefreshTokenRepository`、`RefreshTokenGenerator`、`AuthServiceImpl#refresh`；測試 `AuthControllerRefreshIntegrationTests`（16）。**`/logout` 尚未做。**
+
+| 項目 | 實際做法 |
+|---|---|
+| 回應 | 登入與 refresh 共用 `TokenResDto`（原 `LoginResDto` 改名），新增 `refreshToken`、`refreshExpiresIn` |
+| token | 32 bytes `SecureRandom`，base64url 不補 `=`（43 字元）；DB 存 SHA-256 hex（64 字元）。亂數夠長所以不需要 bcrypt，也因為要用雜湊值查詢所以不能加 salt |
+| 有效時間 | `jwt.refresh-token-ttl: 14d`；每次輪替重新計算，持續使用就不會過期 |
+| 多裝置 | 每次登入各發一組，互不影響 |
+| 角色異動 | refresh 時從 DB 重新讀 roles，新的 access token 會反映 |
+
+**refresh 的檢查順序**
+
+1. 用雜湊值查不到 → `REFRESH_TOKEN_INVALID`（亂填、或使用者被刪除時已被 FK cascade 刪掉）
+2. 已撤銷 → **重複使用**：撤銷該使用者所有 token，回 `REFRESH_TOKEN_INVALID`
+3. 已過期 → `REFRESH_TOKEN_INVALID`，不撤銷其他 token（自然失效不是竊取）
+4. 帳號停用 → 撤銷該使用者所有 token，回 `USER_DISABLED`
+5. 條件式撤銷舊 token（`UPDATE ... WHERE revoked_at IS NULL`）；更新 0 筆代表被另一個請求搶先，同樣當作重複使用
+6. 換發新的 access token 與 refresh token
+
+**兩個容易出錯的地方**
+
+- **例外會 rollback 撤銷**：第 2、4、5 步先撤銷再丟 `AppException`，預設會連撤銷一起 rollback。`refresh` 加了 `@Transactional(noRollbackFor = AppException.class)`；拿掉它，「重複使用」與「帳號停用」兩個測試會失敗
+- **併發 refresh**：如果先查 `revoked_at` 再更新，兩個同時進來的請求都會通過檢查、各換出一組新 token。第 5 步用條件式 UPDATE 讓 DB 決定誰成功
+
 ---
 
 ## 之後再處理
@@ -378,3 +404,6 @@ set -a; . secrets/dev.env; set +a
 - Gateway 接上 JWKS 驗簽（`feature/api-gateway` 分支）
 - 金鑰輪替：JWKS 同時發布新舊兩把公鑰，用 `kid` 區分
 - 登入失敗次數限制（搭配 Redis）
+- `POST /api/v1/auth/logout`：撤銷 body 帶來的 refresh token；token 不存在或已撤銷也回成功（204），不洩漏狀態
+- 清除過期與已撤銷的 refresh token：排程刪除 `expires_at` 已過一段時間的資料，避免表無限成長
+- 重複使用的寬限期：前端多個分頁同時 refresh、或回應在網路上遺失後重送，都會被當成重複使用而登出。如果實際遇到，可以讓剛撤銷幾秒內的 token 再被使用時只回錯誤、不撤銷全部
