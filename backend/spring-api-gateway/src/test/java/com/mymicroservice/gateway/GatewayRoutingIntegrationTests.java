@@ -51,6 +51,10 @@ class GatewayRoutingIntegrationTests {
     static final WireMockExtension INVENTORY_SERVICE = WireMockExtension.newInstance()
             .options(wireMockConfig().dynamicPort()).build();
 
+    @RegisterExtension
+    static final WireMockExtension ORDER_SERVICE = WireMockExtension.newInstance()
+            .options(wireMockConfig().dynamicPort()).build();
+
     // JWKS 獨立一個 server，才不會讓 user-service 的請求紀錄多出 JWKS 的呼叫
     @RegisterExtension
     static final WireMockExtension JWKS_SERVER = WireMockExtension.newInstance()
@@ -61,6 +65,7 @@ class GatewayRoutingIntegrationTests {
         registry.add("gateway.services.product-uri", PRODUCT_SERVICE::baseUrl);
         registry.add("gateway.services.user-uri", USER_SERVICE::baseUrl);
         registry.add("gateway.services.inventory-uri", INVENTORY_SERVICE::baseUrl);
+        registry.add("gateway.services.order-uri", ORDER_SERVICE::baseUrl);
         registry.add("gateway.security.jwt.jwk-set-uri", () -> JWKS_SERVER.baseUrl() + "/jwks");
         TestRedis.register(registry);
     }
@@ -87,6 +92,10 @@ class GatewayRoutingIntegrationTests {
                 .withStatus(200)
                 .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .withBody("{\"from\": \"inventory-service\"}")));
+        ORDER_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                .withBody("{\"from\": \"order-service\"}")));
     }
 
     // ---------- product-service ----------
@@ -171,6 +180,35 @@ class GatewayRoutingIntegrationTests {
                 .withRequestBody(equalToJson(body)));
     }
 
+    // ---------- order-service ----------
+
+    @ParameterizedTest
+    @ValueSource(strings = { "/api/v1/orders", "/api/v1/orders/01a1bfeb-4351-7899-9b58-142decdf484e" })
+    void orderPaths_areRoutedToOrderService(String path) {
+        webTestClient.get().uri(path).headers(headers -> headers.setBearerAuth(TestJwts.validToken())).exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$.from").isEqualTo("order-service");
+
+        ORDER_SERVICE.verify(getRequestedFor(urlEqualTo(path)));
+        PRODUCT_SERVICE.verify(0, anyRequestedFor(anyUrl()));
+        USER_SERVICE.verify(0, anyRequestedFor(anyUrl()));
+        INVENTORY_SERVICE.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    void orderCreate_isForwardedWithBody() {
+        String body = "{\"items\": [{\"productId\": \"01a1bfeb-4351-7899-9b58-142decdf484e\", \"qty\": 1}]}";
+
+        webTestClient.post().uri("/api/v1/orders")
+                .headers(headers -> headers.setBearerAuth(TestJwts.validToken()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(body)
+                .exchange()
+                .expectStatus().isOk();
+
+        ORDER_SERVICE.verify(postRequestedFor(urlEqualTo("/api/v1/orders")).withRequestBody(equalToJson(body)));
+    }
+
     // ---------- 回應 ----------
 
     @Test
@@ -199,7 +237,7 @@ class GatewayRoutingIntegrationTests {
     // ---------- 不在路由表 ----------
 
     @ParameterizedTest
-    @ValueSource(strings = { "/api/v1/orders", "/api/v1/unknown", "/api/v2/products", "/products" })
+    @ValueSource(strings = { "/api/v1/payments", "/api/v1/unknown", "/api/v2/products", "/products" })
     void unroutedPaths_return404WithoutCallingAnyService(String path) {
         // 帶有效的 token：沒帶的話先被 JWT 驗證擋下回 401
         webTestClient.get().uri(path).headers(headers -> headers.setBearerAuth(TestJwts.validToken())).exchange()
@@ -208,6 +246,7 @@ class GatewayRoutingIntegrationTests {
         PRODUCT_SERVICE.verify(0, anyRequestedFor(anyUrl()));
         USER_SERVICE.verify(0, anyRequestedFor(anyUrl()));
         INVENTORY_SERVICE.verify(0, anyRequestedFor(anyUrl()));
+        ORDER_SERVICE.verify(0, anyRequestedFor(anyUrl()));
     }
 
     @Test

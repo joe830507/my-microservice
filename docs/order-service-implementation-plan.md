@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/order-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「order-service」、「服務互動：下單流程」
-> 狀態：Step 1–8 完成（2026-11-09），下一步 Step 9
+> 狀態：Step 1–9 全部完成，並實際啟動驗證（2026-11-09）
 
 ## 進度
 
@@ -17,7 +17,7 @@
 | 6 | `GET /internal/v1/orders/{id}` 給 payment-service 查訂單 | 完成 |
 | 7 | `POST /internal/v1/orders/{id}/paid` 付款成功通知 | 完成 |
 | 8 | 排程：付款逾時自動取消、補做失敗的庫存釋放與確認 | 完成 |
-| 9 | api-gateway 加上 `/api/v1/orders/**` 路由 | 未開始 |
+| 9 | api-gateway 加上 `/api/v1/orders/**` 路由 | 完成 |
 
 每一步都附整合測試，測試通過後單獨 commit。呼叫 product、inventory 的部分在測試裡用 WireMock 模擬。
 
@@ -185,6 +185,28 @@ order_item
 ## Step 9：Gateway 路由
 
 `/api/v1/orders/**` → order-service（`ORDER_SERVICE_URI`，預設 `http://localhost:8082`），全部需要 JWT。
+
+**已完成**：api-gateway 的 `order-service` 路由；`GatewayRoutingIntegrationTests`（+3）、`GatewayJwtIntegrationTests`（+2），api-gateway 共 95 個測試。原本拿 `/api/v1/orders` 當「不在路由表」例子的測試改用 `/api/v1/payments`。
+
+---
+
+## 實際啟動驗證（2026-11-09）
+
+Gateway、user、product、inventory、order 五個服務都用真的程式啟動，經過 Gateway 呼叫（付款通知是內部 API，直接呼叫 order-service）：
+
+| 情境 | 結果 |
+|---|---|
+| 商品還是草稿就下單 | 409 `PRODUCT_NOT_AVAILABLE` |
+| 下單 2 件（庫存 5） | 201，快照名稱、單價 199.99、總額 399.98；庫存 3 / 預扣 2 |
+| 別人查這張訂單；不帶 token | 404 `ORDER_NOT_FOUND`；401 |
+| 取消 | 200 `CANCELLED`；庫存回到 5 / 0 |
+| 再下單 2 件，付款通知 | 200 `PAID`；庫存 3 / 0（預扣轉成正式扣除） |
+| 經 Gateway 呼叫 `/internal/v1/orders/{id}` | 404 |
+| 取消已付款的訂單 | 409 `ORDER_NOT_CANCELLABLE` |
+| 下單 4 件（只剩 3） | 409 `OUT_OF_STOCK` |
+| 列表 | 本人看到 2 張（最新的在前），別人看到 0 張 |
+
+- 上架商品需要主圖（要走圖片上傳）；驗證時直接在 product_db 把商品改成 `ACTIVE`，並刪掉 Redis 的商品詳情快取
 
 ---
 
