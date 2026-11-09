@@ -3,13 +3,13 @@
 > 建立日期：2026-11-09
 > 分支：`feature/api-gateway`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「api-gateway 路由」
-> 狀態：計畫完成，下一步 Step 1
+> 狀態：Step 1 完成（2026-11-09），下一步 Step 2
 
 ## 進度
 
 | Step | 內容 | 狀態 |
 |---|---|---|
-| 1 | 建立專案、路由到 product-service 與 user-service | 未開始 |
+| 1 | 建立專案、路由到 product-service 與 user-service | 完成 |
 | 2 | JWT 驗簽（JWKS）與需要登入的路由 | 未開始 |
 | 3 | 身分 header：移除用戶端送來的 `X-User-*`，改填 JWT 的值 | 未開始 |
 | 4 | 封鎖 `/internal/**` | 未開始 |
@@ -55,6 +55,14 @@
 order、inventory、payment 的路由等服務建立後再加。
 
 **測試**：用 WireMock 模擬下游服務，確認路徑轉到正確的服務、method、query、body 原樣轉送，不在路由表的路徑回 404。
+
+**已完成**：`ApiGatewayApplication`、`application.yml` 的路由；測試 `GatewayRoutingIntegrationTests`（16）。
+
+- Spring Cloud Gateway 5 的設定前綴是 `spring.cloud.gateway.server.webflux.*`（舊的 `spring.cloud.gateway.*` 已不再使用）
+- 下游位置用環境變數 `PRODUCT_SERVICE_URI`、`USER_SERVICE_URI` 覆蓋
+- 已編碼的 query（例如中文關鍵字 `%E9%9E%8B`）原樣轉送，不會重複編碼
+- 下游連線失敗回 5xx
+- 實際啟動驗證：經過 Gateway（8080）呼叫 user-service 的 JWKS、登入，以及 product-service 的商品列表都正常
 
 ---
 

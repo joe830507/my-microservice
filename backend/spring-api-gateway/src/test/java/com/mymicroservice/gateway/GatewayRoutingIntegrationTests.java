@@ -1,0 +1,166 @@
+package com.mymicroservice.gateway;
+
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.any;
+import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+
+import java.net.URI;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.reactive.server.WebTestClient;
+
+import com.github.tomakehurst.wiremock.http.Fault;
+import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+
+// 路由：依路徑轉到正確的下游服務，method、query、header、body 原樣轉送，回應原樣傳回
+// 下游服務用 WireMock 模擬，每個服務一個隨機 port
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureWebTestClient
+class GatewayRoutingIntegrationTests {
+
+    @RegisterExtension
+    static final WireMockExtension PRODUCT_SERVICE = WireMockExtension.newInstance()
+            .options(wireMockConfig().dynamicPort()).build();
+
+    @RegisterExtension
+    static final WireMockExtension USER_SERVICE = WireMockExtension.newInstance()
+            .options(wireMockConfig().dynamicPort()).build();
+
+    @DynamicPropertySource
+    static void downstreamUris(DynamicPropertyRegistry registry) {
+        registry.add("gateway.services.product-uri", PRODUCT_SERVICE::baseUrl);
+        registry.add("gateway.services.user-uri", USER_SERVICE::baseUrl);
+    }
+
+    @Autowired
+    private WebTestClient webTestClient;
+    @LocalServerPort
+    private int port;
+
+    @BeforeEach
+    void stubDownstreams() {
+        PRODUCT_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                .withBody("{\"from\": \"product-service\"}")));
+        USER_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                .withBody("{\"from\": \"user-service\"}")));
+    }
+
+    // ---------- product-service ----------
+
+    @ParameterizedTest
+    @ValueSource(strings = { "/api/v1/products", "/api/v1/products/sku/SKU-001", "/api/v1/categories",
+            "/api/v1/categories/tree" })
+    void productPaths_areRoutedToProductService(String path) {
+        webTestClient.get().uri(path).exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$.from").isEqualTo("product-service");
+
+        PRODUCT_SERVICE.verify(getRequestedFor(urlEqualTo(path)));
+        USER_SERVICE.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    void queryString_isForwardedUnchanged() {
+        // 傳完整的 URI 物件：傳字串的話 WebTestClient 會把 % 當成一般字元再編碼一次（變成 %25）
+        // 這裡要驗的是 Gateway 不會重複編碼已編碼的 query（中文關鍵字）
+        URI uri = URI.create("http://localhost:" + port + "/api/v1/products?page=1&size=20&keyword=%E9%9E%8B");
+        webTestClient.get().uri(uri).exchange()
+                .expectStatus().isOk();
+
+        PRODUCT_SERVICE.verify(getRequestedFor(urlEqualTo("/api/v1/products?page=1&size=20&keyword=%E9%9E%8B")));
+    }
+
+    // ---------- user-service ----------
+
+    @ParameterizedTest
+    @ValueSource(strings = { "/api/v1/auth/jwks", "/api/v1/users/me", "/api/v1/users" })
+    void userPaths_areRoutedToUserService(String path) {
+        webTestClient.get().uri(path).exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$.from").isEqualTo("user-service");
+
+        USER_SERVICE.verify(getRequestedFor(urlEqualTo(path)));
+        PRODUCT_SERVICE.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    void postBodyAndContentType_areForwardedUnchanged() {
+        String body = "{\"email\": \"alice@example.com\", \"password\": \"password123\"}";
+
+        webTestClient.post().uri("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(body)
+                .exchange()
+                .expectStatus().isOk();
+
+        USER_SERVICE.verify(postRequestedFor(urlEqualTo("/api/v1/auth/login"))
+                .withHeader("Content-Type", equalTo(MediaType.APPLICATION_JSON_VALUE))
+                .withRequestBody(equalToJson(body)));
+    }
+
+    // ---------- 回應 ----------
+
+    @Test
+    void downstreamErrorResponse_isPassedThroughUnchanged() {
+        USER_SERVICE.stubFor(any(urlEqualTo("/api/v1/users/me")).willReturn(aResponse()
+                .withStatus(404)
+                .withHeader("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE)
+                .withBody("{\"status\": 404, \"code\": \"USER_NOT_FOUND\"}")));
+
+        webTestClient.get().uri("/api/v1/users/me").exchange()
+                .expectStatus().isNotFound()
+                .expectHeader().contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectBody().jsonPath("$.code").isEqualTo("USER_NOT_FOUND");
+    }
+
+    @Test
+    void downstreamConnectionFailure_returns5xx() {
+        // 下游服務掛掉或連線中斷：Gateway 回 5xx，不會卡住或回 200
+        PRODUCT_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)));
+
+        webTestClient.get().uri("/api/v1/products").exchange()
+                .expectStatus().is5xxServerError();
+    }
+
+    // ---------- 不在路由表 ----------
+
+    @ParameterizedTest
+    @ValueSource(strings = { "/api/v1/orders", "/api/v1/unknown", "/api/v2/products", "/products" })
+    void unroutedPaths_return404WithoutCallingAnyService(String path) {
+        webTestClient.get().uri(path).exchange()
+                .expectStatus().isEqualTo(HttpStatus.NOT_FOUND);
+
+        PRODUCT_SERVICE.verify(0, anyRequestedFor(anyUrl()));
+        USER_SERVICE.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    void health_isUp() {
+        webTestClient.get().uri("/actuator/health").exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$.status").isEqualTo("UP");
+    }
+}

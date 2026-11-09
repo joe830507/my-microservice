@@ -1,0 +1,34 @@
+server:
+  port: 8080
+
+# 下游服務的位置：本機預設 localhost:{port}；K8s 部署時用環境變數改成 Service 名稱，例如 http://product-service:8081
+# 不用 discovery client：K8s Service 本身就提供 DNS 與負載均衡
+gateway:
+  services:
+    product-uri: ${PRODUCT_SERVICE_URI:http://localhost:8081}
+    user-uri: ${USER_SERVICE_URI:http://localhost:8084}
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          # 路徑對應見 docs/microservice-architecture.md「api-gateway 路由」；/internal/** 一律不建路由
+          # Path 的 /** 也會比對到沒有子路徑的情況，例如 /api/v1/products
+          routes:
+            - id: product-service
+              uri: ${gateway.services.product-uri}
+              predicates:
+                - Path=/api/v1/products/**,/api/v1/categories/**
+            - id: user-service
+              uri: ${gateway.services.user-uri}
+              predicates:
+                - Path=/api/v1/auth/**,/api/v1/users/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
