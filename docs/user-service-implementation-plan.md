@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/user-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「user-service」
-> 狀態：Step 1～4 完成（2026-11-09），下一步 Step 5
+> 狀態：Step 1～5 完成（2026-11-09），下一步：dev 環境的 ADMIN 初始化（見 Step 5），再進 Step 6
 
 ## 進度
 
@@ -13,7 +13,7 @@
 | 2 | DB 與設定 | 完成 |
 | 3 | 第一個 migration（使用者、角色） | 完成 |
 | 4 | 註冊、登入（密碼雜湊、簽發 JWT） | 完成（待確認事項見下方） |
-| 5 | JWKS endpoint、`/users/me`、後台使用者列表 | 未開始 |
+| 5 | JWKS endpoint、`/users/me`、後台使用者列表 | 完成（ADMIN 初始化未做） |
 | 6 | Refresh token（存放、輪替） | 未開始 |
 
 **第一個里程碑（Step 1～3）**：服務能連上自己的 DB 並啟動，Flyway 建好資料表。
@@ -270,7 +270,57 @@ RSAKey  →  new JWKSet(rsaKey)  →  new ImmutableJWKSet<>(jwkSet)  →  new Ni
 | GET | `/api/v1/users` | 後台分頁查詢（從 `X-User-Roles` 判斷是否為 `ADMIN`） |
 
 - user-service 本身不驗 JWT，信任 Gateway 帶來的 header。本機沒有 Gateway 時，用 curl 手動帶 `X-User-Id` 測試
-- 第一個 ADMIN 帳號怎麼產生？可以用 Flyway migration 寫入，或寫成只在 dev profile 執行的初始化程式
+
+### 完成內容
+
+| 項目 | 說明 |
+|---|---|
+| `JwksController` | 和簽章共用同一個 `RSAKey` bean；帶 `use: sig`、`alg: RS256`；`Cache-Control: public, max-age=300` |
+| `/users/me` | 停用的帳號仍回傳資料（`status: DISABLED`），擋下停用帳號是登入與 refresh 的責任 |
+| `/users` | 篩選 keyword（email／displayName，不分大小寫，跳脫 LIKE 萬用字元）、status、role；排序欄位白名單 + `id` 當 tie-breaker；`User.roles` 用 `@BatchSize` 避免 N+1 |
+| 測試 | `JwksControllerIntegrationTests`（4）、`UserControllerMeIntegrationTests`（11）、`UserControllerListIntegrationTests`（31） |
+
+### 身分與權限：common 的 `@CurrentUserId`、`@RequireRoles`
+
+原本寫在 `UserController` 裡的 header 解析搬到 common，之後 order-service 等服務直接沿用：
+
+| 元件 | 作用 |
+|---|---|
+| `@CurrentUserId UUID userId` | 參數注入 `X-User-Id`；缺少或格式錯誤回 401 `UNAUTHENTICATED` |
+| `@RequireRoles("ADMIN")` | 標在方法或類別上，擁有其中任一角色才放行；沒有身分 401、角色不符 403 `FORBIDDEN` |
+
+- `@RequireRoles` 由 `HandlerInterceptor` 檢查，在參數綁定與 `@Valid` **之前**執行：非 ADMIN 送出不合法的參數會收到 403，不會先拿到 400
+- 由 `CommonAutoConfiguration` 註冊 `UserContextWebMvcConfigurer`，服務不需要額外設定
+
+### 列表查詢的索引（`V2__add_user_list_indexes.sql`）
+
+| 索引 | 用途 |
+|---|---|
+| `pg_trgm` GIN：`lower(email)`、`lower(display_name)` | keyword 的 `LIKE '%...%'`；運算式要和查詢的 `lower(...)` 一致才會用到 |
+| `(created_at, id)`、`(display_name, id)` | `ORDER BY 欄位, id LIMIT n` 直接依索引順序讀，不用整張表排序；email 排序用既有的唯一索引 |
+
+- tie-breaker 的 `id` 改成和主要欄位**同方向**（原本固定 ASC）：`created_at DESC, id ASC` 只能對上索引的第一欄，還要再做一次 Incremental Sort；同方向就能直接反向掃描索引
+- 用 50 萬筆資料 `EXPLAIN ANALYZE` 驗證：keyword 查詢走兩個 trigram 索引（BitmapOr），約 1.8 ms
+- 資料量小（例如 5 萬筆以下）時 planner 仍會選全表掃描，這是成本估算的正常結果，不是索引沒生效
+- keyword 少於 3 個字元時組不出 trigram，會退回掃描；後台列表可以接受，之後如有需要再限制最短長度
+
+### 待做：dev 環境的第一個 ADMIN 帳號
+
+決定：**只在 dev profile 執行的初始化程式**，不用 Flyway migration（避免密碼雜湊寫死在 SQL、每個環境都有同一個帳號）。
+
+| 項目 | 做法 |
+|---|---|
+| 觸發時機 | `ApplicationRunner`（或監聽 `ApplicationReadyEvent`），類別加 `@Profile("dev")` |
+| 帳號來源 | 從設定讀 email、密碼、displayName，例如 `app.bootstrap-admin.*`，綁一個 `@ConfigurationProperties`；密碼用環境變數，不要寫進 yml |
+| 冪等 | email 已存在就跳過，不更新密碼、不補角色；重啟多次結果都一樣 |
+| 角色 | `ADMIN`（要不要同時給 `CUSTOMER` 自己決定） |
+| 密碼 | 一樣經過 `PasswordEncoder` 雜湊 |
+| 稽核 | 不在 HTTP 請求中，`HeaderAuditorAware` 會記成 `SYSTEM_USER_ID`，不用特別處理 |
+| 日誌 | 建立時記一行 info（只記 email，不要記密碼）；跳過時記 debug |
+
+- 本機啟動要加 `--spring.profiles.active=dev`（或在 `launch.json` 設定），否則不會執行
+- 正式環境沒有 dev profile，第一個 ADMIN 之後另外處理（例如一次性的管理指令）
+- 驗收：dev 啟動兩次，DB 只有一筆 ADMIN；用該帳號登入，JWT 的 `roles` 含 `ADMIN`；不加 dev profile 啟動不會建立
 
 ---
 
