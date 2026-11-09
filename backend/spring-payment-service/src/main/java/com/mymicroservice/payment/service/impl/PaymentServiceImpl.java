@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.mymicroservice.common.exception.AppException;
 import com.mymicroservice.payment.clients.OrderClient;
@@ -57,5 +58,18 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setStatus(PaymentStatus.PENDING);
         paymentRepository.saveAndFlush(payment);
         return new CreatePaymentResult(true, PaymentResDto.from(payment));
+    }
+
+    // 本人或 ADMIN；別人的付款和不存在一樣回 404
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentResDto getPayment(UUID paymentId, UUID userId, boolean admin) {
+        return PaymentResDto.from(findVisiblePayment(paymentId, userId, admin));
+    }
+
+    private Payment findVisiblePayment(UUID paymentId, UUID userId, boolean admin) {
+        return paymentRepository.findById(paymentId)
+                .filter(payment -> admin || payment.getUserId().equals(userId))
+                .orElseThrow(() -> new AppException(PaymentErrorCode.PAYMENT_NOT_FOUND, paymentId));
     }
 }

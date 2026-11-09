@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/payment-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「payment-service」、「服務互動：下單流程」
-> 狀態：Step 1–2 完成（2026-11-09），下一步 Step 3
+> 狀態：Step 1–3 完成（2026-11-09），下一步 Step 4
 
 ## 進度
 
@@ -11,7 +11,7 @@
 |---|---|---|
 | 1 | 建立專案、DB 與資料表 | 完成 |
 | 2 | `POST /api/v1/payments` 建立付款（向 order-service 取金額） | 完成 |
-| 3 | `GET /api/v1/payments/{id}` 查付款狀態 | 未開始 |
+| 3 | `GET /api/v1/payments/{id}` 查付款狀態 | 完成 |
 | 4 | `POST /api/v1/payments/{id}/mock-callback` 模擬金流回呼，成功時通知 order-service | 未開始 |
 | 5 | 排程：重試通知 order-service 失敗的付款 | 未開始 |
 | 6 | api-gateway 加上 `/api/v1/payments/**` 路由 | 未開始 |
@@ -72,6 +72,8 @@ payment
 ## Step 3：查付款
 
 `GET /api/v1/payments/{id}`：本人或 ADMIN；別人的回 404。
+
+**已完成**：`PaymentController.getPayment`；測試 `PaymentControllerGetIntegrationTests`（7）。
 
 ## Step 4：模擬金流回呼
 

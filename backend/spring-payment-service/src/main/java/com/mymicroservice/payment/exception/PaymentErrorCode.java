@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum PaymentErrorCode implements ErrorCode {
+    // 付款不存在，或不是自己的付款
+    PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "payment not found: %s."),
+
     // 訂單不存在，或不是自己的訂單（不透露別人的訂單存在）
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "order not found: %s."),
     // 訂單不是待付款（例如已取消）
