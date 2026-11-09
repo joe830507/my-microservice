@@ -2,7 +2,7 @@
 
 > 設計日期：2026-11-09
 > 目標：先把各微服務建立起來，再統一接到 API Gateway
-> 狀態：product-service、user-service、api-gateway、inventory-service 已完成
+> 狀態：product-service、user-service、api-gateway、inventory-service、order-service 已完成
 
 ## 已定案的決定
 
@@ -21,10 +21,10 @@
 | 服務 | 職責 | 狀態 |
 |---|---|---|
 | `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、限流 | 已實作；細節見 [api-gateway-implementation-plan.md](api-gateway-implementation-plan.md) |
-| `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取） |
+| `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取）；讀取公開，新增、修改、刪除限 ADMIN |
 | `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 已實作 |
 | `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](inventory-service-implementation-plan.md) |
-| `spring-order-service` | 訂單、商品快照、訂單狀態 | 空目錄 |
+| `spring-order-service` | 訂單、商品快照、訂單狀態 | 已實作；步驟見 [order-service-implementation-plan.md](order-service-implementation-plan.md) |
 | `spring-payment-service` | 付款（雛型階段用模擬金流） | 待建立 |
 
 ### 暫不拆分
@@ -83,10 +83,12 @@ backend/
 | `CommonEntity`（稽核欄位 + `@Version`） | 只有單一服務用到的設定（例如 product 的 `RedisConfig`） |
 | `X-User-*` header 常數、讀 header 的 `AuditorAware` | |
 | `@CurrentUserId`（注入目前使用者 id）、`@RequireRoles`（角色檢查） | |
+| `RequireRolesGuard`：用到 `@RequireRoles` 的服務要在啟動類別加 `@Import(RequireRolesGuard.class)` | |
 
 - 版本固定 `0.0.1-SNAPSHOT`，透過聚合 pom 一起建置，不發佈到 repository
 - 單獨建置某個服務：`./mvnw -pl spring-user-service -am package`（`-am` 會先建置 common）
 - 改 common 等於所有服務都要重新建置，所以要保持精簡
+- **打包服務一律加 `-am`**：沒加的話會用 `~/.m2` 裡可能過期的 common。舊版沒有 `RequireRoles` 時，JVM 會默默忽略 controller 上的 `@RequireRoles`，後台 API 等於沒有權限檢查。`RequireRolesGuard` 讓這種情況在編譯或啟動時就失敗
 - 實作步驟見 [backend-common-implementation-plan.md](backend-common-implementation-plan.md)
 
 ---
@@ -127,7 +129,7 @@ backend/
 
 | 方法 | 路徑 | 說明 |
 |---|---|---|
-| POST | `/api/v1/orders` | 建立訂單，body 帶 `items[{sku, qty}]` |
+| POST | `/api/v1/orders` | 建立訂單，body 帶 `items[{productId, qty}]`（SKU 由 product 查回） |
 | GET | `/api/v1/orders/{id}` | 訂單詳情，只能看自己的 |
 | GET | `/api/v1/orders` | 自己的訂單列表；ADMIN 可查全部 |
 | POST | `/api/v1/orders/{id}/cancel` | 取消，只限尚未付款的訂單 |

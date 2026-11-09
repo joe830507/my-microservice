@@ -48,6 +48,10 @@ class GatewayJwtIntegrationTests {
             .options(wireMockConfig().dynamicPort()).build();
 
     @RegisterExtension
+    static final WireMockExtension ORDER_SERVICE = WireMockExtension.newInstance()
+            .options(wireMockConfig().dynamicPort()).build();
+
+    @RegisterExtension
     static final WireMockExtension JWKS_SERVER = WireMockExtension.newInstance()
             .options(wireMockConfig().dynamicPort()).build();
 
@@ -56,6 +60,7 @@ class GatewayJwtIntegrationTests {
         registry.add("gateway.services.product-uri", PRODUCT_SERVICE::baseUrl);
         registry.add("gateway.services.user-uri", USER_SERVICE::baseUrl);
         registry.add("gateway.services.inventory-uri", INVENTORY_SERVICE::baseUrl);
+        registry.add("gateway.services.order-uri", ORDER_SERVICE::baseUrl);
         registry.add("gateway.security.jwt.jwk-set-uri", () -> JWKS_SERVER.baseUrl() + "/jwks");
         TestRedis.register(registry);
     }
@@ -69,6 +74,7 @@ class GatewayJwtIntegrationTests {
         PRODUCT_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse().withStatus(200)));
         USER_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse().withStatus(200)));
         INVENTORY_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse().withStatus(200)));
+        ORDER_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse().withStatus(200)));
     }
 
     private static void stubJwks(RSAKey... keys) {
@@ -97,6 +103,7 @@ class GatewayJwtIntegrationTests {
         PRODUCT_SERVICE.verify(0, anyRequestedFor(anyUrl()));
         USER_SERVICE.verify(0, anyRequestedFor(anyUrl()));
         INVENTORY_SERVICE.verify(0, anyRequestedFor(anyUrl()));
+        ORDER_SERVICE.verify(0, anyRequestedFor(anyUrl()));
     }
 
     // ---------- 有效的 token ----------
@@ -216,7 +223,19 @@ class GatewayJwtIntegrationTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = { "/api/v1/orders", "/api/v1/unknown" })
+    @ValueSource(strings = { "/api/v1/orders", "/api/v1/orders/01a1bfeb-4351-7899-9b58-142decdf484e" })
+    void orderRoutes_requireToken(String path) {
+        // 訂單沒有公開的路由，GET 也要登入
+        expectUnauthenticated(webTestClient.get().uri(path).exchange());
+        expectUnauthenticated(webTestClient.post().uri("/api/v1/orders")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{}")
+                .exchange());
+        expectNoDownstreamCalls();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "/api/v1/payments", "/api/v1/unknown" })
     void unroutedPathWithoutToken_returns401(String path) {
         // 沒登入看不出哪些路徑存在；有 token 才會拿到 404（見 GatewayRoutingIntegrationTests）
         expectUnauthenticated(webTestClient.get().uri(path).exchange());

@@ -16,6 +16,7 @@
 		<module>spring-product-service</module>
 		<module>spring-user-service</module>
 		<module>spring-inventory-service</module>
+		<module>spring-order-service</module>
 		<module>spring-api-gateway</module>
 	</modules>
 

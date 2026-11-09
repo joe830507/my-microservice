@@ -2,7 +2,6 @@ package com.mymicroservice.common.exception;
 
 import java.util.stream.Collectors;
 
-import org.springframework.context.MessageSourceResolvable;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -12,6 +11,8 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.validation.FieldError;
+import org.springframework.validation.method.ParameterErrors;
+import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -66,15 +67,29 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(toProblemDetail(CommonErrorCode.VALIDATION_FAILED, detail));
     }
 
-    // 方法參數上的約束驗證失敗，例如 @RequestParam 的 @Size
+    // 方法參數上的約束驗證失敗，例如 @PathVariable、@RequestParam 的 @Size
+    // controller 方法有參數約束時，同一個方法的 @Valid body 也改由這裡處理（不會走 handleMethodArgumentNotValid）
+    // 格式和 handleMethodArgumentNotValid 一致：「欄位: 訊息」；body 的欄位用欄位名稱，其他參數用參數名稱
     @Override
     protected ResponseEntity<Object> handleHandlerMethodValidationException(HandlerMethodValidationException exception,
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-        String detail = exception.getAllErrors().stream()
-                .map(MessageSourceResolvable::getDefaultMessage)
+        String detail = exception.getParameterValidationResults().stream()
+                .flatMap(result -> result instanceof ParameterErrors errors
+                        ? errors.getAllErrors().stream()
+                                .map(error -> error instanceof FieldError fieldError
+                                        ? fieldError.getField() + ": " + fieldError.getDefaultMessage()
+                                        : error.getDefaultMessage())
+                        : result.getResolvableErrors().stream()
+                                .map(error -> parameterName(result) + ": " + error.getDefaultMessage()))
                 .collect(Collectors.joining("; "));
         return ResponseEntity.status(CommonErrorCode.VALIDATION_FAILED.getStatus())
                 .body(toProblemDetail(CommonErrorCode.VALIDATION_FAILED, detail));
+    }
+
+    // 參數名稱需要編譯時加 -parameters（spring-boot-starter-parent 預設有開）；拿不到時退回參數位置
+    private static String parameterName(ParameterValidationResult result) {
+        String name = result.getMethodParameter().getParameterName();
+        return name != null ? name : "arg" + result.getMethodParameter().getParameterIndex();
     }
 
     private ProblemDetail toProblemDetail(ErrorCode errorCode, String detail) {

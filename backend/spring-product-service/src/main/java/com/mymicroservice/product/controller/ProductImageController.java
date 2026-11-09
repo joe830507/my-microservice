@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.mymicroservice.common.web.RequireRoles;
 import com.mymicroservice.product.controller.api.ProductImageApi;
 import com.mymicroservice.product.dto.productImage.addOneNewProductImage.AddOneNewProductImageReq;
 import com.mymicroservice.product.dto.productImage.addOneNewProductImage.AddOneNewProductImageRes;
@@ -26,6 +27,7 @@ import com.mymicroservice.product.service.ProductImageService;
 import lombok.RequiredArgsConstructor;
 
 // API 文件說明與參數驗證請見 ProductImageApi
+// 讀取公開（Gateway 對 GET 放行）；新增、修改、刪除限 ADMIN（@RequireRoles）
 @RestController
 @RequestMapping(value = "/api/v1/products/{productId}/images")
 @RequiredArgsConstructor
@@ -33,6 +35,7 @@ public class ProductImageController implements ProductImageApi {
     private final ProductImageService productImageService;
 
     @Override
+    @RequireRoles("ADMIN")
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(value = HttpStatus.CREATED)
     public AddOneNewProductImageRes addOneNewProductImage(
@@ -50,6 +53,7 @@ public class ProductImageController implements ProductImageApi {
     }
 
     @Override
+    @RequireRoles("ADMIN")
     @PutMapping("/{imageId}")
     @ResponseStatus(value = HttpStatus.OK)
     public UpdateOneProductImageRes updateOneProductImage(
@@ -60,6 +64,7 @@ public class ProductImageController implements ProductImageApi {
     }
 
     @Override
+    @RequireRoles("ADMIN")
     @DeleteMapping("/{imageId}")
     @ResponseStatus(value = HttpStatus.NO_CONTENT)
     public void deleteOneProductImage(
@@ -69,6 +74,7 @@ public class ProductImageController implements ProductImageApi {
     }
 
     @Override
+    @RequireRoles("ADMIN")
     @PostMapping("/{imageId}/primary")
     @ResponseStatus(value = HttpStatus.OK)
     public GetProductImagesRes setPrimaryProductImage(
@@ -78,6 +84,7 @@ public class ProductImageController implements ProductImageApi {
     }
 
     @Override
+    @RequireRoles("ADMIN")
     @PutMapping(value = "/order", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(value = HttpStatus.OK)
     public GetProductImagesRes reorderProductImages(

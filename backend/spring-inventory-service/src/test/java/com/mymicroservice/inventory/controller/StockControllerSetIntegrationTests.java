@@ -145,17 +145,20 @@ class StockControllerSetIntegrationTests {
     }
 
     @Test
-    void setStock_negative_returnsValidationFailed() throws Exception {
+    void setStock_negative_returnsValidationFailedWithField() throws Exception {
+        // 方法同時有路徑參數約束與 @Valid body，改由方法層級驗證處理；detail 仍要帶欄位名稱
         setAsAdmin("SKU-001", "{\"available\": -1}")
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.startsWith("available: ")));
     }
 
     @Test
     void setStock_skuLongerThan64_returns400() throws Exception {
         setAsAdmin("A".repeat(65), "{\"available\": 1}")
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.startsWith("sku: ")));
         assertThat(countStock()).isZero();
     }
 

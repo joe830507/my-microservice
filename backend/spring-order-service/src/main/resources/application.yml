@@ -1,0 +1,45 @@
+server:
+  port: 8082
+
+# 下游服務的位置：本機預設 localhost:{port}；K8s 部署時用環境變數改成 Service 名稱
+order:
+  services:
+    product-uri: ${PRODUCT_SERVICE_URI:http://localhost:8081}
+    inventory-uri: ${INVENTORY_SERVICE_URI:http://localhost:8083}
+    connect-timeout: 2s
+    # 建單時依序呼叫 product、inventory，最久約 2 × read-timeout
+    read-timeout: 5s
+
+spring:
+  application:
+    name: order-service
+  datasource:
+    url: jdbc:postgresql://localhost:5433/order_db
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+  flyway:
+    schemas: order_service
+  jackson:
+    deserialization:
+      # 數量必須是整數：預設會把 1.5 默默轉成 1
+      accept-float-as-int: false
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: false
+app:
+  # 每分鐘取消建立超過 30 分鐘仍未付款的訂單（PaymentTimeoutJob）
+  # timeout 必須比 inventory 的預扣逾時（1 小時）短，否則付款時預扣可能已被釋放
+  payment-timeout:
+    cron: "0 * * * * *"
+    timeout: 30m
+    batch-size: 100
+  # 每分鐘重試還沒成功通知 inventory 的釋放、確認（ReservationSyncJob）
+  reservation-sync:
+    cron: "30 * * * * *"
+    min-age: 1m
+    batch-size: 100
