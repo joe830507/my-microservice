@@ -12,6 +12,8 @@ public enum CommonErrorCode implements ErrorCode {
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "request validation failed."),
     // 需要登入的 API 沒有收到合法的 X-User-Id；經過 Gateway 時不應發生
     UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "authentication is required."),
+    // 已登入但角色不足，例如非 ADMIN 呼叫後台 API
+    FORBIDDEN(HttpStatus.FORBIDDEN, "access is denied."),
     VERSION_CONFLICT(HttpStatus.CONFLICT, "data has been modified by others, please reload."),
     DATA_CONFLICT(HttpStatus.CONFLICT, "data conflicts with existing data."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "server error, please contact administrator.");

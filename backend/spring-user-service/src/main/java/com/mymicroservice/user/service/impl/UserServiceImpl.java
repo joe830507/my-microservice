@@ -1,12 +1,18 @@
 package com.mymicroservice.user.service.impl;
 
+import java.util.Locale;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mymicroservice.common.exception.AppException;
 import com.mymicroservice.user.dtos.me.GetMeResDto;
+import com.mymicroservice.user.dtos.users.GetUsersReqDto;
+import com.mymicroservice.user.dtos.users.GetUsersResDto;
+import com.mymicroservice.user.entities.User;
 import com.mymicroservice.user.exception.UserErrorCode;
 import com.mymicroservice.user.repositories.UserRepository;
 import com.mymicroservice.user.service.UserService;
@@ -28,5 +34,41 @@ public class UserServiceImpl implements UserService {
         return userRepository.findWithRolesById(userId)
                 .map(GetMeResDto::from)
                 .orElseThrow(() -> new AppException(UserErrorCode.USER_NOT_FOUND));
+    }
+
+    // roles 在交易內轉成 DTO 時才載入，由 User.roles 的 @BatchSize 一次撈回整頁
+    @Override
+    @Transactional(readOnly = true)
+    public GetUsersResDto getUsers(GetUsersReqDto getUsersReqDto) {
+        Page<User> userPage = userRepository.findAll(toSpecification(getUsersReqDto),
+                getUsersReqDto.toPageable());
+        return GetUsersResDto.from(userPage);
+    }
+
+    // 只組合有傳入的條件，全部未傳入時等同查詢全部
+    private Specification<User> toSpecification(GetUsersReqDto getUsersReqDto) {
+        Specification<User> specification = Specification.unrestricted();
+
+        if (getUsersReqDto.keyword() != null && !getUsersReqDto.keyword().isBlank()) {
+            String pattern = "%" + escapeLike(getUsersReqDto.keyword().strip().toLowerCase(Locale.ROOT)) + "%";
+            specification = specification.and((root, query, cb) -> cb.or(
+                    cb.like(cb.lower(root.get("email")), pattern, '\\'),
+                    cb.like(cb.lower(root.get("displayName")), pattern, '\\')));
+        }
+        if (getUsersReqDto.status() != null) {
+            specification = specification.and((root, query, cb) -> cb.equal(root.get("status"),
+                    getUsersReqDto.status()));
+        }
+        if (getUsersReqDto.role() != null) {
+            // (user_id, role) 是主鍵，每位使用者最多 join 出一筆，不會產生重複資料
+            specification = specification.and((root, query, cb) -> cb.equal(root.join("roles"),
+                    getUsersReqDto.role()));
+        }
+        return specification;
+    }
+
+    // 跳脫 LIKE 的萬用字元，避免使用者輸入 % 或 _ 時被當成模糊比對
+    private String escapeLike(String keyword) {
+        return keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 }
