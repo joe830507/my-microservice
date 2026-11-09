@@ -56,8 +56,10 @@ public class SecurityConfig {
                 .authorizeExchange(exchanges -> exchanges
                         // 登入、註冊、JWKS；refresh、logout 用 refresh token 證明身分，不需要 access token
                         .pathMatchers("/api/v1/auth/**").permitAll()
-                        // 商品、分類只有讀取公開；新增、修改、刪除要登入（ADMIN 由 product-service 檢查）
-                        .pathMatchers(HttpMethod.GET, "/api/v1/products/**", "/api/v1/categories/**").permitAll()
+                        // 商品、分類、庫存只有讀取公開（商品頁要顯示）；
+                        // 新增、修改、刪除要登入（ADMIN 由 product-service、inventory-service 檢查）
+                        .pathMatchers(HttpMethod.GET, "/api/v1/products/**", "/api/v1/categories/**",
+                                "/api/v1/inventory/**").permitAll()
                         .pathMatchers("/actuator/health").permitAll()
                         // 其餘都要登入，包含不在路由表的路徑：沒登入的人拿到 401，不會知道哪些路徑存在
                         .anyExchange().authenticated())

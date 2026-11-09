@@ -2,7 +2,7 @@
 
 > 設計日期：2026-11-09
 > 目標：先把各微服務建立起來，再統一接到 API Gateway
-> 狀態：product-service、user-service、api-gateway 已完成
+> 狀態：product-service、user-service、api-gateway、inventory-service 已完成
 
 ## 已定案的決定
 
@@ -23,7 +23,7 @@
 | `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、限流 | 已實作；細節見 [api-gateway-implementation-plan.md](api-gateway-implementation-plan.md) |
 | `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取） |
 | `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 已實作 |
-| `spring-inventory-service` | 庫存、預扣、確認、釋放 | 待建立 |
+| `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](inventory-service-implementation-plan.md) |
 | `spring-order-service` | 訂單、商品快照、訂單狀態 | 空目錄 |
 | `spring-payment-service` | 付款（雛型階段用模擬金流） | 待建立 |
 
@@ -119,7 +119,7 @@ backend/
 | POST | `/internal/v1/inventory/reservations/{orderId}/confirm` | 付款成功後，把預扣轉成正式扣除 |
 | POST | `/internal/v1/inventory/reservations/{orderId}/release` | 取消或逾時時釋放預扣 |
 
-- 資料表：`stock(sku, available, reserved, version)`、`reservation(order_id, sku, qty, status)`
+- 資料表：`stock(sku, available, reserved, version)`、`reservation(order_id, status)`、`reservation_item(order_id, sku, qty)`；預扣全有全無，狀態放在整張訂單的主檔
 - 雛型階段用 DB 樂觀鎖，或 `UPDATE ... WHERE available >= ?`；之後換成 Redis Lua（見中介軟體評估文件「服務邊界提醒」）
 - SKU 由後台用 `PUT /inventory/{sku}` 建立，雛型階段不做跨服務驗證；之後改成接收 product 的 `ProductCreated` 事件
 
@@ -160,7 +160,7 @@ backend/
 
 - **不需要 Spring Cloud Kubernetes 或 discovery client**：K8s Service 本身就提供 DNS 與負載均衡，`uri` 直接寫 Service 名稱
 - 目標 URI 用 profile 切換：本機用 `localhost:{port}`，叢集內用 `{service}:{port}`。服務之間的內部呼叫也用同樣方式設定 base URL
-- 不需登入的路由：`/api/v1/auth/**`、`GET /api/v1/products/**`、`GET /api/v1/categories/**`；其餘都要 JWT，後台路由另外檢查 `ADMIN`
+- 不需登入的路由：`/api/v1/auth/**`、`GET /api/v1/products/**`、`GET /api/v1/categories/**`、`GET /api/v1/inventory/**`；其餘都要 JWT，後台路由另外檢查 `ADMIN`
 - **先移除用戶端送來的 `X-User-*` header**，再填入從 JWT 解出的值；否則任何人都能自己帶 `X-User-Id` 冒充別人
 - `/internal/**` 一律不建路由；之後在 K8s 加 NetworkPolicy，限制只有特定服務能互相呼叫
 

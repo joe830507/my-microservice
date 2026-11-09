@@ -7,6 +7,7 @@ gateway:
   services:
     product-uri: ${PRODUCT_SERVICE_URI:http://localhost:8081}
     user-uri: ${USER_SERVICE_URI:http://localhost:8084}
+    inventory-uri: ${INVENTORY_SERVICE_URI:http://localhost:8083}
   security:
     jwt:
       # user-service 的公鑰（JWKS）；Gateway 用它驗證 access token 的簽章
@@ -70,6 +71,10 @@ spring:
               uri: ${gateway.services.user-uri}
               predicates:
                 - Path=/api/v1/auth/**,/api/v1/users/**
+            - id: inventory-service
+              uri: ${gateway.services.inventory-uri}
+              predicates:
+                - Path=/api/v1/inventory/**
 
 management:
   endpoints:

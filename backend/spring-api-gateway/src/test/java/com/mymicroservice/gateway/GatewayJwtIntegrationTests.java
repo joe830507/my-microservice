@@ -44,6 +44,10 @@ class GatewayJwtIntegrationTests {
             .options(wireMockConfig().dynamicPort()).build();
 
     @RegisterExtension
+    static final WireMockExtension INVENTORY_SERVICE = WireMockExtension.newInstance()
+            .options(wireMockConfig().dynamicPort()).build();
+
+    @RegisterExtension
     static final WireMockExtension JWKS_SERVER = WireMockExtension.newInstance()
             .options(wireMockConfig().dynamicPort()).build();
 
@@ -51,6 +55,7 @@ class GatewayJwtIntegrationTests {
     static void downstreamUris(DynamicPropertyRegistry registry) {
         registry.add("gateway.services.product-uri", PRODUCT_SERVICE::baseUrl);
         registry.add("gateway.services.user-uri", USER_SERVICE::baseUrl);
+        registry.add("gateway.services.inventory-uri", INVENTORY_SERVICE::baseUrl);
         registry.add("gateway.security.jwt.jwk-set-uri", () -> JWKS_SERVER.baseUrl() + "/jwks");
         TestRedis.register(registry);
     }
@@ -63,6 +68,7 @@ class GatewayJwtIntegrationTests {
         stubJwks(TestJwts.SIGNING_KEY);
         PRODUCT_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse().withStatus(200)));
         USER_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse().withStatus(200)));
+        INVENTORY_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse().withStatus(200)));
     }
 
     private static void stubJwks(RSAKey... keys) {
@@ -90,6 +96,7 @@ class GatewayJwtIntegrationTests {
     private static void expectNoDownstreamCalls() {
         PRODUCT_SERVICE.verify(0, anyRequestedFor(anyUrl()));
         USER_SERVICE.verify(0, anyRequestedFor(anyUrl()));
+        INVENTORY_SERVICE.verify(0, anyRequestedFor(anyUrl()));
     }
 
     // ---------- 有效的 token ----------
@@ -198,6 +205,16 @@ class GatewayJwtIntegrationTests {
         expectNoDownstreamCalls();
     }
 
+    @Test
+    void writeToInventory_requiresToken() {
+        // 庫存只有讀取公開；設定庫存要登入（ADMIN 由 inventory-service 檢查）
+        expectUnauthenticated(webTestClient.put().uri("/api/v1/inventory/SKU-001")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"available\": 10}")
+                .exchange());
+        expectNoDownstreamCalls();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = { "/api/v1/orders", "/api/v1/unknown" })
     void unroutedPathWithoutToken_returns401(String path) {
@@ -216,7 +233,7 @@ class GatewayJwtIntegrationTests {
 
     @ParameterizedTest
     @ValueSource(strings = { "/api/v1/products", "/api/v1/products/sku/SKU-001", "/api/v1/categories/tree",
-            "/api/v1/auth/jwks" })
+            "/api/v1/auth/jwks", "/api/v1/inventory/SKU-001" })
     void publicGetRoutes_doNotRequireToken(String path) {
         webTestClient.get().uri(path).exchange().expectStatus().isOk();
     }
