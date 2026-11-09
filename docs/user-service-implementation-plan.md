@@ -136,6 +136,109 @@
 - 從設定檔讀 PEM：本機用設定檔或環境變數，K8s 用 Secret
 - 綁一個 `@ConfigurationProperties`，例如 `jwt.private-key`、`jwt.public-key`、`jwt.key-id`、`jwt.issuer`、`jwt.access-token-ttl`
 
+### 4-4 詳細步驟：JWT 簽發基礎設施
+
+目標：啟動時讀進 RSA 金鑰，產生一個 `JwtEncoder` bean，給 4-5 登入時簽 token；同一把 `RSAKey` 之後在 Step 5 輸出 JWKS。
+
+#### 1. 加依賴
+
+`pom.xml` 加入 `org.springframework.security:spring-security-oauth2-jose`，版本由 Spring Boot parent 管理，不用寫。
+
+- 它會一併帶進 Nimbus JOSE + JWT（`com.nimbusds.jose.*`）和 `spring-security-core`
+- 不是 starter，不會啟用 filter chain，所以不會把 endpoint 鎖住
+
+#### 2. 產生金鑰
+
+在 Git Bash 執行，位置是 `backend/spring-user-service/secrets/`：
+
+```bash
+mkdir -p secrets && cd secrets
+# 私鑰，PKCS#8 格式（檔頭是 -----BEGIN PRIVATE KEY-----）
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out jwt-private.pem
+# 從私鑰匯出公鑰，X.509 SubjectPublicKeyInfo 格式（檔頭是 -----BEGIN PUBLIC KEY-----）
+openssl pkey -in jwt-private.pem -pubout -out jwt-public.pem
+```
+
+- **先**在 `backend/spring-user-service/.gitignore` 加上 `secrets/`，再產生金鑰，避免不小心 commit 私鑰
+- 用 `git status` 確認 `secrets/` 沒有出現在 untracked 清單裡
+- 檔頭格式很重要：下一步的解析器只吃 PKCS#8 私鑰和 X.509 公鑰。如果私鑰檔頭是 `BEGIN RSA PRIVATE KEY`（PKCS#1），表示用錯指令
+
+#### 3. 設定檔
+
+`application.yml` 加入 `jwt` 區塊：
+
+```yaml
+jwt:
+  private-key-location: ${JWT_PRIVATE_KEY_LOCATION:file:./secrets/jwt-private.pem}
+  public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:./secrets/jwt-public.pem}
+  key-id: user-service-2026-11
+  issuer: user-service
+  access-token-ttl: 15m
+```
+
+- 放的是金鑰的**路徑**，不是內容：PEM 有很多行，放進環境變數很麻煩；K8s 的 Secret 也是掛成檔案最自然
+- `file:./...` 是相對於**執行時的工作目錄**。用 IDE 啟動時，確認 Run Configuration 的 working directory 是 `spring-user-service`，不然會找不到檔案
+- K8s 部署時：Secret 掛到例如 `/etc/jwt/`，設定環境變數 `JWT_PRIVATE_KEY_LOCATION=file:/etc/jwt/jwt-private.pem`
+- `key-id` 用固定字串就好，之後換金鑰時改成新的值（例如 `user-service-2027-05`）。也可以改用 `RSAKey#computeThumbprint()` 自動算，但先不用
+
+#### 4. `JwtProperties`
+
+位置：`com.mymicroservice.user.config.JwtProperties`
+
+| 欄位 | 型別 | 說明 |
+|---|---|---|
+| `privateKeyLocation` | `org.springframework.core.io.Resource` | Spring 會自動把 `file:...`、`classpath:...` 字串轉成 `Resource` |
+| `publicKeyLocation` | `Resource` | 同上 |
+| `keyId` | `String` | |
+| `issuer` | `String` | |
+| `accessTokenTtl` | `java.time.Duration` | `15m` 這種寫法 Spring 會自動轉 |
+
+- 用 `record` 寫最簡單，加上 `@ConfigurationProperties(prefix = "jwt")`
+- 加 `@Validated`，欄位加 `@NotNull` / `@NotBlank`，設定漏了啟動時就會失敗，不用等到登入才發現
+- 要讓 Spring 掃到它：在 `UserServiceApplication` 加 `@ConfigurationPropertiesScan`，或在設定類別上加 `@EnableConfigurationProperties(JwtProperties.class)`
+
+#### 5. `JwtConfig`：組出 `RSAKey` 和 `JwtEncoder`
+
+位置：`com.mymicroservice.user.config.JwtConfig`，一個 `@Configuration`，提供兩個 `@Bean`。
+
+**Bean 1：`RSAKey`（Nimbus 的類別，`com.nimbusds.jose.jwk.RSAKey`）**
+
+1. 解析 PEM：`org.springframework.security.converter.RsaKeyConverters`
+   - `RsaKeyConverters.pkcs8()` → `Converter<InputStream, RSAPrivateKey>`
+   - `RsaKeyConverters.x509()` → `Converter<InputStream, RSAPublicKey>`
+   - 輸入用 `resource.getInputStream()`，記得用 try-with-resources 關閉
+   - `getInputStream()` 會丟 `IOException`，想一下要往外丟還是包成 `IllegalStateException`（啟動失敗即可，兩種都行）
+2. 組成 Nimbus 的 JWK：`new RSAKey.Builder(publicKey).privateKey(privateKey).keyID(...).build()`
+   - **一定要設 `keyID`**，簽出來的 JWT header 的 `kid` 和 JWKS 裡的 `kid` 都來自這裡
+
+**Bean 2：`JwtEncoder`（`org.springframework.security.oauth2.jwt.JwtEncoder`）**
+
+```
+RSAKey  →  new JWKSet(rsaKey)  →  new ImmutableJWKSet<>(jwkSet)  →  new NimbusJwtEncoder(jwkSource)
+```
+
+- `ImmutableJWKSet` 是 `JWKSource<SecurityContext>` 的實作，`SecurityContext` 用 Nimbus 的 `com.nimbusds.jose.proc.SecurityContext`，**不是** Spring Security 那個，import 時注意
+- 為什麼 `RSAKey` 要單獨做成 bean：Step 5 的 JWKS endpoint 會注入同一個 `RSAKey`，用 `new JWKSet(rsaKey).toJSONObject()` 輸出，預設只會輸出公鑰部分
+
+#### 6. 驗證
+
+這一步還沒有 API 可以打，先確認：
+
+1. 服務能正常啟動
+2. 故意把 `private-key-location` 改成不存在的路徑，啟動要**失敗**，而且錯誤訊息看得出是哪個檔案
+3. （選做）寫一個 `@SpringBootTest`：注入 `JwtEncoder`，簽一個只有 `sub` 的 token，再用 `NimbusJwtDecoder.withPublicKey(publicKey).build()` 解回來，確認 `sub` 一樣
+
+#### 7. 預告 4-5 會用到的 API
+
+| 用途 | API |
+|---|---|
+| 組 claims | `JwtClaimsSet.builder()`：`issuer`、`subject`、`issuedAt`、`expiresAt`、`claim("roles", ...)` |
+| 指定演算法 | `JwsHeader.with(SignatureAlgorithm.RS256).build()` |
+| 簽發 | `jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue()` |
+
+- header 不用自己設 `kid`，`NimbusJwtEncoder` 會從選到的 JWK 帶入。登入做好之後到 jwt.io 確認 header 裡有 `kid`
+- `roles` 放字串陣列（例如 `["CUSTOMER"]`），不要直接放 enum 的 `Set`，避免序列化結果不如預期
+
 ### 需要注意
 
 - 登入失敗時，帳號不存在和密碼錯誤**回傳同一種錯誤**，避免被拿來探測帳號是否存在
