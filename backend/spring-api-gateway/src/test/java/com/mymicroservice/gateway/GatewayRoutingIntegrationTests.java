@@ -56,6 +56,7 @@ class GatewayRoutingIntegrationTests {
         registry.add("gateway.services.product-uri", PRODUCT_SERVICE::baseUrl);
         registry.add("gateway.services.user-uri", USER_SERVICE::baseUrl);
         registry.add("gateway.security.jwt.jwk-set-uri", () -> JWKS_SERVER.baseUrl() + "/jwks");
+        TestRedis.register(registry);
     }
 
     @Autowired

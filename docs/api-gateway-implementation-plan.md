@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/api-gateway`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「api-gateway 路由」
-> 狀態：Step 4 完成（2026-11-09），下一步 Step 5
+> 狀態：Step 1–5 全部完成（2026-11-09）
 
 ## 進度
 
@@ -13,7 +13,7 @@
 | 2 | JWT 驗簽（JWKS）與需要登入的路由 | 完成 |
 | 3 | 身分 header：移除用戶端送來的 `X-User-*`，改填 JWT 的值 | 完成 |
 | 4 | 封鎖 `/internal/**` | 完成 |
-| 5 | 依來源 IP 限制登入請求次數（Redis） | 未開始 |
+| 5 | 依來源 IP 限制登入請求次數（Redis） | 完成 |
 
 每一步都附整合測試，測試通過後單獨 commit。
 
@@ -144,6 +144,17 @@ user-service 只依 email 限制登入失敗，知道 email 的人可以故意�
 | Redis 掛掉 | 放行（`RedisRateLimiter` 預設行為），和 user-service 一致 |
 
 **測試**：Testcontainers 的 Redis；同一個 IP 超過上限回 429，不同 IP 不受影響，其他路由不受限制。
+
+**已完成**：`ClientIpRateLimitGatewayFilterFactory`（路由上用 `name: ClientIpRateLimit`）、`ClientIpResolver`、`ClientIpProperties`；`infra/docker-compose.yml` 加 `gateway-redis`（6381）；測試 `GatewayLoginRateLimitIntegrationTests`（6）、`GatewayLoginRateLimitBehindProxyIntegrationTests`（2）、`GatewayLoginRateLimitRedisDownIntegrationTests`（2）。
+
+- 不用內建的 `RequestRateLimiter`：超過上限時它回空 body。改成自己的 filter factory，計數一樣交給 `RedisRateLimiter`，429 回 ProblemDetail（`code` 是 `TOO_MANY_REQUESTS`）並帶 `Retry-After`
+- 登入獨立一條路由 `user-service-login`（`POST /api/v1/auth/login`，`order: -1`）；GET 等其他 method 不受限
+- 上限：`gateway.login-rate-limit.*`，預設一次最多 10 個請求，之後每分鐘 10 個（`replenish-rate` 最小是每秒 1，靠 `requested-tokens: 6` 做出更慢的速率）
+- 來源 IP：`gateway.client-ip.trusted-proxies`（環境變數 `GATEWAY_TRUSTED_PROXIES`），預設 0 = 連線 IP，完全不看 `X-Forwarded-For`；K8s 在 Ingress 後面時設 1
+- Redis key：`request_rate_limiter.{user-service-login.<IP>}.tokens`（`RedisRateLimiter` 會自己帶 routeId）
+- Redis 的 health indicator 關掉（`management.health.redis.enabled: false`）：Redis 掛掉時限流放行，不能讓 Gateway 變成 DOWN。確認過打開時 health 會變 DOWN
+- 測試共用一個 Redis 容器（`TestRedis`），所有測試類別都連到它，不會碰到本機的 `gateway-redis`
+- 本機啟動前要先 `docker compose up -d gateway-redis`；沒啟動也能登入，只是不限流
 
 ---
 

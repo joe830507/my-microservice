@@ -13,10 +13,27 @@ gateway:
       jwk-set-uri: ${gateway.services.user-uri}/api/v1/auth/jwks
       # 必須和 user-service 的 jwt.issuer 一致
       issuer: user-service
+  # 來源 IP：0 = 直接用連線 IP（本機）；Gateway 前面有 N 層會加 X-Forwarded-For 的代理（例如 K8s Ingress）時設成 N
+  # 只信任最後 N 個值中最前面那個：用戶端自己加的 X-Forwarded-For 在更前面，無法偽造 IP
+  client-ip:
+    trusted-proxies: ${GATEWAY_TRUSTED_PROXIES:0}
+  # 登入限流（token bucket）：每個請求消耗 requested-tokens，每秒補 replenish-rate，最多存 burst-capacity
+  # 1 / 60 / 6 → 一次最多 10 個請求，之後每 6 秒 1 個（每分鐘 10 個）
+  # replenish-rate 最小是 1（每秒），要比每秒 1 個更慢只能靠 requested-tokens 大於 1
+  login-rate-limit:
+    replenish-rate: 1
+    burst-capacity: 60
+    requested-tokens: 6
 
 spring:
   application:
     name: api-gateway
+  data:
+    redis:
+      host: ${GATEWAY_REDIS_HOST:localhost}
+      port: ${GATEWAY_REDIS_PORT:6381} # infra/docker-compose.yml 的 gateway-redis
+      timeout: 500ms # Redis 慢或掛掉時登入不會被拖住；失敗時放行
+      connect-timeout: 1s
   cloud:
     gateway:
       server:
@@ -24,6 +41,19 @@ spring:
           # 路徑對應見 docs/microservice-architecture.md「api-gateway 路由」；/internal/** 一律不建路由
           # Path 的 /** 也會比對到沒有子路徑的情況，例如 /api/v1/products
           routes:
+            # 登入要依來源 IP 限流，獨立一條路由；order 比 user-service 小，先比對
+            - id: user-service-login
+              uri: ${gateway.services.user-uri}
+              order: -1
+              predicates:
+                - Path=/api/v1/auth/login
+                - Method=POST
+              filters:
+                - name: ClientIpRateLimit
+                  args:
+                    replenish-rate: ${gateway.login-rate-limit.replenish-rate}
+                    burst-capacity: ${gateway.login-rate-limit.burst-capacity}
+                    requested-tokens: ${gateway.login-rate-limit.requested-tokens}
             - id: product-service
               uri: ${gateway.services.product-uri}
               predicates:
@@ -38,3 +68,7 @@ management:
     web:
       exposure:
         include: health
+  health:
+    redis:
+      # Redis 只用來限流，掛掉時放行；不能讓它把 Gateway 標成 DOWN（K8s 會因此重啟或移出流量）
+      enabled: false
