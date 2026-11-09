@@ -3,14 +3,14 @@
 > 建立日期：2026-11-09
 > 分支：`feature/product-image-upload`
 > 設計：[product-image-upload-design.md](../design/product-image-upload-design.md)（流程、關鍵決定、API、錯誤碼都以設計文件為準，這裡只列步驟與實作細節）
-> 狀態：Step 1 完成（2026-11-09），下一步 Step 2
+> 狀態：Step 1–2 完成（2026-11-09），下一步 Step 3
 
 ## 進度
 
 | Step | 內容 | 狀態 |
 |---|---|---|
 | 1 | compose 加物件儲存（SeaweedFS）與初始化；product-service 接上 S3 SDK（`StorageProperties`、`StorageConfig`） | 完成 |
-| 2 | `ImageStorage` 與 `POST /api/v1/products/{productId}/images/upload-url` | 未開始 |
+| 2 | `ImageStorage` 與 `POST /api/v1/products/{productId}/images/upload-url` | 完成 |
 | 3 | V4 migration（`url` → `object_key`）與改寫登記圖片 API | 未開始 |
 | 4 | 刪除圖片時一併刪除物件 | 未開始 |
 | 5 | 實際啟動驗證：上傳主圖 → 正常上架 → 下單 | 未開始 |
@@ -44,7 +44,15 @@
 - 限 ADMIN（和其他寫入 API 一致）；商品不存在 404、已封存 `PRODUCT_ARCHIVED`
 - `contentType`、`contentLength` 都簽進 presigned URL
 
-**測試**：實際用回傳的網址 PUT 檔案成功；帶不同的 Content-Length 或 Content-Type 被 MinIO 拒絕；類型不允許、超過大小、商品不存在、非 ADMIN。
+**測試**：實際用回傳的網址 PUT 檔案成功；帶不同的 Content-Length 或 Content-Type 被物件儲存拒絕；類型不允許、超過大小、商品不存在、非 ADMIN。
+
+**已完成**：`ImageStorage.presignUpload`、`publicUrl`，`ProductImageController.createUploadUrl`，錯誤碼 `IMAGE_CONTENT_TYPE_NOT_ALLOWED`、`IMAGE_TOO_LARGE`；測試 `ProductImageUploadUrlIntegrationTests`（19），權限測試加上新的 API。
+
+- 用回傳的網址實際 PUT：帶 `requiredHeaders` 成功，檔案內容與大小、類型正確
+- **SeaweedFS 會檢查簽進網址的大小與類型**：申請 1 KB 卻上傳 2 KB、或換成 `text/html`，都回 403 且檔案不會存下來
+- 還沒登記的 `tmp/` 檔案匿名讀取回 403
+- 類型不分大小寫，簽進網址的統一成小寫；剛好 5 MB 可以，多 1 byte 回 `IMAGE_TOO_LARGE`
+- 申請網址不寫資料庫，回 200
 
 ## Step 3：登記圖片
 

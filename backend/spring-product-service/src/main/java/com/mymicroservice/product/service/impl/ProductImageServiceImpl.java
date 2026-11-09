@@ -11,11 +11,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mymicroservice.product.dto.productImage.addOneNewProductImage.AddOneNewProductImageReq;
+import com.mymicroservice.product.dto.productImage.createUploadUrl.CreateUploadUrlReq;
+import com.mymicroservice.product.dto.productImage.createUploadUrl.CreateUploadUrlRes;
 import com.mymicroservice.product.dto.productImage.addOneNewProductImage.AddOneNewProductImageRes;
 import com.mymicroservice.product.dto.productImage.getProductImages.GetProductImagesRes;
 import com.mymicroservice.product.dto.productImage.reorderProductImages.ReorderProductImagesReq;
 import com.mymicroservice.product.dto.productImage.updateOneProductImage.UpdateOneProductImageReq;
 import com.mymicroservice.product.dto.productImage.updateOneProductImage.UpdateOneProductImageRes;
+import com.mymicroservice.product.config.StorageProperties;
 import com.mymicroservice.product.entity.Product;
 import com.mymicroservice.product.entity.ProductImage;
 import com.mymicroservice.product.entity.ProductStatus;
@@ -25,6 +28,7 @@ import com.mymicroservice.product.exception.ProductErrorCode;
 import com.mymicroservice.product.repository.ProductImageRepository;
 import com.mymicroservice.product.repository.ProductRepository;
 import com.mymicroservice.product.service.ProductImageService;
+import com.mymicroservice.product.storage.ImageStorage;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,6 +38,8 @@ import lombok.RequiredArgsConstructor;
 public class ProductImageServiceImpl implements ProductImageService {
     private final ProductRepository productRepository;
     private final ProductImageRepository productImageRepository;
+    private final ImageStorage imageStorage;
+    private final StorageProperties storageProperties;
 
     @Override
     public AddOneNewProductImageRes addOneNewProductImage(UUID productId,
@@ -184,5 +190,31 @@ public class ProductImageServiceImpl implements ProductImageService {
         productImageRepository.flush();
         List<ProductImage> savedImages = productImageRepository.findAllByProductIdOrderBySortOrder(productId);
         return GetProductImagesRes.from(productId, savedImages);
+    }
+
+    // 申請上傳網址：商品必須存在且未封存；類型、大小在這裡先擋，上傳後登記時還會再用 HEAD 檢查一次
+    // 不寫入資料庫，唯讀交易即可
+    @Override
+    @Transactional(readOnly = true)
+    public CreateUploadUrlRes createUploadUrl(UUID productId, CreateUploadUrlReq createUploadUrlReq) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new AppException(ProductErrorCode.PRODUCT_NOT_FOUND));
+        if (product.getStatus() == ProductStatus.ARCHIVED) {
+            throw new AppException(ProductErrorCode.PRODUCT_ARCHIVED);
+        }
+
+        // 類型不分大小寫比對，但簽進網址的是統一成小寫的值
+        String contentType = createUploadUrlReq.contentType().strip().toLowerCase(java.util.Locale.ROOT);
+        if (!storageProperties.allowedContentTypes().contains(contentType)) {
+            throw new AppException(ProductErrorCode.IMAGE_CONTENT_TYPE_NOT_ALLOWED, createUploadUrlReq.contentType(),
+                    String.join(", ", storageProperties.allowedContentTypes()));
+        }
+        long maxBytes = storageProperties.maxSize().toBytes();
+        if (createUploadUrlReq.contentLength() > maxBytes) {
+            throw new AppException(ProductErrorCode.IMAGE_TOO_LARGE, createUploadUrlReq.contentLength(), maxBytes);
+        }
+
+        return CreateUploadUrlRes.from(
+                imageStorage.presignUpload(productId, contentType, createUploadUrlReq.contentLength()));
     }
 }

@@ -65,7 +65,8 @@ class AdminEndpointsAuthorizationIntegrationTests {
                 Arguments.of("PUT", images + "/" + IMAGE_ID, "{}"),
                 Arguments.of("DELETE", images + "/" + IMAGE_ID, null),
                 Arguments.of("POST", images + "/" + IMAGE_ID + "/primary", null),
-                Arguments.of("PUT", images + "/order", "{}"));
+                Arguments.of("PUT", images + "/order", "{}"),
+                Arguments.of("POST", images + "/upload-url", "{}"));
     }
 
     @ParameterizedTest(name = "{0} {1}")
