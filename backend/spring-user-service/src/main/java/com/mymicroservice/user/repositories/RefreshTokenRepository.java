@@ -31,6 +31,11 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
     @Query("UPDATE RefreshToken t SET t.revokedAt = :now WHERE t.id = :id AND t.revokedAt IS NULL")
     int revokeIfActive(@Param("id") UUID id, @Param("now") Instant now);
 
+    // 登出：直接用雜湊值撤銷，不需要先查出來；不寫 replaced_by，所以被登出的 token 不會有寬限期
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE RefreshToken t SET t.revokedAt = :now WHERE t.tokenHash = :tokenHash AND t.revokedAt IS NULL")
+    int revokeByTokenHashIfActive(@Param("tokenHash") String tokenHash, @Param("now") Instant now);
+
     // 重複使用偵測、帳號停用時，撤銷該使用者所有仍有效的 token
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE RefreshToken t SET t.revokedAt = :now WHERE t.userId = :userId AND t.revokedAt IS NULL")

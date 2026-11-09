@@ -43,4 +43,12 @@ public class AuthController {
     public TokenResDto refresh(@RequestBody @Valid RefreshReqDto refreshReqDto) {
         return authService.refresh(refreshReqDto);
     }
+
+    // 和 refresh 一樣不需要 access token，以 refresh token 本身證明身分
+    // token 不存在或已失效也回 204：結果相同，也不洩漏 token 狀態
+    @PostMapping(value = "/logout", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(@RequestBody @Valid RefreshReqDto refreshReqDto) {
+        authService.logout(refreshReqDto);
+    }
 }

@@ -153,6 +153,15 @@ public class AuthServiceImpl implements AuthService {
         return toTokenResDto(issueAccessToken(user, now), newRefreshToken);
     }
 
+    // 撤銷這一個 refresh token；同一位使用者其他裝置的 token 不受影響
+    // 不存在、已撤銷、已過期都直接結束，不回錯誤：結果都是「這個 token 不能再用」，也不讓呼叫者探測 token 狀態
+    // access token 無法撤銷，會在到期（最多 15 分鐘）前繼續有效，前端登出時要自行丟掉
+    @Override
+    public void logout(RefreshReqDto refreshReqDto) {
+        refreshTokenRepository.revokeByTokenHashIfActive(
+                refreshTokenGenerator.hash(refreshReqDto.refreshToken()), Instant.now());
+    }
+
     // 寬限條件全部成立才放行，否則視為重複使用：
     //   - 因輪替而撤銷（replaced_by 有值）：登出、停用、重複使用偵測撤銷的都沒有，不給寬限
     //   - 撤銷後還在寬限時間內

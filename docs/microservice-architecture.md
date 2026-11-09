@@ -100,6 +100,7 @@ backend/
 | POST | `/api/v1/auth/register` | 註冊 |
 | POST | `/api/v1/auth/login` | 回傳 access token、refresh token |
 | POST | `/api/v1/auth/refresh` | 換新的 access token 與 refresh token（輪替，舊的立即失效） |
+| POST | `/api/v1/auth/logout` | 撤銷 refresh token；一律回 204 |
 | GET | `/api/v1/auth/jwks` | 公鑰（JWKS），Gateway 用來驗簽；不需要 JWT |
 | GET | `/api/v1/users/me` | 自己的資料 |
 | GET | `/api/v1/users` | 後台查使用者列表（ADMIN） |

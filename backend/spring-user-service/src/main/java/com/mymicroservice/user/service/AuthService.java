@@ -13,4 +13,6 @@ public interface AuthService {
     public TokenResDto login(LoginReqDto loginReqDto);
 
     public TokenResDto refresh(RefreshReqDto refreshReqDto);
+
+    public void logout(RefreshReqDto refreshReqDto);
 }
