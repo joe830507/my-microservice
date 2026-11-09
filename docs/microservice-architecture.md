@@ -2,7 +2,7 @@
 
 > 設計日期：2026-11-09
 > 目標：先把各微服務建立起來，再統一接到 API Gateway
-> 狀態：product-service、user-service 已完成；api-gateway 開發中
+> 狀態：product-service、user-service、api-gateway 已完成
 
 ## 已定案的決定
 
@@ -20,7 +20,7 @@
 
 | 服務 | 職責 | 狀態 |
 |---|---|---|
-| `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、限流 | 開發中；步驟見 [api-gateway-implementation-plan.md](api-gateway-implementation-plan.md) |
+| `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、限流 | 已實作；細節見 [api-gateway-implementation-plan.md](api-gateway-implementation-plan.md) |
 | `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取） |
 | `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 已實作 |
 | `spring-inventory-service` | 庫存、預扣、確認、釋放 | 待建立 |
@@ -51,7 +51,7 @@
 
 | 服務 | 應用程式 port | DB port | Redis port |
 |---|---|---|---|
-| api-gateway | 8080 | — | — |
+| api-gateway | 8080 | — | 6381（登入限流） |
 | product-service | 8081 | 5432 | 6379（快取） |
 | order-service | 8082 | 5433 | — |
 | inventory-service | 8083 | 5434 | — |

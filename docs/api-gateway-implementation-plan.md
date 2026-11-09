@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/api-gateway`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「api-gateway 路由」
-> 狀態：Step 1–5 全部完成（2026-11-09）
+> 狀態：Step 1–5 全部完成，補上逾時並實際啟動驗證（2026-11-09）
 
 ## 進度
 
@@ -158,9 +158,46 @@ user-service 只依 email 限制登入失敗，知道 email 的人可以故意�
 
 ---
 
+## 逾時（Step 5 之後補上）
+
+| 對象 | 設定 | 超過時 |
+|---|---|---|
+| 抓 JWKS（user-service） | `gateway.security.jwt.jwks-connect-timeout: 1s`、`jwks-response-timeout: 2s` | **503**，ProblemDetail + `code` 是 `SERVICE_UNAVAILABLE` |
+| 轉送到下游 | `spring.cloud.gateway.server.webflux.httpclient.connect-timeout: 2000`（毫秒）、`response-timeout: 10s` | 連不上 5xx、逾時 504 |
+
+- 抓不到 JWKS 回 503 而不是 401：token 可能是有效的，只是現在無法驗證，用戶端不應因此登出。Spring 預設會變成 500
+- 原本兩者都沒有時限：user-service 卡住時，所有需要登入的請求都會跟著一直等
+- 測試：`GatewayTimeoutIntegrationTests`（3）
+
+---
+
+## 實際啟動驗證（2026-11-09）
+
+Gateway（8080）+ user-service + product-service + `gateway-redis`，用 curl 走一次：
+
+| 情境 | 結果 |
+|---|---|
+| 註冊時帶偽造的 `X-User-Id` | 201；`created_by` 是系統 ID（`000…0`），不是偽造的值 |
+| 登入 → 帶 token 呼叫 `/api/v1/users/me`，同時帶偽造的 `X-User-Id`、`X-User-Roles: ADMIN` | 200，回傳的是 token 本人 |
+| CUSTOMER 帶偽造的 `X-User-Roles: ADMIN` 呼叫 `GET /api/v1/users`（ADMIN 限定） | 403 `FORBIDDEN` |
+| 竄改過的 token | 401 |
+| `/internal/v1/inventory`、`/api/v1/products/../../../internal/v1/inventory` | 404 `NOT_FOUND` |
+| 同一個 IP 用不同 email 連續登入 12 次 | 前 10 次轉給 user-service，第 11 次起 429 `TOO_MANY_REQUESTS`、`Retry-After: 6` |
+| user-service 卡住 | 10 秒後 504（下游的 `response-timeout`） |
+
+- 同一個 email 連續登入失敗時，第 6 次起是 user-service 自己的 429 `TOO_MANY_LOGIN_ATTEMPTS`（依 email 限制），兩層限制可以用 `code` 分辨
+- 本機時 IP 是 IPv6 的 `0:0:0:0:0:0:0:1`，Redis key 是 `request_rate_limiter.{user-service-login.0:0:0:0:0:0:0:1}.tokens`
+
+---
+
 ## 之後再處理
 
 - order、inventory、payment 的路由（服務建立後）
 - CORS（前端接上時）
 - 上 K8s：目標 URI 改成 Service 名稱、`/internal` 加 NetworkPolicy
 - 升級到 Boot 4.1 + Spring Cloud 2026.0.0（正式版發布後）
+- **錯誤格式統一**：401、404（`/internal`）、429、503 是 ProblemDetail；但不在路由表的 404、下游連不上的 5xx、逾時的 504 走 Gateway 預設的錯誤處理，回的是 `{"timestamp", "path", "status", "error", "requestId"}`，沒有 `code`。要自訂 `ErrorWebExceptionHandler`
+- **測試共用設定**：8 個測試類別各自重複 WireMock、JWKS、Redis 的設定，抽成共用的 base class 或 annotation
+- **測試依賴 Docker**：所有 Gateway 測試都會啟動 Testcontainers 的 Redis（`TestRedis`），Docker 沒開時全部失敗。可以改成只有限流測試用 Redis
+- **編碼的 `%` 會被擋**：Spring Security 的 firewall 會把 `%25` 擋下回 400；之後商品 SKU 若允許 `%` 要處理
+- 開 PR 合併到 main
