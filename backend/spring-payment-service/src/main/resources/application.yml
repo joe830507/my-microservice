@@ -1,6 +1,13 @@
 server:
   port: 8085
 
+# 下游服務的位置：本機預設 localhost:{port}；K8s 部署時用環境變數改成 Service 名稱
+payment:
+  services:
+    order-uri: ${ORDER_SERVICE_URI:http://localhost:8082}
+    connect-timeout: 2s
+    read-timeout: 5s
+
 spring:
   application:
     name: payment-service

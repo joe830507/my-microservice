@@ -3,14 +3,14 @@
 > 建立日期：2026-11-09
 > 分支：`feature/payment-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「payment-service」、「服務互動：下單流程」
-> 狀態：Step 1 完成（2026-11-09），下一步 Step 2
+> 狀態：Step 1–2 完成（2026-11-09），下一步 Step 3
 
 ## 進度
 
 | Step | 內容 | 狀態 |
 |---|---|---|
 | 1 | 建立專案、DB 與資料表 | 完成 |
-| 2 | `POST /api/v1/payments` 建立付款（向 order-service 取金額） | 未開始 |
+| 2 | `POST /api/v1/payments` 建立付款（向 order-service 取金額） | 完成 |
 | 3 | `GET /api/v1/payments/{id}` 查付款狀態 | 未開始 |
 | 4 | `POST /api/v1/payments/{id}/mock-callback` 模擬金流回呼，成功時通知 order-service | 未開始 |
 | 5 | 排程：重試通知 order-service 失敗的付款 | 未開始 |
@@ -66,6 +66,8 @@ payment
 | 4 | 建立 `PENDING` 付款，金額取自訂單 | 同時建立被唯一約束擋下 → 409 `DATA_CONFLICT`，重試即可拿到已建立的那筆 |
 
 回應 201：`{id, orderId, amount, status, createdAt, completedAt}`。
+
+**已完成**：`PaymentController.createPayment`、`OrderClient`、`RestClientConfig`（固定 HTTP/1.1）；測試 `PaymentControllerCreateIntegrationTests`（16）。body 裡的 `amount` 會被忽略；order-service 逾時或連不上回 503。
 
 ## Step 3：查付款
 
