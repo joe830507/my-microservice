@@ -111,6 +111,45 @@ public class ReservationServiceImpl implements ReservationService {
         return ReservationResDto.from(reservation);
     }
 
+    // 取消或付款逾時時由 order-service 呼叫：RESERVED → RELEASED，並把預扣數量還回 available
+    // 已經是 RELEASED → 不做任何事，回原本的結果（冪等）
+    // 不存在 → 建立一筆沒有明細的 RELEASED 紀錄：order-service 預扣逾時、不知道有沒有成功就取消時，
+    //          之後才送達的預扣請求會被擋下（RESERVATION_ALREADY_RELEASED），庫存不會被扣住沒人釋放
+    //          和同一個 orderId 的預扣同時寫入時，後到的被主鍵擋下回 409 DATA_CONFLICT，呼叫方重試即可
+    @Override
+    public ReservationResDto release(UUID orderId) {
+        Instant now = Instant.now();
+        UUID updatedBy = auditorAware.getCurrentAuditor().orElseThrow();
+        boolean transitioned = reservationRepository.transition(orderId, ReservationStatus.RESERVED,
+                ReservationStatus.RELEASED, now, updatedBy) == 1;
+
+        Optional<Reservation> found = reservationRepository.findWithItemsByOrderId(orderId);
+        if (found.isEmpty()) {
+            Reservation released = new Reservation();
+            released.setOrderId(orderId);
+            released.setStatus(ReservationStatus.RELEASED);
+            reservationRepository.saveAndFlush(released);
+            return ReservationResDto.from(released);
+        }
+        Reservation reservation = found.get();
+        if (!transitioned) {
+            if (reservation.getStatus() == ReservationStatus.CONFIRMED) {
+                throw new AppException(InventoryErrorCode.RESERVATION_ALREADY_CONFIRMED, orderId);
+            }
+            return ReservationResDto.from(reservation);
+        }
+
+        // 明細已依 SKU 排序，鎖的順序和預扣一致
+        for (ReservationItem item : reservation.getItems()) {
+            if (stockRepository.releaseReserved(item.getSku(), item.getQty(), now, updatedBy) == 0) {
+                // 正常不會發生；丟例外讓整筆 rollback，不留下半套結果
+                throw new IllegalStateException(
+                        "reserved quantity of " + item.getSku() + " is less than reservation of order " + orderId);
+            }
+        }
+        return ReservationResDto.from(reservation);
+    }
+
     // 已經有同一個 orderId 的紀錄
     private ReserveResult replay(Reservation reservation, SortedMap<String, Integer> requested) {
         if (reservation.getStatus() == ReservationStatus.RELEASED) {

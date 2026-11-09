@@ -42,4 +42,11 @@ public class InternalReservationController {
     public ReservationResDto confirm(@PathVariable UUID orderId) {
         return reservationService.confirm(orderId);
     }
+
+    // 取消或付款逾時時呼叫；重複釋放回 200；orderId 不存在也回 200，並留下 RELEASED 紀錄擋住之後才到的預扣
+    @PostMapping(value = "/{orderId}/release", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.OK)
+    public ReservationResDto release(@PathVariable UUID orderId) {
+        return reservationService.release(orderId);
+    }
 }

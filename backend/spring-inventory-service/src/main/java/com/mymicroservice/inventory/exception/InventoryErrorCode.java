@@ -23,6 +23,8 @@ public enum InventoryErrorCode implements ErrorCode {
     RESERVATION_MISMATCH(HttpStatus.CONFLICT, "reservation for order %s already exists with different items."),
     // 已經釋放過（取消或逾時），不能再預扣或確認；延遲送達的預扣請求會收到這個錯誤
     RESERVATION_ALREADY_RELEASED(HttpStatus.CONFLICT, "reservation for order %s has already been released."),
+    // 已付款的訂單不能釋放預扣，要走退貨流程（雛型階段不做）
+    RESERVATION_ALREADY_CONFIRMED(HttpStatus.CONFLICT, "reservation for order %s has already been confirmed."),
     RESERVATION_NOT_FOUND(HttpStatus.NOT_FOUND, "reservation for order %s not found.");
 
     private final HttpStatus status;

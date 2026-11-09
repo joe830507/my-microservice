@@ -11,4 +11,6 @@ public interface ReservationService {
     public ReserveResult reserve(ReserveReqDto reserveReqDto);
 
     public ReservationResDto confirm(UUID orderId);
+
+    public ReservationResDto release(UUID orderId);
 }

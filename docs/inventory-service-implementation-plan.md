@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/inventory-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「inventory-service」、「服務互動：下單流程」
-> 狀態：Step 1–5 完成（2026-11-09），下一步 Step 6
+> 狀態：Step 1–6 完成（2026-11-09），下一步 Step 7
 
 ## 進度
 
@@ -14,7 +14,7 @@
 | 3 | `PUT /api/v1/inventory/{sku}` 後台設定庫存（ADMIN） | 完成 |
 | 4 | `POST /internal/v1/inventory/reservations` 預扣 | 完成 |
 | 5 | `POST /internal/v1/inventory/reservations/{orderId}/confirm` 確認扣除 | 完成 |
-| 6 | `POST /internal/v1/inventory/reservations/{orderId}/release` 釋放預扣 | 未開始 |
+| 6 | `POST /internal/v1/inventory/reservations/{orderId}/release` 釋放預扣 | 完成 |
 | 7 | api-gateway 加上 `/api/v1/inventory/**` 路由 | 未開始 |
 
 每一步都附整合測試，測試通過後單獨 commit。
@@ -174,6 +174,13 @@ SKU 雛型階段不檢查 product-service 裡是否存在；之後改成接收 `
 **不存在時為什麼要建立紀錄**：order-service 呼叫預扣逾時，不知道到底有沒有扣成功，於是取消並呼叫釋放。如果預扣的請求之後才送達，看到 `RELEASED` 就會被擋下（Step 4），庫存不會被扣住沒人釋放。
 
 **測試**：上表每種狀態、釋放後庫存數字正確、先釋放再預扣會被擋。
+
+**已完成**：`InternalReservationController.release`、`ReservationService.release`、`StockRepository.releaseReserved`；測試 `InternalReservationReleaseIntegrationTests`（12）。
+
+- 釋放後的數量可以再被其他訂單預扣
+- 釋放後再確認回 409 `RESERVATION_ALREADY_RELEASED`
+- 不存在的 `orderId` 重複釋放，只留下一筆紀錄
+- 併發測試：同時釋放 5 次只還一次；釋放與確認同時送達，只有一個成功，庫存只會是其中一種結果
 
 ---
 
