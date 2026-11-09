@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/user-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「user-service」
-> 狀態：Step 1～3 完成（2026-11-09），下一步 Step 4
+> 狀態：Step 1～4 完成（2026-11-09），下一步 Step 5
 
 ## 進度
 
@@ -12,11 +12,18 @@
 | 1 | 建立專案 | 完成 |
 | 2 | DB 與設定 | 完成 |
 | 3 | 第一個 migration（使用者、角色） | 完成 |
-| 4 | 註冊、登入（密碼雜湊、簽發 JWT） | 未開始 |
+| 4 | 註冊、登入（密碼雜湊、簽發 JWT） | 完成（待確認事項見下方） |
 | 5 | JWKS endpoint、`/users/me`、後台使用者列表 | 未開始 |
 | 6 | Refresh token（存放、輪替） | 未開始 |
 
 **第一個里程碑（Step 1～3）**：服務能連上自己的 DB 並啟動，Flyway 建好資料表。
+
+**Step 4 完成內容**：`POST /api/v1/auth/register`、`POST /api/v1/auth/login`（簽發 RS256 access token），`JwtProperties` 與 `JwtConfig`；整合測試 `AuthControllerRegisterIntegrationTests`（15 個）、`AuthControllerLoginIntegrationTests`（16 個）全數通過。
+
+**Step 4 待確認**：
+
+- 併發註冊同一個 email 時，目前由 `uq_users_email` 擋下後回傳共用的 `DATA_CONFLICT`（409），還沒有轉成 `EMAIL_ALREADY_EXISTS`；與下方「需要注意」的寫法不一致，待決定要補轉換或接受現狀
+- 4-4 第 6 步「金鑰路徑錯誤時啟動失敗、錯誤訊息看得出是哪個檔案」尚未實際驗證
 
 ---
 

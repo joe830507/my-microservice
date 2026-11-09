@@ -22,7 +22,7 @@
 |---|---|---|
 | `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、之後的限流 | 空目錄 |
 | `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取） |
-| `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 骨架完成（DB、migration），開發中 |
+| `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 註冊、登入（簽發 JWT）完成，開發中（下一步 JWKS、`/users/me`） |
 | `spring-inventory-service` | 庫存、預扣、確認、釋放 | 待建立 |
 | `spring-order-service` | 訂單、商品快照、訂單狀態 | 空目錄 |
 | `spring-payment-service` | 付款（雛型階段用模擬金流） | 待建立 |
