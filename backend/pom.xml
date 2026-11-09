@@ -14,6 +14,7 @@
 	<modules>
 		<module>common</module>
 		<module>spring-product-service</module>
+		<module>spring-user-service</module>
 	</modules>
 
 </project>

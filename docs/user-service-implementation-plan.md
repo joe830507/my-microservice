@@ -98,33 +98,19 @@
 
 ## Step 4：註冊、登入
 
-### CommonEntity 與稽核
+### CommonEntity 與稽核（由 common 提供）
 
-**不拆分，沿用 product 的 `CommonEntity`**（稽核欄位 + `@Version`）。
+`CommonEntity`、`AuditorAware`、錯誤處理都已經在 `backend/common`，user-service **不再自己複製**。
 
-- user-service 裡只有 `User` 需要稽核欄位和樂觀鎖；`RefreshToken` 只有 `created_at`，直接不繼承就好
-- 改用條件式 UPDATE 的表，`@LastModifiedDate` 本來就不會觸發，拆出「只有稽核、沒有版本」的父類別也沒有用處
-- 等到真的出現「需要稽核但不需要版本」的 entity 時再拆
-
-| 項目 | 決定 |
+| 項目 | 做法 |
 |---|---|
-| 位置 | `com.mymicroservice.user.entity.CommonEntity`（從 product 複製，改 package） |
-| 欄位 | `createdAt`、`updatedAt`（`Instant`）、`createdBy`、`updatedBy`（`UUID`）、`version`（`Long`） |
-| `version` 型別 | 必須用 `Long`，不能用 `long`：新建時是 `null`，Spring Data 的 `save()` 才會判斷為新資料而用 `persist`，不會先 SELECT 再 `merge` |
+| `User` | 繼承 `com.mymicroservice.common.entity.CommonEntity`（稽核欄位 + `@Version`） |
+| `RefreshToken` | 只有 `created_at`，不繼承 `CommonEntity` |
 | `User.id` | 和 product 一樣用 `@UuidGenerator(style = Style.VERSION_7)`，加上 `@Setter(AccessLevel.NONE)` |
+| 稽核 | 自己寫 `JpaAuditingConfig`，只加 `@EnableJpaAuditing(auditorAwareRef = CommonAutoConfiguration.AUDITOR_AWARE_BEAN_NAME)`；`HeaderAuditorAware` 由 common 自動註冊 |
+| 錯誤碼 | 寫 `UserErrorCode` enum 實作 common 的 `ErrorCode`；丟 `AppException`，`GlobalExceptionHandler` 由 common 自動註冊 |
 
-### AuditorAware
-
-| 情況 | 記錄的操作人 |
-|---|---|
-| 有 `X-User-Id` header（經過 Gateway 的已登入請求） | header 的值 |
-| 沒有 header（自己註冊、登入、refresh） | `SYSTEM_USER_ID`（`new UUID(0L, 0L)`） |
-| header 不是合法 UUID | `SYSTEM_USER_ID`，並記一筆 warn log |
-| 不在 HTTP 請求中（排程、測試） | `SYSTEM_USER_ID` |
-
-- 用 `RequestContextHolder.getRequestAttributes()` 取得目前請求，`null` 表示不在請求中
-- user-service 沒有 Spring Security，**不要**照 product 的 TODO 去讀 `SecurityContext`；之後 product 也要改成讀 header
-- header 名稱定義成常數，之後各服務共用同一個名稱
+`HeaderAuditorAware` 的規則：有合法的 `X-User-Id` 用它；沒有 header（註冊、登入、refresh）、不是合法 UUID、或不在 HTTP 請求中，記為 `SYSTEM_USER_ID`。自己註冊時建立者是系統，後台停用帳號時會記錄到 ADMIN 本人。
 
 ### API
 

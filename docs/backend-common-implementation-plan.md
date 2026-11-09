@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/backend-common`（從 `feature/product-service-api` 建立）
 > 對應：[microservice-architecture.md](microservice-architecture.md)「後端專案結構」
-> 狀態：Step 1～5 完成（2026-11-09），下一步 Step 6
+> 狀態：全部完成（2026-11-09），已合併進 main
 
 ## 進度
 
@@ -14,7 +14,7 @@
 | 3 | 錯誤處理搬進 common | 完成 |
 | 4 | 稽核與身分 header 搬進 common | 完成 |
 | 5 | product-service 改用 common | 完成 |
-| 6 | 合併回 user-service 分支 | 未開始 |
+| 6 | 合併回 user-service 分支 | 完成 |
 
 **完成標準**：在 `backend/` 執行 `./mvnw verify` 全部通過，product-service 的既有測試不需要改行為就能通過。
 
