@@ -3,6 +3,7 @@ package com.mymicroservice.order.controller;
 import java.net.URI;
 import java.util.UUID;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,8 @@ import com.mymicroservice.common.web.CurrentUserId;
 import com.mymicroservice.common.web.UserContext;
 import com.mymicroservice.common.web.UserContextHeaders;
 import com.mymicroservice.order.dtos.CreateOrderReqDto;
+import com.mymicroservice.order.dtos.GetOrdersReqDto;
+import com.mymicroservice.order.dtos.GetOrdersResDto;
 import com.mymicroservice.order.dtos.OrderResDto;
 import com.mymicroservice.order.service.OrderService;
 
@@ -38,6 +41,16 @@ public class OrderController {
             @RequestBody @Valid CreateOrderReqDto createOrderReqDto) {
         OrderResDto order = orderService.createOrder(userId, createOrderReqDto);
         return ResponseEntity.created(URI.create("/api/v1/orders/" + order.id())).body(order);
+    }
+
+    // 訂單列表：一般使用者只看得到自己的；ADMIN 看全部，可用 userId 篩選
+    // @ParameterObject 讓 springdoc 把 record 欄位展開成個別查詢參數
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.OK)
+    public GetOrdersResDto getOrders(@CurrentUserId UUID userId,
+            @RequestHeader(value = UserContextHeaders.USER_ROLES, required = false) String roles,
+            @ParameterObject @Valid GetOrdersReqDto getOrdersReqDto) {
+        return orderService.getOrders(getOrdersReqDto, userId, isAdmin(roles));
     }
 
     // 訂單詳情：本人或 ADMIN；別人的訂單回 404

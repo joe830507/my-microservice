@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/order-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「order-service」、「服務互動：下單流程」
-> 狀態：Step 1–3 完成（2026-11-09），下一步 Step 4
+> 狀態：Step 1–4 完成（2026-11-09），下一步 Step 5
 
 ## 進度
 
@@ -12,7 +12,7 @@
 | 1 | 建立專案、DB 與資料表 | 完成 |
 | 2 | `POST /api/v1/orders` 建立訂單（呼叫 product、inventory） | 完成 |
 | 3 | `GET /api/v1/orders/{id}` 訂單詳情 | 完成 |
-| 4 | `GET /api/v1/orders` 訂單列表 | 未開始 |
+| 4 | `GET /api/v1/orders` 訂單列表 | 完成 |
 | 5 | `POST /api/v1/orders/{id}/cancel` 取消訂單 | 未開始 |
 | 6 | `GET /internal/v1/orders/{id}` 給 payment-service 查訂單 | 未開始 |
 | 7 | `POST /internal/v1/orders/{id}/paid` 付款成功通知 | 未開始 |
@@ -117,6 +117,9 @@ order_item
 
 - 一般使用者只列出自己的；ADMIN 列出全部，可再用 `userId` 篩選
 - 分頁格式和 user-service、product-service 一致；最新的在前
+- 列表只回摘要（`id, userId, status, totalAmount, createdAt`），不載入明細
+
+**已完成**：`OrderController.getOrders`；測試 `OrderControllerListIntegrationTests`（14）。一般使用者帶別人的 `userId` 會被忽略，仍只看到自己的。
 
 ## Step 5：取消訂單
 

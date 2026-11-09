@@ -8,6 +8,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +18,8 @@ import com.mymicroservice.order.clients.InventoryClient.ReserveResult;
 import com.mymicroservice.order.clients.ProductClient;
 import com.mymicroservice.order.clients.ProductClient.Product;
 import com.mymicroservice.order.dtos.CreateOrderReqDto;
+import com.mymicroservice.order.dtos.GetOrdersReqDto;
+import com.mymicroservice.order.dtos.GetOrdersResDto;
 import com.mymicroservice.order.dtos.OrderResDto;
 import com.mymicroservice.order.entities.Order;
 import com.mymicroservice.order.entities.OrderItem;
@@ -70,6 +73,22 @@ public class OrderServiceImpl implements OrderService {
                 .filter(order -> admin || order.getUserId().equals(userId))
                 .map(OrderResDto::from)
                 .orElseThrow(() -> new AppException(OrderErrorCode.ORDER_NOT_FOUND, orderId));
+    }
+
+    // 一般使用者只列出自己的（忽略 userId 參數）；ADMIN 列出全部，可用 userId 篩選
+    @Override
+    @Transactional(readOnly = true)
+    public GetOrdersResDto getOrders(GetOrdersReqDto getOrdersReqDto, UUID userId, boolean admin) {
+        UUID ownerFilter = admin ? getOrdersReqDto.userId() : userId;
+        Specification<Order> specification = Specification.unrestricted();
+        if (ownerFilter != null) {
+            specification = specification.and((root, query, cb) -> cb.equal(root.get("userId"), ownerFilter));
+        }
+        if (getOrdersReqDto.status() != null) {
+            specification = specification.and((root, query, cb) -> cb.equal(root.get("status"),
+                    getOrdersReqDto.status()));
+        }
+        return GetOrdersResDto.from(orderRepository.findAll(specification, getOrdersReqDto.toPageable()));
     }
 
     // 不存在的商品 → 404；沒有上架的 → 409；兩種都列出全部有問題的
