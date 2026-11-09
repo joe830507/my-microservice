@@ -2,7 +2,7 @@
 
 > 設計日期：2026-11-09
 > 目標：先把各微服務建立起來，再統一接到 API Gateway
-> 狀態：product-service、user-service、api-gateway、inventory-service、order-service 已完成
+> 狀態：所有服務都已完成，完整下單流程（下單 → 付款 → 確認扣除庫存）已實際驗證
 
 ## 已定案的決定
 
@@ -25,7 +25,7 @@
 | `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 已實作 |
 | `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](inventory-service-implementation-plan.md) |
 | `spring-order-service` | 訂單、商品快照、訂單狀態 | 已實作；步驟見 [order-service-implementation-plan.md](order-service-implementation-plan.md) |
-| `spring-payment-service` | 付款（雛型階段用模擬金流） | 待建立 |
+| `spring-payment-service` | 付款（雛型階段用模擬金流） | 已實作；步驟見 [payment-service-implementation-plan.md](payment-service-implementation-plan.md) |
 
 ### 暫不拆分
 

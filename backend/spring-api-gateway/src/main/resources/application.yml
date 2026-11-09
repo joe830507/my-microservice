@@ -9,6 +9,7 @@ gateway:
     user-uri: ${USER_SERVICE_URI:http://localhost:8084}
     inventory-uri: ${INVENTORY_SERVICE_URI:http://localhost:8083}
     order-uri: ${ORDER_SERVICE_URI:http://localhost:8082}
+    payment-uri: ${PAYMENT_SERVICE_URI:http://localhost:8085}
   security:
     jwt:
       # user-service 的公鑰（JWKS）；Gateway 用它驗證 access token 的簽章
@@ -81,6 +82,11 @@ spring:
               uri: ${gateway.services.order-uri}
               predicates:
                 - Path=/api/v1/orders/**
+            # 付款全部需要登入（SecurityConfig 的 anyExchange().authenticated()）
+            - id: payment-service
+              uri: ${gateway.services.payment-uri}
+              predicates:
+                - Path=/api/v1/payments/**
 
 management:
   endpoints:
