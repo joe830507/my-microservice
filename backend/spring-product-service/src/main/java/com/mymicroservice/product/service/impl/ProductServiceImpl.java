@@ -25,8 +25,9 @@ import com.mymicroservice.product.dto.product.updateOneProduct.UpdateOneProductR
 import com.mymicroservice.product.dto.product.updateOneProduct.UpdateOneProductRes;
 import com.mymicroservice.product.entity.Product;
 import com.mymicroservice.product.entity.ProductStatus;
-import com.mymicroservice.product.exception.AppException;
-import com.mymicroservice.product.exception.ErrorCode;
+import com.mymicroservice.common.exception.AppException;
+import com.mymicroservice.common.exception.CommonErrorCode;
+import com.mymicroservice.product.exception.ProductErrorCode;
 import com.mymicroservice.product.repository.CategoryRepository;
 import com.mymicroservice.product.repository.ProductImageRepository;
 import com.mymicroservice.product.repository.ProductRepository;
@@ -57,7 +58,7 @@ public class ProductServiceImpl implements ProductService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public GetProductByIdRes getProductById(UUID id) {
         return productDetailCache.findById(id)
-                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ProductErrorCode.PRODUCT_NOT_FOUND));
     }
 
     // 不開交易的原因同 getProductById
@@ -66,7 +67,7 @@ public class ProductServiceImpl implements ProductService {
     public GetProductBySkuRes getProductBySku(String sku) {
         // 對照本身查不到，代表 sku 不存在（查不到的結果也有快取），直接回 404，不重查 DB
         if (productDetailCache.findIdBySku(sku).isEmpty()) {
-            throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+            throw new AppException(ProductErrorCode.PRODUCT_NOT_FOUND);
         }
 
         // 對照存在但商品的 sku 已經不同，代表 sku 被改過、對照過期，刪掉後再從 DB 查一次
@@ -77,7 +78,7 @@ public class ProductServiceImpl implements ProductService {
         }
 
         return detail.map(GetProductBySkuRes::from)
-                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ProductErrorCode.PRODUCT_NOT_FOUND));
     }
 
     // 先由 sku 對照出 id，再取商品詳情，並確認詳情的 sku 與查詢的一致
@@ -141,23 +142,23 @@ public class ProductServiceImpl implements ProductService {
 
         // 2. 檢查商品是否封存
         if (product.getStatus() == ProductStatus.ARCHIVED) {
-            throw new AppException(ErrorCode.PRODUCT_ARCHIVED);
+            throw new AppException(ProductErrorCode.PRODUCT_ARCHIVED);
         }
 
         // 3. 檢查sku是否重複
         if (productRepository.existsBySkuAndIdNot(updateOneProductReq.sku(), id)) {
-            throw new AppException(ErrorCode.PRODUCT_SKU_DUPLICATED);
+            throw new AppException(ProductErrorCode.PRODUCT_SKU_DUPLICATED);
         }
 
         // 4. 檢查上架的產品是否有分類
         if (product.getStatus() == ProductStatus.ACTIVE && updateOneProductReq.categoryId() == null) {
-            throw new AppException(ErrorCode.PRODUCT_ACTIVE_CATEGORY_REQUIRED);
+            throw new AppException(ProductErrorCode.PRODUCT_ACTIVE_CATEGORY_REQUIRED);
         }
 
         // 5. 檢查分類是否啟用
         if (updateOneProductReq.categoryId() != null
                 && !categoryRepository.existsByIdAndActiveTrue(updateOneProductReq.categoryId())) {
-            throw new AppException(ErrorCode.CATEGORY_INACTIVE);
+            throw new AppException(ProductErrorCode.CATEGORY_INACTIVE);
         }
 
         // product 為 managed 狀態，不需 save；flush 後 updatedAt 與 version 才會更新
@@ -181,17 +182,17 @@ public class ProductServiceImpl implements ProductService {
 
         // 2. 檢查狀態是否為DRAFT或INACTIVE
         if (!EnumSet.of(ProductStatus.DRAFT, ProductStatus.INACTIVE).contains(product.getStatus())) {
-            throw new AppException(ErrorCode.PRODUCT_STATUS_TRANSITION_INVALID, product.getStatus(), "published");
+            throw new AppException(ProductErrorCode.PRODUCT_STATUS_TRANSITION_INVALID, product.getStatus(), "published");
         }
 
         // 3. 檢查產品是否已經有分類
         if (product.getCategoryId() == null || !categoryRepository.existsByIdAndActiveTrue(product.getCategoryId())) {
-            throw new AppException(ErrorCode.PRODUCT_ACTIVE_CATEGORY_REQUIRED);
+            throw new AppException(ProductErrorCode.PRODUCT_ACTIVE_CATEGORY_REQUIRED);
         }
 
         // 4. 檢查產品是否有主圖
         if (!productImageRepository.existsByProductIdAndIsPrimaryTrue(product.getId())) {
-            throw new AppException(ErrorCode.PRODUCT_PRIMARY_IMAGE_REQUIRED);
+            throw new AppException(ProductErrorCode.PRODUCT_PRIMARY_IMAGE_REQUIRED);
         }
 
         // 5. 改狀態並儲存
@@ -209,7 +210,7 @@ public class ProductServiceImpl implements ProductService {
 
         // 2. 檢查狀態是否為ACTIVE
         if (ProductStatus.ACTIVE != product.getStatus()) {
-            throw new AppException(ErrorCode.PRODUCT_STATUS_TRANSITION_INVALID, product.getStatus(), "unpublished");
+            throw new AppException(ProductErrorCode.PRODUCT_STATUS_TRANSITION_INVALID, product.getStatus(), "unpublished");
         }
 
         // 3. 改狀態並儲存
@@ -227,7 +228,7 @@ public class ProductServiceImpl implements ProductService {
 
         // 2. 檢查狀態是否已經封存
         if (ProductStatus.ARCHIVED == product.getStatus()) {
-            throw new AppException(ErrorCode.PRODUCT_ALREADY_ARCHIVED);
+            throw new AppException(ProductErrorCode.PRODUCT_ALREADY_ARCHIVED);
         }
 
         // 3. 改狀態並儲存
@@ -241,11 +242,11 @@ public class ProductServiceImpl implements ProductService {
     private Product findProductWithVersionCheck(UUID id, Long version) {
         // 1. 查詢product
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ProductErrorCode.PRODUCT_NOT_FOUND));
 
         // 2. 比對Version
         if (!version.equals(product.getVersion())) {
-            throw new AppException(ErrorCode.VERSION_CONFLICT);
+            throw new AppException(CommonErrorCode.VERSION_CONFLICT);
         }
 
         return product;

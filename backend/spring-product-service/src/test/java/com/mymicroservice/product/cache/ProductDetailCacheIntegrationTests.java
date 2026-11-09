@@ -27,8 +27,9 @@ import com.mymicroservice.product.dto.product.changeProductStatus.ChangeProductS
 import com.mymicroservice.product.dto.product.getProductsByIds.ProductBatchItem;
 import com.mymicroservice.product.dto.product.updateOneProduct.UpdateOneProductReq;
 import com.mymicroservice.product.entity.ProductStatus;
-import com.mymicroservice.product.exception.AppException;
-import com.mymicroservice.product.exception.ErrorCode;
+import com.mymicroservice.common.exception.AppException;
+import com.mymicroservice.common.exception.CommonErrorCode;
+import com.mymicroservice.product.exception.ProductErrorCode;
 import com.mymicroservice.product.service.ProductService;
 
 // 透過 ProductService 驗證商品詳情與 sku 對照快取的讀取與失效，DB 與 Redis 皆為 Testcontainers 啟動的真實容器
@@ -248,7 +249,7 @@ class ProductDetailCacheIntegrationTests {
 
         assertThatThrownBy(() -> productService.updateOneProduct(product.id(), staleReq))
                 .isInstanceOfSatisfying(AppException.class,
-                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.VERSION_CONFLICT));
+                        e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.VERSION_CONFLICT));
         assertThat(redisTemplate.hasKey(detailKey(product.id()))).isTrue();
         assertThat(redisTemplate.hasKey(skuKey("SKU-001"))).isTrue();
     }
@@ -316,7 +317,7 @@ class ProductDetailCacheIntegrationTests {
     private void assertNotFound(ThrowingCallable call) {
         assertThatThrownBy(call)
                 .isInstanceOfSatisfying(AppException.class,
-                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.PRODUCT_NOT_FOUND));
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ProductErrorCode.PRODUCT_NOT_FOUND));
     }
 
     private static String detailKey(UUID id) {

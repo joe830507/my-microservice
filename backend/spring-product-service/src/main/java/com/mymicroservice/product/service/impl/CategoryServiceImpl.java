@@ -22,8 +22,9 @@ import com.mymicroservice.product.dto.category.getCategoryBySlug.GetCategoryBySl
 import com.mymicroservice.product.dto.category.updateOneCategory.UpdateOneCategoryReq;
 import com.mymicroservice.product.dto.category.updateOneCategory.UpdateOneCategoryRes;
 import com.mymicroservice.product.entity.Category;
-import com.mymicroservice.product.exception.AppException;
-import com.mymicroservice.product.exception.ErrorCode;
+import com.mymicroservice.common.exception.AppException;
+import com.mymicroservice.common.exception.CommonErrorCode;
+import com.mymicroservice.product.exception.ProductErrorCode;
 import com.mymicroservice.product.repository.CategoryRepository;
 import com.mymicroservice.product.service.CategoryService;
 
@@ -46,18 +47,18 @@ public class CategoryServiceImpl implements CategoryService {
         // 1. 檢查parentId是否存在
         if (addOneNewCategoryReq.parentId() != null
                 && !categoryRepository.existsById(addOneNewCategoryReq.parentId())) {
-            throw new AppException(ErrorCode.CATEGORY_PARENT_NOT_FOUND);
+            throw new AppException(ProductErrorCode.CATEGORY_PARENT_NOT_FOUND);
         }
 
         // 2. 驗證slug是否已經存在
         if (categoryRepository.existsBySlug(addOneNewCategoryReq.slug())) {
-            throw new AppException(ErrorCode.CATEGORY_SLUG_DUPLICATED);
+            throw new AppException(ProductErrorCode.CATEGORY_SLUG_DUPLICATED);
         }
 
         // 3. 同一個parent下是否有同樣的name
         if (categoryRepository.existsByParentIdAndName(addOneNewCategoryReq.parentId(),
                 addOneNewCategoryReq.name())) {
-            throw new AppException(ErrorCode.CATEGORY_NAME_DUPLICATED);
+            throw new AppException(ProductErrorCode.CATEGORY_NAME_DUPLICATED);
         }
 
         Category savedCategory = categoryRepository.save(addOneNewCategoryReq.toEntity());
@@ -76,7 +77,7 @@ public class CategoryServiceImpl implements CategoryService {
     public GetCategoryByIdRes getCategoryById(UUID id) {
         return categoryRepository.findById(id)
                 .map(GetCategoryByIdRes::from)
-                .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ProductErrorCode.CATEGORY_NOT_FOUND));
     }
 
     @Override
@@ -85,7 +86,7 @@ public class CategoryServiceImpl implements CategoryService {
         // 前台使用，停用的分類視同不存在
         return categoryRepository.findBySlugAndActiveTrue(slug)
                 .map(GetCategoryBySlugRes::from)
-                .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ProductErrorCode.CATEGORY_NOT_FOUND));
     }
 
     // 不開交易：快取命中時不需要拿 DB 連線；查 DB 時由 repository 自己開唯讀交易
@@ -137,11 +138,11 @@ public class CategoryServiceImpl implements CategoryService {
     public UpdateOneCategoryRes updateOneCategory(UUID id, UpdateOneCategoryReq updateOneCategoryReq) {
         // 1. 驗證是否存在
         Category category = categoryRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ProductErrorCode.CATEGORY_NOT_FOUND));
 
         // 2. 樂觀鎖：前端帶回的版本須與目前版本一致，避免覆蓋他人的修改
         if (!category.getVersion().equals(updateOneCategoryReq.version())) {
-            throw new AppException(ErrorCode.VERSION_CONFLICT);
+            throw new AppException(CommonErrorCode.VERSION_CONFLICT);
         }
 
         // 3. 檢查新的parent是否存在，且不可為自己或自己的子孫
@@ -151,13 +152,13 @@ public class CategoryServiceImpl implements CategoryService {
 
         // 4. 驗證slug是否與其他分類重複
         if (categoryRepository.existsBySlugAndIdNot(updateOneCategoryReq.slug(), id)) {
-            throw new AppException(ErrorCode.CATEGORY_SLUG_DUPLICATED);
+            throw new AppException(ProductErrorCode.CATEGORY_SLUG_DUPLICATED);
         }
 
         // 5. 同一個parent下是否有其他分類同名
         if (categoryRepository.existsByParentIdAndNameAndIdNot(updateOneCategoryReq.parentId(),
                 updateOneCategoryReq.name(), id)) {
-            throw new AppException(ErrorCode.CATEGORY_NAME_DUPLICATED);
+            throw new AppException(ProductErrorCode.CATEGORY_NAME_DUPLICATED);
         }
 
         // category 為 managed 狀態，不需 save；flush 後 updatedAt 與 version 才會更新
@@ -173,14 +174,14 @@ public class CategoryServiceImpl implements CategoryService {
         UUID currentId = newParentId;
         while (currentId != null) {
             if (currentId.equals(id)) {
-                throw new AppException(ErrorCode.CATEGORY_PARENT_INVALID);
+                throw new AppException(ProductErrorCode.CATEGORY_PARENT_INVALID);
             }
             // 防止 DB 中已存在的循環資料造成無窮迴圈
             if (!visited.add(currentId)) {
                 break;
             }
             currentId = categoryRepository.findById(currentId)
-                    .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_PARENT_NOT_FOUND))
+                    .orElseThrow(() -> new AppException(ProductErrorCode.CATEGORY_PARENT_NOT_FOUND))
                     .getParentId();
         }
     }

@@ -19,8 +19,9 @@ import com.mymicroservice.product.dto.productImage.updateOneProductImage.UpdateO
 import com.mymicroservice.product.entity.Product;
 import com.mymicroservice.product.entity.ProductImage;
 import com.mymicroservice.product.entity.ProductStatus;
-import com.mymicroservice.product.exception.AppException;
-import com.mymicroservice.product.exception.ErrorCode;
+import com.mymicroservice.common.exception.AppException;
+import com.mymicroservice.common.exception.CommonErrorCode;
+import com.mymicroservice.product.exception.ProductErrorCode;
 import com.mymicroservice.product.repository.ProductImageRepository;
 import com.mymicroservice.product.repository.ProductRepository;
 import com.mymicroservice.product.service.ProductImageService;
@@ -39,11 +40,11 @@ public class ProductImageServiceImpl implements ProductImageService {
             AddOneNewProductImageReq addOneNewProductImageReq) {
         // 1. 查詢產品是否存在
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ProductErrorCode.PRODUCT_NOT_FOUND));
 
         // 2. 驗證產品是否為封存
         if (product.getStatus() == ProductStatus.ARCHIVED) {
-            throw new AppException(ErrorCode.PRODUCT_ARCHIVED);
+            throw new AppException(ProductErrorCode.PRODUCT_ARCHIVED);
         }
 
         ProductImage productImage = addOneNewProductImageReq.toEntity(productId);
@@ -65,7 +66,7 @@ public class ProductImageServiceImpl implements ProductImageService {
     public GetProductImagesRes getProductImages(UUID productId) {
         // 檢查產品存不存在
         if (!productRepository.existsById(productId)) {
-            throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+            throw new AppException(ProductErrorCode.PRODUCT_NOT_FOUND);
         }
         List<ProductImage> productImages = productImageRepository.findAllByProductIdOrderBySortOrder(productId);
 
@@ -77,18 +78,18 @@ public class ProductImageServiceImpl implements ProductImageService {
             UpdateOneProductImageReq updateOneProductImageReq) {
         // 1. 查詢product
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ProductErrorCode.PRODUCT_NOT_FOUND));
 
         // 2. 檢查是否為ARCHIVED
         if (ProductStatus.ARCHIVED == product.getStatus()) {
-            throw new AppException(ErrorCode.PRODUCT_ARCHIVED);
+            throw new AppException(ProductErrorCode.PRODUCT_ARCHIVED);
         }
 
         ProductImage productImage = productImageRepository.findByIdAndProductId(imageId, productId)
-                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_IMAGE_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ProductErrorCode.PRODUCT_IMAGE_NOT_FOUND));
         // 3. 比對Version
         if (!updateOneProductImageReq.version().equals(productImage.getVersion())) {
-            throw new AppException(ErrorCode.VERSION_CONFLICT);
+            throw new AppException(CommonErrorCode.VERSION_CONFLICT);
         }
 
         updateOneProductImageReq.applyTo(productImage);
@@ -100,18 +101,18 @@ public class ProductImageServiceImpl implements ProductImageService {
     public void deleteOneProductImage(UUID productId, UUID imageId) {
         // 1. 先確認該產品圖片在不在
         ProductImage productImage = productImageRepository.findByIdAndProductId(imageId, productId)
-                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_IMAGE_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ProductErrorCode.PRODUCT_IMAGE_NOT_FOUND));
 
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ProductErrorCode.PRODUCT_NOT_FOUND));
         // 2. 檢查是否為ARCHIVED
         if (ProductStatus.ARCHIVED == product.getStatus()) {
-            throw new AppException(ErrorCode.PRODUCT_ARCHIVED);
+            throw new AppException(ProductErrorCode.PRODUCT_ARCHIVED);
         }
 
         // 3. 檢查商品是否為ACTIVE且主圖不能刪除
         if (ProductStatus.ACTIVE == product.getStatus() && productImage.getIsPrimary()) {
-            throw new AppException(ErrorCode.PRODUCT_IMAGE_PRIMARY_UNDELETABLE);
+            throw new AppException(ProductErrorCode.PRODUCT_IMAGE_PRIMARY_UNDELETABLE);
         }
 
         // 4.刪除圖片
@@ -122,16 +123,16 @@ public class ProductImageServiceImpl implements ProductImageService {
     public GetProductImagesRes setPrimaryProductImage(UUID productId, UUID imageId) {
         // 1. 查詢商品
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ProductErrorCode.PRODUCT_NOT_FOUND));
 
         // 2. 檢查是否為ARCHIVED
         if (ProductStatus.ARCHIVED == product.getStatus()) {
-            throw new AppException(ErrorCode.PRODUCT_ARCHIVED);
+            throw new AppException(ProductErrorCode.PRODUCT_ARCHIVED);
         }
 
         // 3. 先確認該產品圖片在不在
         ProductImage productImage = productImageRepository.findByIdAndProductId(imageId, productId)
-                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_IMAGE_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ProductErrorCode.PRODUCT_IMAGE_NOT_FOUND));
 
         // 4. 已經是主圖就不需變更
         if (productImage.getIsPrimary()) {
@@ -158,11 +159,11 @@ public class ProductImageServiceImpl implements ProductImageService {
     public GetProductImagesRes reorderProductImages(UUID productId, ReorderProductImagesReq reorderProductImagesReq) {
         // 1. 查詢商品
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ProductErrorCode.PRODUCT_NOT_FOUND));
 
         // 2. 檢查是否為ARCHIVED
         if (ProductStatus.ARCHIVED == product.getStatus()) {
-            throw new AppException(ErrorCode.PRODUCT_ARCHIVED);
+            throw new AppException(ProductErrorCode.PRODUCT_ARCHIVED);
         }
 
         // 查詢產品圖片
@@ -170,7 +171,7 @@ public class ProductImageServiceImpl implements ProductImageService {
         Set<UUID> currentIds = images.stream().map(ProductImage::getId).collect(Collectors.toSet());
         // 3. 檢驗id清單是否與該商品的圖片完全一致
         if (!currentIds.equals(new HashSet<>(reorderProductImagesReq.imageIds()))) {
-            throw new AppException(ErrorCode.PRODUCT_IMAGE_IDS_MISMATCH);
+            throw new AppException(ProductErrorCode.PRODUCT_IMAGE_IDS_MISMATCH);
         }
 
         // 製成image map

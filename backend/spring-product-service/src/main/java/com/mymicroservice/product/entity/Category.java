@@ -6,6 +6,8 @@ import org.hibernate.Hibernate;
 import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.annotations.UuidGenerator.Style;
 
+import com.mymicroservice.common.entity.CommonEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;

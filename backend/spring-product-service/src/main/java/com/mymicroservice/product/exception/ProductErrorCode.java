@@ -2,20 +2,17 @@ package com.mymicroservice.product.exception;
 
 import org.springframework.http.HttpStatus;
 
+import com.mymicroservice.common.exception.ErrorCode;
+
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-// 所有錯誤訊息集中於此；名稱即回應中的 code，前端可依 code 判斷錯誤類型，不需比對訊息文字
+// product-service 的業務錯誤碼；共用錯誤碼（VALIDATION_FAILED 等）在 common 的 CommonErrorCode
+// 名稱即回應中的 code，前端可依 code 判斷錯誤類型，不需比對訊息文字
 // message 可含 %s 佔位符，由 AppException 建構時帶入參數
 @Getter
 @RequiredArgsConstructor
-public enum ErrorCode {
-    // Common
-    VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "request validation failed."),
-    VERSION_CONFLICT(HttpStatus.CONFLICT, "data has been modified by others, please reload."),
-    DATA_CONFLICT(HttpStatus.CONFLICT, "data conflicts with existing data."),
-    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "server error, please contact administrator."),
-
+public enum ProductErrorCode implements ErrorCode {
     // Category
     CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "category not found."),
     CATEGORY_INACTIVE(HttpStatus.BAD_REQUEST, "category is inactive."),

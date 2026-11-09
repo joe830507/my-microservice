@@ -19,8 +19,8 @@ import com.mymicroservice.product.dto.category.addOneNewCategory.AddOneNewCatego
 import com.mymicroservice.product.dto.category.getCategoriesTree.CategoryTreeNode;
 import com.mymicroservice.product.dto.category.getCategoriesTree.GetCategoriesTreeRes;
 import com.mymicroservice.product.dto.category.updateOneCategory.UpdateOneCategoryReq;
-import com.mymicroservice.product.exception.AppException;
-import com.mymicroservice.product.exception.ErrorCode;
+import com.mymicroservice.common.exception.AppException;
+import com.mymicroservice.common.exception.CommonErrorCode;
 import com.mymicroservice.product.service.CategoryService;
 
 // 透過 CategoryService 驗證分類樹快取的讀取與失效，DB 與 Redis 皆為 Testcontainers 啟動的真實容器
@@ -104,7 +104,7 @@ class CategoryTreeCacheIntegrationTests {
 
         assertThatThrownBy(() -> categoryService.updateOneCategory(category.id(), staleReq))
                 .isInstanceOfSatisfying(AppException.class,
-                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.VERSION_CONFLICT));
+                        e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.VERSION_CONFLICT));
         assertThat(redisTemplate.hasKey(CategoryTreeCache.KEY)).isTrue();
     }
 
