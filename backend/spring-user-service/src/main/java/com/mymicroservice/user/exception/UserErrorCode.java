@@ -22,6 +22,8 @@ public enum UserErrorCode implements ErrorCode {
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "email or password is incorrect."),
     // 必須在密碼驗證通過後才檢查，否則同樣會洩漏帳號是否存在
     USER_DISABLED(HttpStatus.FORBIDDEN, "user is disabled."),
+    // 同一個 email 短時間內登入失敗太多次；不論帳號是否存在都一樣，避免被用來探測 email
+    TOO_MANY_LOGIN_ATTEMPTS(HttpStatus.TOO_MANY_REQUESTS, "too many failed login attempts, please try again later."),
     // 不存在、已過期、已撤銷或被重複使用，一律回此錯誤，前端收到後要求重新登入
     REFRESH_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "refresh token is invalid or expired."),
 

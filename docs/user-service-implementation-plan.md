@@ -488,9 +488,28 @@ set -a; . secrets/dev.env; set +a
 - refresh token 不受輪替影響：它是存在 DB 的隨機字串，不是用金鑰簽的
 - K8s：新私鑰放進 Secret，`previous-keys` 的公鑰可以放同一個 Secret 或 ConfigMap
 
+### 登入失敗次數限制
+
+**已完成**：`LoginAttemptService`、`LoginAttemptProperties`、`AuthServiceImpl#login` 接上計數；`infra/docker-compose.yml` 新增 `user-redis`（port 6380）；測試 `AuthControllerLoginAttemptIntegrationTests`（11）、`LoginAttemptServiceTest`（4）。
+
+| 項目 | 做法 |
+|---|---|
+| 規則 | 同一個 email 在 `window`（15m）內失敗 `max-failures`（5）次，到 window 結束前一律回 429 `TOO_MANY_LOGIN_ATTEMPTS` |
+| 鎖住期間 | 不比對密碼，**密碼正確也回 429**，否則攻擊者可以繼續猜 |
+| 不存在的 email | 一樣計數、一樣鎖，回應相同，無法用來探測 email |
+| 重設 | 密碼正確就清除計數（停用帳號也是密碼正確，一併清除） |
+| 時間窗 | 從第一次失敗起算的固定時間窗；之後的失敗不延長 |
+| Redis key | `user-service:login-failures:` + email 的 SHA-256，不存 email 原文 |
+| 原子性 | INCR 與 PEXPIRE 用 Lua script 一起執行；分開的話中間失敗會留下永不過期的 key，帳號就永久被鎖 |
+| Redis 掛掉 | 放行（fail open）並記 warn：寧可暫時沒有限制，也不要所有人都無法登入；指令逾時 500ms |
+| 測試設定 | `application-test.yml` 把上限調到 1000，避免其他測試的失敗登入互相干擾；限流測試自己改回 3 |
+
+- **取捨**：只依 email 限制，知道 email 的人可以故意失敗把對方鎖住 15 分鐘。依來源 IP 的限制要在 Gateway 做：user-service 在 Gateway 後面，看到的都是 Gateway 的 IP
+- 本機開發要先啟動 Redis：`docker compose -f infra/docker-compose.yml up -d user-redis`。沒啟動也能登入，只是沒有限制，日誌會有 warn
+
 ---
 
 ## 之後再處理
 
 - Gateway 接上 JWKS 驗簽（`feature/api-gateway` 分支）
-- 登入失敗次數限制（搭配 Redis）
+- Gateway 依來源 IP 限制登入請求次數，補 email 限制的不足

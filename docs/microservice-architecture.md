@@ -49,14 +49,14 @@
 
 ### 本機 port 分配
 
-| 服務 | 應用程式 port | DB port |
-|---|---|---|
-| api-gateway | 8080 | — |
-| product-service | 8081 | 5432 |
-| order-service | 8082 | 5433 |
-| inventory-service | 8083 | 5434 |
-| user-service | 8084 | 5435 |
-| payment-service | 8085 | 5436 |
+| 服務 | 應用程式 port | DB port | Redis port |
+|---|---|---|---|
+| api-gateway | 8080 | — | — |
+| product-service | 8081 | 5432 | 6379（快取） |
+| order-service | 8082 | 5433 | — |
+| inventory-service | 8083 | 5434 | — |
+| user-service | 8084 | 5435 | 6380（登入失敗計數） |
+| payment-service | 8085 | 5436 | — |
 
 > 現有的 `GET /api/v1/products/batch` 主要給 order-service 用。之後可以搬到 `/internal/v1/products/batch`，或是對內、對外各留一支；雛型階段先不動。
 

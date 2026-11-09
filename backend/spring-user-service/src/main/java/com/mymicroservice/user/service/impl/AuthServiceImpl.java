@@ -42,6 +42,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtEncoder jwtEncoder;
     private final JwtProperties jwtProperties;
+    private final LoginAttemptService loginAttemptService;
 
     // 帳號不存在時拿來比對的假雜湊，讓回應時間與「帳號存在但密碼錯」相近
     // 否則 bcrypt 比對約需數十毫秒，可從回應快慢推測 email 是否已註冊
@@ -49,13 +50,14 @@ public class AuthServiceImpl implements AuthService {
 
     public AuthServiceImpl(UserRepository userRepository, RefreshTokenRepository refreshTokenRepository,
             RefreshTokenGenerator refreshTokenGenerator, PasswordEncoder passwordEncoder,
-            JwtEncoder jwtEncoder, JwtProperties jwtProperties) {
+            JwtEncoder jwtEncoder, JwtProperties jwtProperties, LoginAttemptService loginAttemptService) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.refreshTokenGenerator = refreshTokenGenerator;
         this.passwordEncoder = passwordEncoder;
         this.jwtEncoder = jwtEncoder;
         this.jwtProperties = jwtProperties;
+        this.loginAttemptService = loginAttemptService;
         this.dummyPasswordHash = passwordEncoder.encode(UUID.randomUUID().toString());
     }
 
@@ -82,22 +84,35 @@ public class AuthServiceImpl implements AuthService {
     // 會寫入 refresh token，不能是 readOnly
     @Override
     public TokenResDto login(LoginReqDto loginReqDto) {
-        // 1. 查使用者並比對密碼；帳號不存在與密碼錯誤一律回 INVALID_CREDENTIALS
-        User user = userRepository.findByEmail(loginReqDto.email()).orElse(null);
+        String email = loginReqDto.email();
+
+        // 1. 失敗次數已達上限就直接擋下，不比對密碼：鎖住期間就算猜中密碼也拿不到 token
+        // 帳號不存在的 email 一樣會被計數、鎖住，回應和存在的帳號相同
+        if (loginAttemptService.isBlocked(email)) {
+            throw new AppException(UserErrorCode.TOO_MANY_LOGIN_ATTEMPTS);
+        }
+
+        // 2. 查使用者並比對密碼；帳號不存在與密碼錯誤一律回 INVALID_CREDENTIALS，並累計失敗次數
+        User user = userRepository.findByEmail(email).orElse(null);
         if (user == null) {
             passwordEncoder.matches(loginReqDto.password(), dummyPasswordHash);
+            loginAttemptService.recordFailure(email);
             throw new AppException(UserErrorCode.INVALID_CREDENTIALS);
         }
         if (!passwordEncoder.matches(loginReqDto.password(), user.getPasswordHash())) {
+            loginAttemptService.recordFailure(email);
             throw new AppException(UserErrorCode.INVALID_CREDENTIALS);
         }
 
-        // 2. 密碼正確後才檢查狀態，否則從 403 就能得知帳號存在
+        // 3. 密碼正確：清除失敗次數（停用的帳號也是密碼正確，不算猜錯）
+        loginAttemptService.reset(email);
+
+        // 4. 密碼正確後才檢查狀態，否則從 403 就能得知帳號存在
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new AppException(UserErrorCode.USER_DISABLED);
         }
 
-        // 3. 簽發 access token 與 refresh token
+        // 5. 簽發 access token 與 refresh token
         return issueTokens(user, Instant.now());
     }
 

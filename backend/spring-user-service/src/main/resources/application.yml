@@ -18,6 +18,12 @@ spring:
       hibernate:
         format_sql: true
     show-sql: false
+  data:
+    redis:
+      host: localhost
+      port: 6380 # infra/docker-compose.yml 的 user-redis
+      timeout: 500ms # 每個指令最多等多久；Redis 慢或掛掉時登入不會被拖住
+      connect-timeout: 1s
 jwt:
   private-key-location: ${JWT_PRIVATE_KEY_LOCATION:file:./secrets/jwt-private.pem}
   public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:./secrets/jwt-public.pem}
@@ -31,3 +37,7 @@ app:
   refresh-token-cleanup:
     cron: "0 30 3 * * *"
     retention: 7d
+  # 同一個 email 在 window 內失敗 max-failures 次後，到 window 結束前一律回 429（LoginAttemptService）
+  login-attempt:
+    max-failures: 5
+    window: 15m
