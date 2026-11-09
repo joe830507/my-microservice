@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 public enum OrderErrorCode implements ErrorCode {
     // 不存在，或不是自己的訂單（不透露別人的訂單 id 存在）
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "order not found: %s."),
+    // 只有 PENDING_PAYMENT 可以取消；已付款的要走退款流程（雛型階段不做）
+    ORDER_NOT_CANCELLABLE(HttpStatus.CONFLICT, "order %s cannot be cancelled in status %s."),
 
     // 建立訂單：列出所有有問題的商品 id 或 SKU，以逗號分隔
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "product not found: %s."),

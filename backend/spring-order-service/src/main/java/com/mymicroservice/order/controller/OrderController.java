@@ -62,6 +62,15 @@ public class OrderController {
         return orderService.getOrder(id, userId, isAdmin(roles));
     }
 
+    // 取消訂單：只限 PENDING_PAYMENT；已取消的回 200；本人或 ADMIN，別人的訂單回 404
+    @PostMapping(value = "/{id}/cancel", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.OK)
+    public OrderResDto cancelOrder(@CurrentUserId UUID userId,
+            @RequestHeader(value = UserContextHeaders.USER_ROLES, required = false) String roles,
+            @PathVariable UUID id) {
+        return orderService.cancelOrder(id, userId, isAdmin(roles));
+    }
+
     private static boolean isAdmin(String roles) {
         return UserContext.parseRoles(roles).contains("ADMIN");
     }

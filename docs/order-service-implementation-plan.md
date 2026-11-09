@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/order-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「order-service」、「服務互動：下單流程」
-> 狀態：Step 1–4 完成（2026-11-09），下一步 Step 5
+> 狀態：Step 1–5 完成（2026-11-09），下一步 Step 6
 
 ## 進度
 
@@ -13,7 +13,7 @@
 | 2 | `POST /api/v1/orders` 建立訂單（呼叫 product、inventory） | 完成 |
 | 3 | `GET /api/v1/orders/{id}` 訂單詳情 | 完成 |
 | 4 | `GET /api/v1/orders` 訂單列表 | 完成 |
-| 5 | `POST /api/v1/orders/{id}/cancel` 取消訂單 | 未開始 |
+| 5 | `POST /api/v1/orders/{id}/cancel` 取消訂單 | 完成 |
 | 6 | `GET /internal/v1/orders/{id}` 給 payment-service 查訂單 | 未開始 |
 | 7 | `POST /internal/v1/orders/{id}/paid` 付款成功通知 | 未開始 |
 | 8 | 排程：付款逾時自動取消、補做失敗的庫存釋放與確認 | 未開始 |
@@ -133,6 +133,13 @@ order_item
 
 - 狀態轉換用條件式 UPDATE，和付款通知同時送達時只有一個成功
 - 只有本人或 ADMIN 能取消；別人的訂單回 404
+
+**已完成**：`OrderController.cancelOrder`、`OrderRepository.cancelIfPending`、`markReservationSynced`；測試 `OrderControllerCancelIntegrationTests`（12）。
+
+- 狀態改完並 commit 後才呼叫 inventory 釋放，呼叫期間不佔 DB 連線；成功才標成已同步
+- inventory 掛掉時取消照樣成功，`reservation_synced` 維持 false
+- 已取消但還沒同步的訂單再取消一次，會重試釋放
+- 併發測試：同時取消 5 次全部回 200，訂單只被改一次（version 只加 1）
 
 ## Step 6：內部查詢訂單
 

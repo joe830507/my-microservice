@@ -14,4 +14,6 @@ public interface OrderService {
     public OrderResDto getOrder(UUID orderId, UUID userId, boolean admin);
 
     public GetOrdersResDto getOrders(GetOrdersReqDto getOrdersReqDto, UUID userId, boolean admin);
+
+    public OrderResDto cancelOrder(UUID orderId, UUID userId, boolean admin);
 }

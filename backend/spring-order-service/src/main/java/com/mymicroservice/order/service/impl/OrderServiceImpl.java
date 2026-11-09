@@ -1,6 +1,7 @@
 package com.mymicroservice.order.service.impl;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -8,10 +9,13 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.mymicroservice.common.CommonAutoConfiguration;
 import com.mymicroservice.common.exception.AppException;
 import com.mymicroservice.order.clients.InventoryClient;
 import com.mymicroservice.order.clients.InventoryClient.ReserveResult;
@@ -30,16 +34,24 @@ import com.mymicroservice.order.repositories.OrderRepository;
 import com.mymicroservice.order.service.OrderService;
 import com.mymicroservice.order.support.UuidV7;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final ProductClient productClient;
     private final InventoryClient inventoryClient;
+    private final AuditorAware<UUID> auditorAware;
+
+    public OrderServiceImpl(OrderRepository orderRepository, ProductClient productClient,
+            InventoryClient inventoryClient,
+            @Qualifier(CommonAutoConfiguration.AUDITOR_AWARE_BEAN_NAME) AuditorAware<UUID> auditorAware) {
+        this.orderRepository = orderRepository;
+        this.productClient = productClient;
+        this.inventoryClient = inventoryClient;
+        this.auditorAware = auditorAware;
+    }
 
     // 不加 @Transactional：呼叫 product、inventory 時不能佔著 DB 連線；只有最後存檔在交易內（repository 自己的交易）
     // 1. 查商品  2. 預扣庫存  3. 存訂單；預扣之後的步驟失敗都要釋放，不能讓庫存被扣住
@@ -69,10 +81,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public OrderResDto getOrder(UUID orderId, UUID userId, boolean admin) {
-        return orderRepository.findWithItemsById(orderId)
-                .filter(order -> admin || order.getUserId().equals(userId))
-                .map(OrderResDto::from)
-                .orElseThrow(() -> new AppException(OrderErrorCode.ORDER_NOT_FOUND, orderId));
+        return OrderResDto.from(findVisibleOrder(orderId, userId, admin));
     }
 
     // 一般使用者只列出自己的（忽略 userId 參數）；ADMIN 列出全部，可用 userId 篩選
@@ -89,6 +98,49 @@ public class OrderServiceImpl implements OrderService {
                     getOrdersReqDto.status()));
         }
         return GetOrdersResDto.from(orderRepository.findAll(specification, getOrdersReqDto.toPageable()));
+    }
+
+    // 只有 PENDING_PAYMENT 可以取消；已經取消的回 200（冪等）；別人的訂單回 404
+    // 不加 @Transactional：狀態改完並 commit 後才呼叫 inventory，呼叫期間不佔著 DB 連線
+    // 釋放失敗不影響取消的結果：reservationSynced 維持 false，由排程重試
+    @Override
+    public OrderResDto cancelOrder(UUID orderId, UUID userId, boolean admin) {
+        findVisibleOrder(orderId, userId, admin);
+
+        boolean cancelled = orderRepository.cancelIfPending(orderId, Instant.now(),
+                auditorAware.getCurrentAuditor().orElseThrow()) == 1;
+        if (!cancelled) {
+            // 狀態不對：重新讀取，可能剛好被別的請求取消（冪等），或已經付款
+            Order order = findVisibleOrder(orderId, userId, admin);
+            if (order.getStatus() != OrderStatus.CANCELLED) {
+                throw new AppException(OrderErrorCode.ORDER_NOT_CANCELLABLE, orderId, order.getStatus());
+            }
+            if (order.isReservationSynced()) {
+                return OrderResDto.from(order);
+            }
+        }
+
+        // 新取消的，或之前取消但釋放還沒成功的：呼叫 inventory 釋放（inventory 那邊是冪等的）
+        syncReservation(orderId, ReservationStatus.RELEASED);
+        return OrderResDto.from(findVisibleOrder(orderId, userId, admin));
+    }
+
+    // 呼叫 inventory 讓預扣變成 target 狀態；成功才標成已同步，失敗留給排程重試
+    private void syncReservation(UUID orderId, ReservationStatus target) {
+        boolean success = switch (target) {
+            case RELEASED -> inventoryClient.release(orderId);
+            case CONFIRMED -> inventoryClient.confirm(orderId);
+            case RESERVED -> throw new IllegalArgumentException("cannot sync to RESERVED");
+        };
+        if (success) {
+            orderRepository.markReservationSynced(orderId, target);
+        }
+    }
+
+    private Order findVisibleOrder(UUID orderId, UUID userId, boolean admin) {
+        return orderRepository.findWithItemsById(orderId)
+                .filter(order -> admin || order.getUserId().equals(userId))
+                .orElseThrow(() -> new AppException(OrderErrorCode.ORDER_NOT_FOUND, orderId));
     }
 
     // 不存在的商品 → 404；沒有上架的 → 409；兩種都列出全部有問題的
