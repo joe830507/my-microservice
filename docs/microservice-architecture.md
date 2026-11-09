@@ -25,7 +25,7 @@
 | `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 已實作 |
 | `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](inventory-service-implementation-plan.md) |
 | `spring-order-service` | 訂單、商品快照、訂單狀態 | 已實作；步驟見 [order-service-implementation-plan.md](order-service-implementation-plan.md) |
-| `spring-payment-service` | 付款（雛型階段用模擬金流） | 待建立 |
+| `spring-payment-service` | 付款（雛型階段用模擬金流） | 實作中；步驟見 [payment-service-implementation-plan.md](payment-service-implementation-plan.md) |
 
 ### 暫不拆分
 
