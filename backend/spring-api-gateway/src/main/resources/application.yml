@@ -13,6 +13,9 @@ gateway:
       jwk-set-uri: ${gateway.services.user-uri}/api/v1/auth/jwks
       # 必須和 user-service 的 jwt.issuer 一致
       issuer: user-service
+      # 抓 JWKS 的時限；逾時回 503。JWKS 會快取，平常只有啟動後第一次、遇到新的 kid 時才會抓
+      jwks-connect-timeout: 1s
+      jwks-response-timeout: 2s
   # 來源 IP：0 = 直接用連線 IP（本機）；Gateway 前面有 N 層會加 X-Forwarded-For 的代理（例如 K8s Ingress）時設成 N
   # 只信任最後 N 個值中最前面那個：用戶端自己加的 X-Forwarded-For 在更前面，無法偽造 IP
   client-ip:
@@ -38,6 +41,11 @@ spring:
     gateway:
       server:
         webflux:
+          # 轉送到下游的時限：沒設的話下游卡住時連線會一直被占著
+          # 連不上回 5xx；連上了但超過 response-timeout 沒回應回 504
+          httpclient:
+            connect-timeout: 2000 # 毫秒
+            response-timeout: 10s
           # 路徑對應見 docs/microservice-architecture.md「api-gateway 路由」；/internal/** 一律不建路由
           # Path 的 /** 也會比對到沒有子路徑的情況，例如 /api/v1/products
           routes:
