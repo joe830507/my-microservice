@@ -24,4 +24,16 @@ public interface StockRepository extends JpaRepository<Stock, String> {
             """)
     int reserve(@Param("sku") String sku, @Param("qty") int qty, @Param("now") Instant now,
             @Param("updatedBy") UUID updatedBy);
+
+    // 確認扣除（付款成功）：預扣時 available 已經扣過，這裡只減少 reserved
+    // 回傳 0 代表 reserved 比預扣明細少，資料不一致
+    @Modifying
+    @Query("""
+            UPDATE Stock s
+            SET s.reserved = s.reserved - :qty,
+                s.version = s.version + 1, s.updatedAt = :now, s.updatedBy = :updatedBy
+            WHERE s.sku = :sku AND s.reserved >= :qty
+            """)
+    int confirmReserved(@Param("sku") String sku, @Param("qty") int qty, @Param("now") Instant now,
+            @Param("updatedBy") UUID updatedBy);
 }

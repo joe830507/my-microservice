@@ -1,11 +1,15 @@
 package com.mymicroservice.inventory.controller;
 
+import java.util.UUID;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mymicroservice.inventory.dtos.reservation.ReservationResDto;
@@ -30,5 +34,12 @@ public class InternalReservationController {
         ReserveResult result = reservationService.reserve(reserveReqDto);
         return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK)
                 .body(result.reservation());
+    }
+
+    // 付款成功後呼叫；重複確認回 200 和目前的結果
+    @PostMapping(value = "/{orderId}/confirm", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.OK)
+    public ReservationResDto confirm(@PathVariable UUID orderId) {
+        return reservationService.confirm(orderId);
     }
 }

@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/inventory-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「inventory-service」、「服務互動：下單流程」
-> 狀態：Step 1–4 完成（2026-11-09），下一步 Step 5
+> 狀態：Step 1–5 完成（2026-11-09），下一步 Step 6
 
 ## 進度
 
@@ -13,7 +13,7 @@
 | 2 | `GET /api/v1/inventory/{sku}` 查庫存 | 完成 |
 | 3 | `PUT /api/v1/inventory/{sku}` 後台設定庫存（ADMIN） | 完成 |
 | 4 | `POST /internal/v1/inventory/reservations` 預扣 | 完成 |
-| 5 | `POST /internal/v1/inventory/reservations/{orderId}/confirm` 確認扣除 | 未開始 |
+| 5 | `POST /internal/v1/inventory/reservations/{orderId}/confirm` 確認扣除 | 完成 |
 | 6 | `POST /internal/v1/inventory/reservations/{orderId}/release` 釋放預扣 | 未開始 |
 | 7 | api-gateway 加上 `/api/v1/inventory/**` 路由 | 未開始 |
 
@@ -151,6 +151,12 @@ SKU 雛型階段不檢查 product-service 裡是否存在；之後改成接收 `
 狀態轉換用條件式 UPDATE（`WHERE status = 'RESERVED'`），兩個請求同時確認時只有一個會調整庫存。
 
 **測試**：上表每種狀態、確認後庫存數字正確、重複確認不會再扣。
+
+**已完成**：`InternalReservationController.confirm`、`ReservationService.confirm`、`ReservationRepository.transition`、`StockRepository.confirmReserved`；測試 `InternalReservationConfirmIntegrationTests`（9）。
+
+- 狀態轉換成功後才調整庫存；明細依 SKU 排序，鎖的順序和預扣一致
+- `reserved` 比預扣明細少（資料不一致）時回 500，整筆 rollback，不會只確認一半
+- 併發測試：同一張訂單同時確認 5 次，全部回 200，只扣一次
 
 ---
 

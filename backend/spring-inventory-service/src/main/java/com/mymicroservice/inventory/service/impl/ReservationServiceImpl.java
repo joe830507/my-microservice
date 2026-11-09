@@ -81,6 +81,36 @@ public class ReservationServiceImpl implements ReservationService {
         return new ReserveResult(true, ReservationResDto.from(reservation));
     }
 
+    // 付款成功後由 order-service 呼叫：RESERVED → CONFIRMED，並把預扣數量從 reserved 扣掉
+    // 已經是 CONFIRMED → 不做任何事，回原本的結果（冪等）
+    @Override
+    public ReservationResDto confirm(UUID orderId) {
+        Instant now = Instant.now();
+        UUID updatedBy = auditorAware.getCurrentAuditor().orElseThrow();
+        boolean transitioned = reservationRepository.transition(orderId, ReservationStatus.RESERVED,
+                ReservationStatus.CONFIRMED, now, updatedBy) == 1;
+
+        // 轉換之後才讀，讀到的是最新狀態；狀態轉換失敗時也要讀出來判斷原因
+        Reservation reservation = reservationRepository.findWithItemsByOrderId(orderId)
+                .orElseThrow(() -> new AppException(InventoryErrorCode.RESERVATION_NOT_FOUND, orderId));
+        if (!transitioned) {
+            if (reservation.getStatus() == ReservationStatus.RELEASED) {
+                throw new AppException(InventoryErrorCode.RESERVATION_ALREADY_RELEASED, orderId);
+            }
+            return ReservationResDto.from(reservation);
+        }
+
+        // 明細已依 SKU 排序，鎖 row 的順序和預扣一致
+        for (ReservationItem item : reservation.getItems()) {
+            if (stockRepository.confirmReserved(item.getSku(), item.getQty(), now, updatedBy) == 0) {
+                // reserved 只會被預扣、確認、釋放改變，正常不會發生；丟例外讓整筆 rollback，不留下半套結果
+                throw new IllegalStateException(
+                        "reserved quantity of " + item.getSku() + " is less than reservation of order " + orderId);
+            }
+        }
+        return ReservationResDto.from(reservation);
+    }
+
     // 已經有同一個 orderId 的紀錄
     private ReserveResult replay(Reservation reservation, SortedMap<String, Integer> requested) {
         if (reservation.getStatus() == ReservationStatus.RELEASED) {
