@@ -25,3 +25,9 @@ spring:
       hibernate:
         format_sql: true
     show-sql: false
+app:
+  # 每分鐘重試還沒通知 order-service 成功的付款（OrderNotificationRetryJob）
+  order-notification-retry:
+    cron: "15 * * * * *"
+    min-age: 1m
+    batch-size: 100

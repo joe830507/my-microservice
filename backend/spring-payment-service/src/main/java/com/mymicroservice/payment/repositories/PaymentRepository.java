@@ -2,9 +2,11 @@ package com.mymicroservice.payment.repositories;
 
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -43,4 +45,14 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
             WHERE p.id = :id AND p.orderNotification = com.mymicroservice.payment.enums.OrderNotification.PENDING
             """)
     int markOrderNotification(@Param("id") UUID id, @Param("result") OrderNotification result);
+
+    // OrderNotificationRetryJob：還沒通知 order-service 成功的付款；使用 idx_payment_notification_pending
+    // 只挑最後更新超過一段時間的，避免和正在通知的回呼請求重複
+    @Query("""
+            SELECT p.id FROM Payment p
+            WHERE p.orderNotification = com.mymicroservice.payment.enums.OrderNotification.PENDING
+              AND p.updatedAt < :cutoff
+            ORDER BY p.updatedAt
+            """)
+    List<UUID> findPendingNotificationUpdatedBefore(@Param("cutoff") Instant cutoff, Pageable pageable);
 }

@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/payment-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「payment-service」、「服務互動：下單流程」
-> 狀態：Step 1–4 完成（2026-11-09），下一步 Step 5
+> 狀態：Step 1–5 完成（2026-11-09），下一步 Step 6
 
 ## 進度
 
@@ -13,7 +13,7 @@
 | 2 | `POST /api/v1/payments` 建立付款（向 order-service 取金額） | 完成 |
 | 3 | `GET /api/v1/payments/{id}` 查付款狀態 | 完成 |
 | 4 | `POST /api/v1/payments/{id}/mock-callback` 模擬金流回呼，成功時通知 order-service | 完成 |
-| 5 | 排程：重試通知 order-service 失敗的付款 | 未開始 |
+| 5 | 排程：重試通知 order-service 失敗的付款 | 完成 |
 | 6 | api-gateway 加上 `/api/v1/payments/**` 路由 | 未開始 |
 
 每一步都附整合測試，測試通過後單獨 commit。呼叫 order-service 的部分在測試裡用 WireMock 模擬。
@@ -100,6 +100,8 @@ payment
 ## Step 5：排程
 
 `order_notification = PENDING` 且最後更新超過 1 分鐘的付款，重新通知 order-service（order-service 那邊是冪等的）。
+
+**已完成**：`OrderNotificationRetryJob`（`app.order-notification-retry`，每分鐘）；測試 `OrderNotificationRetryJobIntegrationTests`（5）。測試時預設停用 cron（`src/test/resources/application.properties`）。
 
 ## Step 6：Gateway 路由
 
