@@ -52,7 +52,7 @@
 | 服務 | 應用程式 port | DB port | Redis port |
 |---|---|---|---|
 | api-gateway | 8080 | — | 6381（登入限流） |
-| product-service | 8081 | 5432 | 6379（快取） |
+| product-service | 8081 | 5432 | 6379（快取）；物件儲存 8333（商品圖片） |
 | order-service | 8082 | 5433 | — |
 | inventory-service | 8083 | 5434 | — |
 | user-service | 8084 | 5435 | 6380（登入失敗計數） |

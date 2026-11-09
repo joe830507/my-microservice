@@ -1,5 +1,15 @@
 # 商品圖片上傳設計（MinIO / S3）
 
+> **2026-11-09 更新：本機改用 SeaweedFS**。MinIO 已不提供免費映像（Docker Hub 不存在、quay.io 需要授權），
+> 改用同樣相容 S3 的 SeaweedFS；程式仍用 AWS SDK v2，流程與 API 不變。對應關係：
+>
+> | 設計裡的 MinIO 做法 | SeaweedFS 的做法 |
+> |---|---|
+> | `mc` 建 bucket | `weed shell` 的 `s3.bucket.create` |
+> | `products/*` 匿名讀的 bucket policy | `s3.json` 的 `anonymous` 身分只給 `Read:product-images/products/` |
+> | `tmp/` 的 lifecycle | `fs.configure -locationPrefix=/buckets/product-images/tmp/ -ttl=1d` |
+> | port 9000 | port 8333 |
+
 > 設計日期：2026-11-04
 > 對應：`product-service-middleware-evaluation.md` 第 4 點「物件儲存 + CDN」
 > 狀態：實作中，步驟見 [product-image-upload-implementation-plan.md](../implementation-plans/product-image-upload-implementation-plan.md)

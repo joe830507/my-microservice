@@ -3,33 +3,40 @@
 > 建立日期：2026-11-09
 > 分支：`feature/product-image-upload`
 > 設計：[product-image-upload-design.md](../design/product-image-upload-design.md)（流程、關鍵決定、API、錯誤碼都以設計文件為準，這裡只列步驟與實作細節）
-> 狀態：計畫完成，下一步 Step 1
+> 狀態：Step 1 完成（2026-11-09），下一步 Step 2
 
 ## 進度
 
 | Step | 內容 | 狀態 |
 |---|---|---|
-| 1 | compose 加 MinIO 與初始化；product-service 接上 S3 SDK（`StorageProperties`、`StorageConfig`） | 未開始 |
+| 1 | compose 加物件儲存（SeaweedFS）與初始化；product-service 接上 S3 SDK（`StorageProperties`、`StorageConfig`） | 完成 |
 | 2 | `ImageStorage` 與 `POST /api/v1/products/{productId}/images/upload-url` | 未開始 |
 | 3 | V4 migration（`url` → `object_key`）與改寫登記圖片 API | 未開始 |
 | 4 | 刪除圖片時一併刪除物件 | 未開始 |
 | 5 | 實際啟動驗證：上傳主圖 → 正常上架 → 下單 | 未開始 |
 
-每一步都附整合測試，測試通過後單獨 commit。測試用 Testcontainers 的 MinIO，實際 PUT 檔案，不用假的 S3。
+每一步都附整合測試，測試通過後單獨 commit。測試用 Testcontainers 跑真的物件儲存（SeaweedFS），實際 PUT 檔案，不用假的 S3。
 
 ---
 
-## Step 1：MinIO 與 S3 SDK
+## Step 1：物件儲存與 S3 SDK
 
 | 項目 | 值 |
 |---|---|
-| 映像 | `minio/minio`（API 9000、console 9001），固定版本 |
-| 初始化 | `minio-init`（`minio/mc`）：建立 bucket `product-images`、`products/*` 匿名讀、`tmp/` lifecycle 1 天；執行完就結束 |
-| 帳密 | 本機預設 `minioadmin`，可用環境變數覆蓋 |
+| 映像 | ~~`minio/minio`~~ → `chrislusf/seaweedfs:3.80`（S3 API 8333） |
+| 初始化 | `object-storage-init`（`weed shell`）：建立 bucket `product-images`、`tmp/` TTL 1 天；`products/` 匿名讀設定在 `s3.json` |
+| 帳密 | 本機用 `s3.json` 裡的開發帳號，可用環境變數覆蓋 |
 | SDK | `software.amazon.awssdk:s3`（BOM 管版本）、`forcePathStyle(true)` |
 | 設定 | `storage.endpoint`、`public-base-url`、`bucket`、`access-key`、`secret-key`、`upload-url-ttl`、`max-size`、`allowed-content-types` |
 
 **測試**：context 啟動、`S3Client` 能列出測試容器裡的 bucket。
+
+**已完成**：compose 的 `object-storage`、`object-storage-init`，`infra/seaweedfs/s3.json`；`StorageProperties`、`StorageConfig`；測試 `StorageConfigIntegrationTests`（2），測試用的 SeaweedFS 容器在 `TestcontainersConfiguration`。
+
+- **改用 SeaweedFS**（`chrislusf/seaweedfs:3.80`，S3 port 8333）：MinIO 的映像已經拉不到，詳見設計文件開頭的對應表
+- **AWS SDK 要關掉 chunked 上傳、只在必要時算 checksum**：SDK 2.30 起預設用 aws-chunked 加 checksum trailer 上傳，SeaweedFS 不會解開，會把 `5;chunk-signature=...` 整段當成檔案內容存下來（測試實際遇到）
+- compose 驗證：`object-storage-init` 建立 bucket、`tmp/` 的 TTL 為 1 天，執行完就結束
+- 測試時多一個 SeaweedFS 容器，product-service 的測試啟動時間多約 20 秒
 
 ## Step 2：申請上傳網址
 
@@ -55,7 +62,7 @@
 
 ## Step 5：實際啟動驗證
 
-用 compose 的 MinIO，經過 Gateway：申請網址 → PUT → 登記為主圖 → **正常上架**（不再直接改 DB）→ 下單 → 付款。
+用 compose 的物件儲存，經過 Gateway：申請網址 → PUT → 登記為主圖 → **正常上架**（不再直接改 DB）→ 下單 → 付款。
 
 ---
 
