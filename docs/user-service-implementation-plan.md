@@ -428,10 +428,28 @@ set -a; . secrets/dev.env; set +a
 
 ---
 
+## Step 7：補強
+
+### 清除過期的 refresh token
+
+**已完成**：`RefreshTokenCleanupJob`、`RefreshTokenCleanupProperties`、`SchedulingConfig`、`V5__add_refresh_token_expires_at_index.sql`；測試 `RefreshTokenCleanupJobIntegrationTests`（4）。
+
+| 項目 | 做法 |
+|---|---|
+| 時間 | `app.refresh-token-cleanup.cron: "0 30 3 * * *"`，時區固定 UTC；設為 `"-"` 停用 |
+| 刪除範圍 | `expires_at` 早於「現在 − `retention`（7d）」，不論是否已撤銷 |
+| 不刪的 | 已撤銷但未過期的：重複使用偵測要靠它們認出被撤銷的 token 又被拿來用 |
+| 多個實例 | 各自執行，但 DELETE 重複執行結果相同，不需要分散式鎖（例如 ShedLock） |
+| 索引 | `V5` 加 `expires_at` 索引，DELETE 不必掃整張表 |
+| `replaced_by` | FK 是 `ON DELETE SET NULL`，刪掉被指向的 token 不會擋下 DELETE |
+
+- 資料量很大時，一次 DELETE 可能鎖住大量資料列；到時再改成分批刪除
+
+---
+
 ## 之後再處理
 
 - Gateway 接上 JWKS 驗簽（`feature/api-gateway` 分支）
 - 金鑰輪替：JWKS 同時發布新舊兩把公鑰，用 `kid` 區分
 - 登入失敗次數限制（搭配 Redis）
-- 清除過期與已撤銷的 refresh token：排程刪除 `expires_at` 已過一段時間的資料，避免表無限成長
 - 「登出所有裝置」：需要 access token（`@CurrentUserId`），呼叫 `revokeAllActiveByUserId`

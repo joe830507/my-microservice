@@ -36,6 +36,12 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
     @Query("UPDATE RefreshToken t SET t.revokedAt = :now WHERE t.tokenHash = :tokenHash AND t.revokedAt IS NULL")
     int revokeByTokenHashIfActive(@Param("tokenHash") String tokenHash, @Param("now") Instant now);
 
+    // 排程清除：刪除過期時間早於 cutoff 的 token（不論是否已撤銷）
+    // 未過期但已撤銷的不能刪：重複使用偵測要靠它們認出「被撤銷的 token 又被拿來用」
+    @Modifying
+    @Query("DELETE FROM RefreshToken t WHERE t.expiresAt < :cutoff")
+    int deleteExpiredBefore(@Param("cutoff") Instant cutoff);
+
     // 重複使用偵測、帳號停用時，撤銷該使用者所有仍有效的 token
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE RefreshToken t SET t.revokedAt = :now WHERE t.userId = :userId AND t.revokedAt IS NULL")

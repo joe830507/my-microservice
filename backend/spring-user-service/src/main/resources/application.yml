@@ -26,3 +26,8 @@ jwt:
   access-token-ttl: 15m
   refresh-token-ttl: 14d
   refresh-token-reuse-grace: 10s
+app:
+  # 每天 UTC 03:30 刪除過期超過 7 天的 refresh token（RefreshTokenCleanupJob）
+  refresh-token-cleanup:
+    cron: "0 30 3 * * *"
+    retention: 7d
