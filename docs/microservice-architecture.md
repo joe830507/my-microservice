@@ -24,7 +24,7 @@
 | `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取） |
 | `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 已實作 |
 | `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](inventory-service-implementation-plan.md) |
-| `spring-order-service` | 訂單、商品快照、訂單狀態 | 空目錄 |
+| `spring-order-service` | 訂單、商品快照、訂單狀態 | 實作中；步驟見 [order-service-implementation-plan.md](order-service-implementation-plan.md) |
 | `spring-payment-service` | 付款（雛型階段用模擬金流） | 待建立 |
 
 ### 暫不拆分
@@ -127,7 +127,7 @@ backend/
 
 | 方法 | 路徑 | 說明 |
 |---|---|---|
-| POST | `/api/v1/orders` | 建立訂單，body 帶 `items[{sku, qty}]` |
+| POST | `/api/v1/orders` | 建立訂單，body 帶 `items[{productId, qty}]`（SKU 由 product 查回） |
 | GET | `/api/v1/orders/{id}` | 訂單詳情，只能看自己的 |
 | GET | `/api/v1/orders` | 自己的訂單列表；ADMIN 可查全部 |
 | POST | `/api/v1/orders/{id}/cancel` | 取消，只限尚未付款的訂單 |
