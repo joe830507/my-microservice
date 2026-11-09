@@ -3,14 +3,14 @@
 > 建立日期：2026-11-09
 > 分支：`feature/api-gateway`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「api-gateway 路由」
-> 狀態：Step 1 完成（2026-11-09），下一步 Step 2
+> 狀態：Step 2 完成（2026-11-09），下一步 Step 3
 
 ## 進度
 
 | Step | 內容 | 狀態 |
 |---|---|---|
 | 1 | 建立專案、路由到 product-service 與 user-service | 完成 |
-| 2 | JWT 驗簽（JWKS）與需要登入的路由 | 未開始 |
+| 2 | JWT 驗簽（JWKS）與需要登入的路由 | 完成 |
 | 3 | 身分 header：移除用戶端送來的 `X-User-*`，改填 JWT 的值 | 未開始 |
 | 4 | 封鎖 `/internal/**` | 未開始 |
 | 5 | 依來源 IP 限制登入請求次數（Redis） | 未開始 |
@@ -81,6 +81,14 @@ order、inventory、payment 的路由等服務建立後再加。
 - 後台路由的 `ADMIN` 檢查留在下游服務（`@RequireRoles`）：Gateway 只確認「有登入」，角色規則跟著各服務的 API 走，不用兩邊同步維護
 
 **測試**：測試裡自己產生金鑰對，用 WireMock 提供 JWKS；涵蓋沒帶 token、簽章錯誤、過期、`iss` 不符、未知 `kid`、公開路由不帶 token 也能通過。
+
+**已完成**：`SecurityConfig`、`JwtProperties`（`gateway.security.jwt.*`）、`ProblemDetailAuthenticationEntryPoint`；測試 `GatewayJwtIntegrationTests`（25），`GatewayRoutingIntegrationTests` 需要登入的路由改帶 token（16）。
+
+- 除了 `iss`，也要求 `sub` 必須存在（Step 3 要轉成 `X-User-Id`）
+- `/api/v1/auth/**` **不讀** `Authorization`：用戶端常在 access token 過期後才呼叫 refresh，若帶著過期 token，照 Spring 預設會先回 401。其他公開路由（GET 商品）帶了無效 token 仍回 401
+- 不在路由表的路徑：沒登入回 401，有登入才回 404，不洩漏哪些路徑存在
+- 401 帶 `WWW-Authenticate: Bearer`（token 無效時加 `error="invalid_token"`）；`detail` 不說明是過期還是簽章錯誤
+- 金鑰輪替：未知 `kid` 會重新抓 JWKS，測試確認換金鑰後新舊 token 都能通過
 
 ---
 

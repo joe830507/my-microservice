@@ -6,6 +6,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
@@ -32,7 +33,7 @@ import com.github.tomakehurst.wiremock.http.Fault;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 
 // 路由：依路徑轉到正確的下游服務，method、query、header、body 原樣轉送，回應原樣傳回
-// 下游服務用 WireMock 模擬，每個服務一個隨機 port
+// 下游服務用 WireMock 模擬，每個服務一個隨機 port；需要登入的路由帶有效的 token（JWT 驗證見 GatewayJwtIntegrationTests）
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebTestClient
 class GatewayRoutingIntegrationTests {
@@ -45,10 +46,16 @@ class GatewayRoutingIntegrationTests {
     static final WireMockExtension USER_SERVICE = WireMockExtension.newInstance()
             .options(wireMockConfig().dynamicPort()).build();
 
+    // JWKS 獨立一個 server，才不會讓 user-service 的請求紀錄多出 JWKS 的呼叫
+    @RegisterExtension
+    static final WireMockExtension JWKS_SERVER = WireMockExtension.newInstance()
+            .options(wireMockConfig().dynamicPort()).build();
+
     @DynamicPropertySource
     static void downstreamUris(DynamicPropertyRegistry registry) {
         registry.add("gateway.services.product-uri", PRODUCT_SERVICE::baseUrl);
         registry.add("gateway.services.user-uri", USER_SERVICE::baseUrl);
+        registry.add("gateway.security.jwt.jwk-set-uri", () -> JWKS_SERVER.baseUrl() + "/jwks");
     }
 
     @Autowired
@@ -58,6 +65,9 @@ class GatewayRoutingIntegrationTests {
 
     @BeforeEach
     void stubDownstreams() {
+        JWKS_SERVER.stubFor(get(urlEqualTo("/jwks")).willReturn(aResponse()
+                .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                .withBody(TestJwts.jwks(TestJwts.SIGNING_KEY))));
         PRODUCT_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
@@ -98,7 +108,7 @@ class GatewayRoutingIntegrationTests {
     @ParameterizedTest
     @ValueSource(strings = { "/api/v1/auth/jwks", "/api/v1/users/me", "/api/v1/users" })
     void userPaths_areRoutedToUserService(String path) {
-        webTestClient.get().uri(path).exchange()
+        webTestClient.get().uri(path).headers(headers -> headers.setBearerAuth(TestJwts.validToken())).exchange()
                 .expectStatus().isOk()
                 .expectBody().jsonPath("$.from").isEqualTo("user-service");
 
@@ -130,7 +140,8 @@ class GatewayRoutingIntegrationTests {
                 .withHeader("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE)
                 .withBody("{\"status\": 404, \"code\": \"USER_NOT_FOUND\"}")));
 
-        webTestClient.get().uri("/api/v1/users/me").exchange()
+        webTestClient.get().uri("/api/v1/users/me").headers(headers -> headers.setBearerAuth(TestJwts.validToken()))
+                .exchange()
                 .expectStatus().isNotFound()
                 .expectHeader().contentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .expectBody().jsonPath("$.code").isEqualTo("USER_NOT_FOUND");
@@ -150,7 +161,8 @@ class GatewayRoutingIntegrationTests {
     @ParameterizedTest
     @ValueSource(strings = { "/api/v1/orders", "/api/v1/unknown", "/api/v2/products", "/products" })
     void unroutedPaths_return404WithoutCallingAnyService(String path) {
-        webTestClient.get().uri(path).exchange()
+        // 帶有效的 token：沒帶的話先被 JWT 驗證擋下回 401
+        webTestClient.get().uri(path).headers(headers -> headers.setBearerAuth(TestJwts.validToken())).exchange()
                 .expectStatus().isEqualTo(HttpStatus.NOT_FOUND);
 
         PRODUCT_SERVICE.verify(0, anyRequestedFor(anyUrl()));

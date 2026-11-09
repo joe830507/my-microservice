@@ -7,6 +7,12 @@ gateway:
   services:
     product-uri: ${PRODUCT_SERVICE_URI:http://localhost:8081}
     user-uri: ${USER_SERVICE_URI:http://localhost:8084}
+  security:
+    jwt:
+      # user-service 的公鑰（JWKS）；Gateway 用它驗證 access token 的簽章
+      jwk-set-uri: ${gateway.services.user-uri}/api/v1/auth/jwks
+      # 必須和 user-service 的 jwt.issuer 一致
+      issuer: user-service
 
 spring:
   application:
