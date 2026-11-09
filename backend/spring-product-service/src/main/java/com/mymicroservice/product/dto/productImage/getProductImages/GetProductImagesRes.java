@@ -1,5 +1,6 @@
 package com.mymicroservice.product.dto.productImage.getProductImages;
 
+import java.util.function.UnaryOperator;
 import java.util.List;
 import java.util.UUID;
 
@@ -12,7 +13,8 @@ public record GetProductImagesRes(
         List<ProductImageItem> images) {
 
     // 傳入的 productImages 須已依 sortOrder 排序
-    public static GetProductImagesRes from(UUID productId, List<ProductImage> productImages) {
-        return new GetProductImagesRes(productId, productImages.stream().map(ProductImageItem::from).toList());
+    public static GetProductImagesRes from(UUID productId, List<ProductImage> productImages,
+            UnaryOperator<String> urlOf) {
+        return new GetProductImagesRes(productId, productImages.stream().map(image -> ProductImageItem.from(image, urlOf)).toList());
     }
 }

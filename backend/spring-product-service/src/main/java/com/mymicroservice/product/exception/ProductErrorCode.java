@@ -38,7 +38,11 @@ public enum ProductErrorCode implements ErrorCode {
     PRODUCT_IMAGE_IDS_MISMATCH(HttpStatus.BAD_REQUEST, "imageIds must contain exactly all images of the product."),
     // 申請上傳網址：類型不在允許清單、超過大小上限
     IMAGE_CONTENT_TYPE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "image content type %s is not allowed, allowed types: %s."),
-    IMAGE_TOO_LARGE(HttpStatus.BAD_REQUEST, "image size %s bytes exceeds the limit of %s bytes.");
+    IMAGE_TOO_LARGE(HttpStatus.BAD_REQUEST, "image size %s bytes exceeds the limit of %s bytes."),
+    // 登記圖片：key 不是這個商品的上傳網址給的格式（例如別的商品的檔案）
+    IMAGE_OBJECT_KEY_INVALID(HttpStatus.BAD_REQUEST, "image object key is invalid for this product."),
+    // 登記圖片：找不到上傳的檔案（沒上傳、已過期被刪、已經登記過），或實際類型、大小不符合限制
+    IMAGE_UPLOAD_NOT_FOUND(HttpStatus.BAD_REQUEST, "uploaded image not found or does not meet the limits.");
 
     private final HttpStatus status;
     private final String message;

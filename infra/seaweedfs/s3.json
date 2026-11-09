@@ -7,7 +7,7 @@
     },
     {
       "name": "anonymous",
-      "actions": ["Read:product-images/products/"]
+      "actions": ["Read:product-images/products/*"]
     }
   ]
 }

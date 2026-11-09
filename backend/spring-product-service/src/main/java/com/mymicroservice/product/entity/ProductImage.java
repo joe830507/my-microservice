@@ -30,8 +30,9 @@ public class ProductImage extends CommonEntity {
     @Column(name = "product_id", nullable = false)
     private UUID productId;
 
-    @Column(name = "url", nullable = false)
-    private String url;
+    // 物件儲存的 key（products/{productId}/{uuid}.{ext}）；對外網址由 ImageStorage.publicUrl 組成
+    @Column(name = "object_key", nullable = false, updatable = false)
+    private String objectKey;
 
     @Column(name = "alt_text")
     private String altText;

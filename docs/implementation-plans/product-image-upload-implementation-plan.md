@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/product-image-upload`
 > 設計：[product-image-upload-design.md](../design/product-image-upload-design.md)（流程、關鍵決定、API、錯誤碼都以設計文件為準，這裡只列步驟與實作細節）
-> 狀態：Step 1–2 完成（2026-11-09），下一步 Step 3
+> 狀態：Step 1–3 完成（2026-11-09），下一步 Step 4
 
 ## 進度
 
@@ -11,7 +11,7 @@
 |---|---|---|
 | 1 | compose 加物件儲存（SeaweedFS）與初始化；product-service 接上 S3 SDK（`StorageProperties`、`StorageConfig`） | 完成 |
 | 2 | `ImageStorage` 與 `POST /api/v1/products/{productId}/images/upload-url` | 完成 |
-| 3 | V4 migration（`url` → `object_key`）與改寫登記圖片 API | 未開始 |
+| 3 | V4 migration（`url` → `object_key`）與改寫登記圖片 API | 完成 |
 | 4 | 刪除圖片時一併刪除物件 | 未開始 |
 | 5 | 實際啟動驗證：上傳主圖 → 正常上架 → 下單 | 未開始 |
 
@@ -61,6 +61,16 @@
 - 主圖、排序規則不變
 
 **測試**：完整流程（申請 → PUT → 登記 → 匿名 GET 公開網址拿到同樣的檔案）、tmp 物件已刪除、別的商品的 key、不存在的 key、上傳後的實際類型或大小不符。
+
+**已完成**：`V4__product_image_object_key.sql`、`ImageStorage.head`、`promote`、`delete`，改寫 `ProductImageService.addOneNewProductImage`，錯誤碼 `IMAGE_OBJECT_KEY_INVALID`、`IMAGE_UPLOAD_NOT_FOUND`；測試 `ProductImageRegisterIntegrationTests`（17）。
+
+- V4 刪掉原本手動填網址的圖片（物件儲存裡沒有對應的檔案），原本有圖片的上架商品改成 `INACTIVE`，重新上傳主圖後再上架
+- key 用完整格式比對（`tmp/products/{productId}/{uuid}.{jpg|png|webp}`），`..`、別的商品、已經搬到 `products/` 的 key 都擋下
+- 同一個檔案登記第二次：tmp 已經不在 → `IMAGE_UPLOAD_NOT_FOUND`；`object_key` 也有唯一約束
+- 繞過上傳網址直接放進物件儲存的檔案，實際類型或大小不符一樣擋下
+- 物件搬到 `products/` 之後交易 rollback：afterCompletion 刪掉物件，不留下沒有資料列的檔案
+- 回應的 `url` 由 DTO 的 `from(image, urlOf)` 組成，service 傳 `imageStorage::publicUrl`
+- **測試抓到的設定錯誤**：SeaweedFS 的匿名讀取規則要寫 `Read:product-images/products/*`，原本少了結尾的 `*`，`products/` 也讀不到（Step 2 的「tmp/ 回 403」其實是完全不開放）。用容器逐一試了五種寫法確認；本機的 `object-storage` 容器要重新建立才會讀到新的 `s3.json`
 
 ## Step 4：刪除圖片
 

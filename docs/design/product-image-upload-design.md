@@ -6,7 +6,7 @@
 > | 設計裡的 MinIO 做法 | SeaweedFS 的做法 |
 > |---|---|
 > | `mc` 建 bucket | `weed shell` 的 `s3.bucket.create` |
-> | `products/*` 匿名讀的 bucket policy | `s3.json` 的 `anonymous` 身分只給 `Read:product-images/products/` |
+> | `products/*` 匿名讀的 bucket policy | `s3.json` 的 `anonymous` 身分只給 `Read:product-images/products/*`（**結尾一定要 `*`**，沒有的話等於完全不開放） |
 > | `tmp/` 的 lifecycle | `fs.configure -locationPrefix=/buckets/product-images/tmp/ -ttl=1d` |
 > | port 9000 | port 8333 |
 
