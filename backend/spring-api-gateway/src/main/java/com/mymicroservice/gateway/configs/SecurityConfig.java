@@ -22,9 +22,9 @@ import org.springframework.util.StringUtils;
 
 import com.mymicroservice.gateway.properties.JwtProperties;
 import com.mymicroservice.gateway.security.ProblemDetailAuthenticationEntryPoint;
+import com.mymicroservice.gateway.web.ProblemDetailWriter;
 
 import reactor.core.publisher.Mono;
-import tools.jackson.databind.json.JsonMapper;
 
 // Gateway 只確認「有登入」（JWT 有效）；角色檢查（例如後台的 ADMIN）留在下游服務的 @RequireRoles
 @Configuration
@@ -32,8 +32,8 @@ import tools.jackson.databind.json.JsonMapper;
 public class SecurityConfig {
 
     @Bean
-    SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http, JsonMapper jsonMapper) {
-        ProblemDetailAuthenticationEntryPoint entryPoint = new ProblemDetailAuthenticationEntryPoint(jsonMapper);
+    SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http, ProblemDetailWriter problemDetailWriter) {
+        ProblemDetailAuthenticationEntryPoint entryPoint = new ProblemDetailAuthenticationEntryPoint(problemDetailWriter);
 
         return http
                 // 無狀態 API：不用 session、cookie，CSRF 與表單登入都不需要

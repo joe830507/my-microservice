@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/api-gateway`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「api-gateway 路由」
-> 狀態：Step 3 完成（2026-11-09），下一步 Step 4
+> 狀態：Step 4 完成（2026-11-09），下一步 Step 5
 
 ## 進度
 
@@ -12,7 +12,7 @@
 | 1 | 建立專案、路由到 product-service 與 user-service | 完成 |
 | 2 | JWT 驗簽（JWKS）與需要登入的路由 | 完成 |
 | 3 | 身分 header：移除用戶端送來的 `X-User-*`，改填 JWT 的值 | 完成 |
-| 4 | 封鎖 `/internal/**` | 未開始 |
+| 4 | 封鎖 `/internal/**` | 完成 |
 | 5 | 依來源 IP 限制登入請求次數（Redis） | 未開始 |
 
 每一步都附整合測試，測試通過後單獨 commit。
@@ -119,6 +119,14 @@ order、inventory、payment 的路由等服務建立後再加。
 - 也擋下路徑繞過的寫法，例如 `/api/v1/../internal/...`、URL 編碼的 `%2e%2e`
 
 **測試**：各種 `/internal` 寫法都回 404，而且下游完全沒收到請求。
+
+**已完成**：`InternalPathBlockingFilter`（`WebFilter`，在 Spring Security 之前執行）、共用的 `ProblemDetailWriter`；測試 `GatewayInternalPathIntegrationTests`（20）。
+
+- 擋下的條件：解碼後第一個路徑片段是 `internal`（不分大小寫），或任何片段是 `.`、`..`
+- 判斷前先處理：反覆解碼（`%252e` 這類多重編碼）、`\` 當成 `/`、去掉 `;參數`（Tomcat 會把 `..;` 當成 `..`）
+- 回 404（ProblemDetail，`code` 是 `NOT_FOUND`）；沒登入也回 404 而不是 401，看不出路徑是否存在
+- 拿掉這個 filter 時，下游一樣收不到請求：Spring Security 的 `StrictServerWebExchangeFirewall` 已把 `..`、`%2e`、`%2f`、`..;` 等擋下回 400，直接打 `/internal` 則因為沒有路由、沒登入回 401。這個 filter 是多一層保護，讓結果一律是 404，也不依賴 firewall 的預設設定
+- 編碼的 `%`（例如 `%25`）也會被 firewall 擋下回 400；之後商品 SKU 若允許 `%` 要注意
 
 ---
 
