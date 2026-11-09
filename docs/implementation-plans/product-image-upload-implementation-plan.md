@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/product-image-upload`
 > 設計：[product-image-upload-design.md](../design/product-image-upload-design.md)（流程、關鍵決定、API、錯誤碼都以設計文件為準，這裡只列步驟與實作細節）
-> 狀態：Step 1–3 完成（2026-11-09），下一步 Step 4
+> 狀態：Step 1–4 完成（2026-11-09），下一步 Step 5
 
 ## 進度
 
@@ -12,7 +12,7 @@
 | 1 | compose 加物件儲存（SeaweedFS）與初始化；product-service 接上 S3 SDK（`StorageProperties`、`StorageConfig`） | 完成 |
 | 2 | `ImageStorage` 與 `POST /api/v1/products/{productId}/images/upload-url` | 完成 |
 | 3 | V4 migration（`url` → `object_key`）與改寫登記圖片 API | 完成 |
-| 4 | 刪除圖片時一併刪除物件 | 未開始 |
+| 4 | 刪除圖片時一併刪除物件 | 完成 |
 | 5 | 實際啟動驗證：上傳主圖 → 正常上架 → 下單 | 未開始 |
 
 每一步都附整合測試，測試通過後單獨 commit。測試用 Testcontainers 跑真的物件儲存（SeaweedFS），實際 PUT 檔案，不用假的 S3。
@@ -77,6 +77,10 @@
 刪資料列後在 afterCommit 刪除物件，失敗只記 log；交易 rollback 時不刪。
 
 **測試**：刪除後物件不存在；刪除失敗（例如 rollback）時物件還在。
+
+**已完成**：`ProductImageService.deleteOneProductImage` 在 afterCommit 刪除物件；測試 `ProductImageDeleteIntegrationTests`（4）：刪除後物件不在、請求被拒絕（上架中商品的主圖）時物件還在、物件儲存刪除失敗仍回 204、只刪該張圖片的物件。
+
+- 商品不會被刪除（只會封存），所以沒有「刪商品時一併刪圖片」的情況
 
 ## Step 5：實際啟動驗證
 

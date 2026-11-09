@@ -169,8 +169,23 @@ public class ProductImageServiceImpl implements ProductImageService {
             throw new AppException(ProductErrorCode.PRODUCT_IMAGE_PRIMARY_UNDELETABLE);
         }
 
-        // 4.刪除圖片
+        // 4.刪除圖片；物件在 commit 之後才刪，交易 rollback 時檔案還在
         productImageRepository.deleteById(imageId);
+        deleteObjectAfterCommit(productImage.getObjectKey());
+    }
+
+    // 刪除失敗只記 log：資料列已經刪了，不能讓已經成功的請求回 500；漏刪的物件留給之後的對帳清理
+    private void deleteObjectAfterCommit(String objectKey) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    imageStorage.delete(objectKey);
+                } catch (RuntimeException exception) {
+                    log.warn("failed to delete object {} of deleted product image", objectKey, exception);
+                }
+            }
+        });
     }
 
     @Override
