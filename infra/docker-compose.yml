@@ -73,6 +73,24 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+  payment-db:
+    image: postgres:18.6
+    container_name: my-microservice-payment-db
+    environment:
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      TZ: UTC
+    ports:
+      - "5436:5432"
+    volumes:
+      # PostgreSQL 18 起資料目錄改為 /var/lib/postgresql/18/docker，掛載上層目錄
+      - payment-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
   product-redis:
     image: redis:8.2
     container_name: my-microservice-product-redis
@@ -113,3 +131,4 @@ volumes:
   user-db-data:
   inventory-db-data:
   order-db-data:
+  payment-db-data:

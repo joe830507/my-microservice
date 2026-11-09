@@ -3,13 +3,13 @@
 > 建立日期：2026-11-09
 > 分支：`feature/payment-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「payment-service」、「服務互動：下單流程」
-> 狀態：計畫完成，下一步 Step 1
+> 狀態：Step 1 完成（2026-11-09），下一步 Step 2
 
 ## 進度
 
 | Step | 內容 | 狀態 |
 |---|---|---|
-| 1 | 建立專案、DB 與資料表 | 未開始 |
+| 1 | 建立專案、DB 與資料表 | 完成 |
 | 2 | `POST /api/v1/payments` 建立付款（向 order-service 取金額） | 未開始 |
 | 3 | `GET /api/v1/payments/{id}` 查付款狀態 | 未開始 |
 | 4 | `POST /api/v1/payments/{id}/mock-callback` 模擬金流回呼，成功時通知 order-service | 未開始 |
@@ -49,6 +49,8 @@ payment
 - `order_notification`：付款成功後要通知 order-service（`/internal/v1/orders/{id}/paid`）。先記成 `PENDING`，通知成功改 `DONE`；order-service 回訂單已取消改 `REJECTED`（要退款，雛型階段只記錄）；連不上維持 `PENDING`，由 Step 5 重試
 
 **測試**：context 啟動、Flyway、health、DB 約束（含部分唯一索引）。
+
+**已完成**：`PaymentServiceApplication`、實體 `Payment`、`V1__create_payment_table.sql`、compose 的 `payment-db`；測試 `PaymentServiceApplicationIntegrationTests`（6）：同一張訂單只能有一筆進行中或成功的付款、失敗後可以重新付款、成功的付款一定要有通知狀態。
 
 ---
 
