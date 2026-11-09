@@ -14,7 +14,9 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
 import com.mymicroservice.user.properties.JwtProperties;
+import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.KeyUse;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
@@ -33,9 +35,12 @@ public class JwtConfig {
         RSAPrivateKey privateKey = readKey(jwtProperties.privateKeyLocation(), RsaKeyConverters.pkcs8());
 
         // keyID 一定要設：JWT header 的 kid 與 JWKS 裡的 kid 都來自這裡，Gateway 靠它找公鑰
+        // use、alg 會一併出現在 JWKS，標明這把金鑰只用於 RS256 簽章
         return new RSAKey.Builder(publicKey)
                 .privateKey(privateKey)
                 .keyID(jwtProperties.keyId())
+                .keyUse(KeyUse.SIGNATURE)
+                .algorithm(JWSAlgorithm.RS256)
                 .build();
     }
 
