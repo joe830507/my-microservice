@@ -9,7 +9,7 @@
 
 | Step | 內容 | 狀態 |
 |---|---|---|
-| 0 | 後端前置問題：SeaweedFS CORS、決定要補哪些後台 API | 進行中：CORS 已確認不用改，訂單出貨 API 待決定 |
+| 0 | 後端前置問題：SeaweedFS CORS、決定要補哪些後台 API | 完成：CORS 不用改；補上訂單 `ship`、`complete` |
 | 1 | 建立專案、Element Plus、Vite proxy | 未開始 |
 | 2 | HTTP 層：axios 實例、`ApiError` | 未開始 |
 | 3 | 登入：token store、refresh（同時只發一次）、登出、路由守衛 | 未開始 |
@@ -34,7 +34,7 @@
 | CORS | Gateway 沒有設定 CORS | 開發時用 **Vite proxy** 把 `/api` 轉到 `localhost:8080`；正式環境由 nginx 轉發，維持同一個網域，後端不設 CORS |
 | 圖片直傳 | presigned URL 讓瀏覽器直接 PUT 到 SeaweedFS `:8333`，是跨網域請求 | 已實測：SeaweedFS 預設允許所有來源，不用改設定（見 Step 0）。簽章包含 Host，不能靠 proxy 改 Host 繞過 |
 | 庫存列表 | 只有 `GET /api/v1/inventory/{sku}` | 雛型階段在商品編輯頁依 SKU 查詢；需要總覽頁時再補列表 API |
-| 訂單出貨、完成 | 沒有 API，`SHIPPED`、`COMPLETED` 無法到達 | 待決定；補的話放在 Step 9 之前 |
+| 訂單出貨、完成 | 沒有 API，`SHIPPED`、`COMPLETED` 無法到達 | 已補：`POST /orders/{id}/ship`、`POST /orders/{id}/complete`（見 Step 0） |
 | 付款列表 | 沒有 | 雛型階段不做 |
 | 使用者角色 | 無法修改 | 雛型階段只做列表 |
 
@@ -96,7 +96,7 @@ frontend/vue-management/
 | 商品 | `GET /products`、`GET /products/{id}`、`POST /products`、`PUT /products/{id}`、`POST /products/{id}/publish`、`/unpublish`、`/archive` |
 | 商品圖片 | `POST /products/{id}/images/upload-url`、`POST /products/{id}/images`、`GET /products/{id}/images`、`PUT .../{imageId}`、`DELETE .../{imageId}`、`POST .../{imageId}/primary`、`PUT .../order` |
 | 庫存 | `GET /inventory/{sku}`、`PUT /inventory/{sku}` |
-| 訂單 | `GET /orders`（ADMIN 可查全部）、`GET /orders/{id}`、`POST /orders/{id}/cancel` |
+| 訂單 | `GET /orders`（ADMIN 可查全部）、`GET /orders/{id}`、`POST /orders/{id}/cancel`、`/ship`、`/complete` |
 | 使用者 | `GET /users` |
 
 ---
@@ -114,6 +114,18 @@ frontend/vue-management/
 - 正式環境的物件儲存（S3 或 SeaweedFS）如果改成只允許後台網域，要再設定 bucket CORS
 - 順便遇到的本機問題：Windows 的 TCP 動態 port 範圍從 1024 開始時，Hyper-V / WSL 會保留 8045–8344 一帶的 port，造成 8080–8085、8333 綁定失敗。修正方式：系統管理員執行 `netsh int ipv4 set dynamic tcp start=49152 num=16384`，再重啟 `winnat`
 - compose 的 `object-storage-init` 可能在 filer 準備好之前就執行，出現 `fail to dial` 錯誤但仍然以 0 結束；重新執行 `docker compose up object-storage-init` 即可
+
+**訂單出貨、完成 API（2026-11-09）**：
+
+| API | 轉換 | 重複呼叫 | 其他狀態 |
+|---|---|---|---|
+| `POST /api/v1/orders/{id}/ship` | `PAID → SHIPPED`，記錄 `shippedAt` | 已是 `SHIPPED` 回 200，不再改動 | 409 `ORDER_NOT_SHIPPABLE` |
+| `POST /api/v1/orders/{id}/complete` | `SHIPPED → COMPLETED`，記錄 `completedAt` | 已是 `COMPLETED` 回 200，不再改動 | 409 `ORDER_NOT_COMPLETABLE` |
+
+- 限 ADMIN（`@RequireRoles`）：order-service 第一次用到，啟動類別加上 `@Import(RequireRolesGuard.class)`
+- 用條件式 UPDATE，同時多個請求只有一個真的改動；不需要呼叫 inventory（付款時已確認扣除）
+- V2、V3 migration 新增 `shipped_at`、`completed_at`；`OrderResDto` 多了這兩個欄位
+- 測試：`OrderControllerShipIntegrationTests`（9）、`OrderControllerCompleteIntegrationTests`（10），order-service 全部 114 個通過
 
 ## Step 1：建立專案
 
@@ -174,10 +186,9 @@ frontend/vue-management/
 
 ## Step 9：訂單管理
 
-- 列表（依狀態篩選、分頁）、詳情（商品快照、金額、狀態）、取消
-- Step 0 補了 API 的話，再加出貨、完成
+- 列表（依狀態篩選、分頁）、詳情（商品快照、金額、狀態、各階段時間）、取消、出貨、完成
 
-**測試**：只有 `PENDING_PAYMENT` 能取消；取消失敗顯示錯誤碼。
+**測試**：按鈕依狀態顯示（`PENDING_PAYMENT` 取消、`PAID` 出貨、`SHIPPED` 完成）；失敗時顯示錯誤碼。
 
 ## Step 10：使用者列表
 

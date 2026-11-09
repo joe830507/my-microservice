@@ -80,6 +80,14 @@ public class OrderController {
         return orderService.shipOrder(id);
     }
 
+    // 後台完成訂單：只限 SHIPPED；已經完成的回 200；限 ADMIN
+    @RequireRoles("ADMIN")
+    @PostMapping(value = "/{id}/complete", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.OK)
+    public OrderResDto completeOrder(@PathVariable UUID id) {
+        return orderService.completeOrder(id);
+    }
+
     private static boolean isAdmin(String roles) {
         return UserContext.parseRoles(roles).contains("ADMIN");
     }

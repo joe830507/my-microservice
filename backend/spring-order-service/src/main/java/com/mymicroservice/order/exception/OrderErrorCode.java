@@ -20,6 +20,8 @@ public enum OrderErrorCode implements ErrorCode {
     ORDER_ALREADY_CANCELLED(HttpStatus.CONFLICT, "order %s has already been cancelled."),
     // 只有 PAID 可以出貨
     ORDER_NOT_SHIPPABLE(HttpStatus.CONFLICT, "order %s cannot be shipped in status %s."),
+    // 只有 SHIPPED 可以完成
+    ORDER_NOT_COMPLETABLE(HttpStatus.CONFLICT, "order %s cannot be completed in status %s."),
 
     // 建立訂單：列出所有有問題的商品 id 或 SKU，以逗號分隔
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "product not found: %s."),

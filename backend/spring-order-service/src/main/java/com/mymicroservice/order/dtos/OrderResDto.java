@@ -28,6 +28,8 @@ public record OrderResDto(
 
         Instant shippedAt,
 
+        Instant completedAt,
+
         Instant cancelledAt) {
 
     public record Item(
@@ -60,6 +62,7 @@ public record OrderResDto(
                 order.getCreatedAt(),
                 order.getPaidAt(),
                 order.getShippedAt(),
+                order.getCompletedAt(),
                 order.getCancelledAt());
     }
 }

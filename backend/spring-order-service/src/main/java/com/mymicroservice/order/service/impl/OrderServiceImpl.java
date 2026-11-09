@@ -175,6 +175,20 @@ public class OrderServiceImpl implements OrderService {
         return OrderResDto.from(order);
     }
 
+    // 只有 SHIPPED 可以完成；已經完成的回 200（冪等）；其他狀態回 409
+    @Override
+    public OrderResDto completeOrder(UUID orderId) {
+        findOrderWithItems(orderId);
+
+        boolean completed = orderRepository.markCompletedIfShipped(orderId, Instant.now(),
+                auditorAware.getCurrentAuditor().orElseThrow()) == 1;
+        Order order = findOrderWithItems(orderId);
+        if (!completed && order.getStatus() != OrderStatus.COMPLETED) {
+            throw new AppException(OrderErrorCode.ORDER_NOT_COMPLETABLE, orderId, order.getStatus());
+        }
+        return OrderResDto.from(order);
+    }
+
     // 和使用者取消一樣：條件式 UPDATE 保證和付款通知同時發生時只有一個成功
     @Override
     public boolean expireUnpaidOrder(UUID orderId) {

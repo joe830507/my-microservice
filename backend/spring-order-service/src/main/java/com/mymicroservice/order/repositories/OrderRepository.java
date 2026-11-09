@@ -74,6 +74,18 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
             """)
     int markShippedIfPaid(@Param("id") UUID id, @Param("now") Instant now, @Param("updatedBy") UUID updatedBy);
 
+    // 完成：只有 SHIPPED 才會改，回傳 1 = 成功、0 = 狀態不對
+    @Transactional
+    @Modifying
+    @Query("""
+            UPDATE Order o
+            SET o.status = com.mymicroservice.order.enums.OrderStatus.COMPLETED, o.completedAt = :now,
+                o.version = o.version + 1, o.updatedAt = :now, o.updatedBy = :updatedBy
+            WHERE o.id = :id AND o.status = com.mymicroservice.order.enums.OrderStatus.SHIPPED
+            """)
+    int markCompletedIfShipped(@Param("id") UUID id, @Param("now") Instant now,
+            @Param("updatedBy") UUID updatedBy);
+
     // PaymentTimeoutJob：建立超過一段時間仍未付款的訂單，最舊的先處理；使用 idx_orders_status_created
     @Query("""
             SELECT o.id FROM Order o
