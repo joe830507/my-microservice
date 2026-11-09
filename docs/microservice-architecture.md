@@ -23,7 +23,7 @@
 | `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、限流 | 已實作；細節見 [api-gateway-implementation-plan.md](api-gateway-implementation-plan.md) |
 | `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取） |
 | `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 已實作 |
-| `spring-inventory-service` | 庫存、預扣、確認、釋放 | 待建立 |
+| `spring-inventory-service` | 庫存、預扣、確認、釋放 | 實作中；步驟見 [inventory-service-implementation-plan.md](inventory-service-implementation-plan.md) |
 | `spring-order-service` | 訂單、商品快照、訂單狀態 | 空目錄 |
 | `spring-payment-service` | 付款（雛型階段用模擬金流） | 待建立 |
 
@@ -119,7 +119,7 @@ backend/
 | POST | `/internal/v1/inventory/reservations/{orderId}/confirm` | 付款成功後，把預扣轉成正式扣除 |
 | POST | `/internal/v1/inventory/reservations/{orderId}/release` | 取消或逾時時釋放預扣 |
 
-- 資料表：`stock(sku, available, reserved, version)`、`reservation(order_id, sku, qty, status)`
+- 資料表：`stock(sku, available, reserved, version)`、`reservation(order_id, status)`、`reservation_item(order_id, sku, qty)`；預扣全有全無，狀態放在整張訂單的主檔
 - 雛型階段用 DB 樂觀鎖，或 `UPDATE ... WHERE available >= ?`；之後換成 Redis Lua（見中介軟體評估文件「服務邊界提醒」）
 - SKU 由後台用 `PUT /inventory/{sku}` 建立，雛型階段不做跨服務驗證；之後改成接收 product 的 `ProductCreated` 事件
 
