@@ -31,3 +31,15 @@ spring:
       hibernate:
         format_sql: true
     show-sql: false
+app:
+  # 每分鐘取消建立超過 30 分鐘仍未付款的訂單（PaymentTimeoutJob）
+  # timeout 必須比 inventory 的預扣逾時（1 小時）短，否則付款時預扣可能已被釋放
+  payment-timeout:
+    cron: "0 * * * * *"
+    timeout: 30m
+    batch-size: 100
+  # 每分鐘重試還沒成功通知 inventory 的釋放、確認（ReservationSyncJob）
+  reservation-sync:
+    cron: "30 * * * * *"
+    min-age: 1m
+    batch-size: 100

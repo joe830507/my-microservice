@@ -160,8 +160,29 @@ public class OrderServiceImpl implements OrderService {
         return OrderResDto.from(findVisibleOrder(orderId, userId, admin));
     }
 
+    // 和使用者取消一樣：條件式 UPDATE 保證和付款通知同時發生時只有一個成功
+    @Override
+    public boolean expireUnpaidOrder(UUID orderId) {
+        boolean cancelled = orderRepository.cancelIfPending(orderId, Instant.now(),
+                auditorAware.getCurrentAuditor().orElseThrow()) == 1;
+        if (cancelled) {
+            syncReservation(orderId, ReservationStatus.RELEASED);
+        }
+        return cancelled;
+    }
+
+    @Override
+    public boolean retryReservationSync(UUID orderId) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null || order.isReservationSynced()
+                || order.getReservationStatus() == ReservationStatus.RESERVED) {
+            return order != null;
+        }
+        return syncReservation(orderId, order.getReservationStatus());
+    }
+
     // 呼叫 inventory 讓預扣變成 target 狀態；成功才標成已同步，失敗留給排程重試
-    private void syncReservation(UUID orderId, ReservationStatus target) {
+    private boolean syncReservation(UUID orderId, ReservationStatus target) {
         boolean success = switch (target) {
             case RELEASED -> inventoryClient.release(orderId);
             case CONFIRMED -> inventoryClient.confirm(orderId);
@@ -170,6 +191,7 @@ public class OrderServiceImpl implements OrderService {
         if (success) {
             orderRepository.markReservationSynced(orderId, target);
         }
+        return success;
     }
 
     private Order findVisibleOrder(UUID orderId, UUID userId, boolean admin) {

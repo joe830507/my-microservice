@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/order-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「order-service」、「服務互動：下單流程」
-> 狀態：Step 1–7 完成（2026-11-09），下一步 Step 8
+> 狀態：Step 1–8 完成（2026-11-09），下一步 Step 9
 
 ## 進度
 
@@ -16,7 +16,7 @@
 | 5 | `POST /api/v1/orders/{id}/cancel` 取消訂單 | 完成 |
 | 6 | `GET /internal/v1/orders/{id}` 給 payment-service 查訂單 | 完成 |
 | 7 | `POST /internal/v1/orders/{id}/paid` 付款成功通知 | 完成 |
-| 8 | 排程：付款逾時自動取消、補做失敗的庫存釋放與確認 | 未開始 |
+| 8 | 排程：付款逾時自動取消、補做失敗的庫存釋放與確認 | 完成 |
 | 9 | api-gateway 加上 `/api/v1/orders/**` 路由 | 未開始 |
 
 每一步都附整合測試，測試通過後單獨 commit。呼叫 product、inventory 的部分在測試裡用 WireMock 模擬。
@@ -170,6 +170,17 @@ order_item
 |---|---|
 | 付款逾時 | `PENDING_PAYMENT` 超過 30 分鐘 → 自動取消（同 Step 5） |
 | 補做庫存同步 | `reservation_synced = false` 的訂單，依 `reservation_status` 重新呼叫釋放或確認（inventory 那邊是冪等的，重複呼叫沒關係） |
+
+**已完成**：`PaymentTimeoutJob`、`ReservationSyncJob`；測試 `OrderJobsIntegrationTests`（8）。
+
+| 設定 | 值 |
+|---|---|
+| `app.payment-timeout` | 每分鐘；建立超過 30 分鐘仍未付款就取消；**必須比 inventory 的預扣逾時（1 小時）短** |
+| `app.reservation-sync` | 每分鐘；最後更新超過 1 分鐘才重試，避免和正在呼叫 inventory 的請求重複 |
+
+- 兩個排程都不需要分散式鎖：取消、標記同步都是條件式 UPDATE，多個實例同時跑結果一樣
+- 付款逾時分批處理到全部；補做同步每次只掃一輪，inventory 還沒恢復的留到下次
+- 測試時預設停用 cron（`src/test/resources/application.properties`），避免排程在其他測試進行中改到資料
 
 ## Step 9：Gateway 路由
 

@@ -1,9 +1,11 @@
 package com.mymicroservice.order.repositories;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -59,4 +61,21 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
             WHERE o.id = :id AND o.status = com.mymicroservice.order.enums.OrderStatus.PENDING_PAYMENT
             """)
     int markPaidIfPending(@Param("id") UUID id, @Param("now") Instant now, @Param("updatedBy") UUID updatedBy);
+
+    // PaymentTimeoutJob：建立超過一段時間仍未付款的訂單，最舊的先處理；使用 idx_orders_status_created
+    @Query("""
+            SELECT o.id FROM Order o
+            WHERE o.status = com.mymicroservice.order.enums.OrderStatus.PENDING_PAYMENT AND o.createdAt < :cutoff
+            ORDER BY o.createdAt
+            """)
+    List<UUID> findPendingCreatedBefore(@Param("cutoff") Instant cutoff, Pageable pageable);
+
+    // ReservationSyncJob：還沒成功通知 inventory 的訂單；使用 idx_orders_reservation_unsynced
+    // 只挑最後更新超過一段時間的，避免和正在處理中的請求（剛改完狀態、正要呼叫 inventory）搶著做
+    @Query("""
+            SELECT o.id FROM Order o
+            WHERE o.reservationSynced = false AND o.updatedAt < :cutoff
+            ORDER BY o.updatedAt
+            """)
+    List<UUID> findUnsyncedUpdatedBefore(@Param("cutoff") Instant cutoff, Pageable pageable);
 }
