@@ -129,7 +129,7 @@ ES 的資料同步要靠訊息佇列（見第 3 點），**先有 MQ 再上 ES**
 | 分散式追蹤 | OpenTelemetry（+ Tempo / Jaeger） | 服務一多，沒有追蹤很難除錯 |
 | Log 收集 | Loki 或 ELK | 搭配 trace id 串 log |
 | DB 擴展 | Read replica、PgBouncer | 讀寫分離、連線池 |
-| 服務發現 / 設定中心 | K8s 原生 | 已定案（2026-11-09），見 [microservice-architecture.md](microservice-architecture.md) |
+| 服務發現 / 設定中心 | K8s 原生 | 已定案（2026-11-09），見 [microservice-architecture.md](../architecture/microservice-architecture.md) |
 | 熔斷 / 重試 | Resilience4j | 函式庫，不需要另外架服務 |
 
 ---
@@ -138,7 +138,7 @@ ES 的資料同步要靠訊息佇列（見第 3 點），**先有 MQ 再上 ES**
 
 - **庫存不要放在 product-service**，應該獨立成 inventory-service
 - 秒殺扣庫存通常靠 Redis 原子操作（Lua 腳本）+ MQ 削峰，和商品資料的讀寫模式完全不同
-- 整體服務切分、API 與服務互動見 [microservice-architecture.md](microservice-architecture.md)
+- 整體服務切分、API 與服務互動見 [microservice-architecture.md](../architecture/microservice-architecture.md)
 
 ---
 

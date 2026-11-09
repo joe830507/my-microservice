@@ -2,7 +2,7 @@
 
 > 建立日期：2026-11-09
 > 分支：`feature/backend-common`（從 `feature/product-service-api` 建立）
-> 對應：[microservice-architecture.md](microservice-architecture.md)「後端專案結構」
+> 對應：[microservice-architecture.md](../architecture/microservice-architecture.md)「後端專案結構」
 > 狀態：全部完成（2026-11-09），已合併進 main
 
 ## 進度

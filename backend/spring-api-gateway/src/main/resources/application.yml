@@ -49,7 +49,7 @@ spring:
           httpclient:
             connect-timeout: 2000 # 毫秒
             response-timeout: 10s
-          # 路徑對應見 docs/microservice-architecture.md「api-gateway 路由」；/internal/** 一律不建路由
+          # 路徑對應見 docs/architecture/microservice-architecture.md「api-gateway 路由」；/internal/** 一律不建路由
           # Path 的 /** 也會比對到沒有子路徑的情況，例如 /api/v1/products
           routes:
             # 登入要依來源 IP 限流，獨立一條路由；order 比 user-service 小，先比對

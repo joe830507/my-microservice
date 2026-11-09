@@ -20,12 +20,12 @@
 
 | 服務 | 職責 | 狀態 |
 |---|---|---|
-| `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、限流 | 已實作；細節見 [api-gateway-implementation-plan.md](api-gateway-implementation-plan.md) |
+| `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、限流 | 已實作；細節見 [api-gateway-implementation-plan.md](../implementation-plans/api-gateway-implementation-plan.md) |
 | `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取）；讀取公開，新增、修改、刪除限 ADMIN |
 | `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 已實作 |
-| `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](inventory-service-implementation-plan.md) |
-| `spring-order-service` | 訂單、商品快照、訂單狀態 | 已實作；步驟見 [order-service-implementation-plan.md](order-service-implementation-plan.md) |
-| `spring-payment-service` | 付款（雛型階段用模擬金流） | 已實作；步驟見 [payment-service-implementation-plan.md](payment-service-implementation-plan.md) |
+| `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](../implementation-plans/inventory-service-implementation-plan.md) |
+| `spring-order-service` | 訂單、商品快照、訂單狀態 | 已實作；步驟見 [order-service-implementation-plan.md](../implementation-plans/order-service-implementation-plan.md) |
+| `spring-payment-service` | 付款（雛型階段用模擬金流） | 已實作；步驟見 [payment-service-implementation-plan.md](../implementation-plans/payment-service-implementation-plan.md) |
 
 ### 暫不拆分
 
@@ -89,7 +89,7 @@ backend/
 - 單獨建置某個服務：`./mvnw -pl spring-user-service -am package`（`-am` 會先建置 common）
 - 改 common 等於所有服務都要重新建置，所以要保持精簡
 - **打包服務一律加 `-am`**：沒加的話會用 `~/.m2` 裡可能過期的 common。舊版沒有 `RequireRoles` 時，JVM 會默默忽略 controller 上的 `@RequireRoles`，後台 API 等於沒有權限檢查。`RequireRolesGuard` 讓這種情況在編譯或啟動時就失敗
-- 實作步驟見 [backend-common-implementation-plan.md](backend-common-implementation-plan.md)
+- 實作步驟見 [backend-common-implementation-plan.md](../implementation-plans/backend-common-implementation-plan.md)
 
 ---
 
@@ -209,7 +209,7 @@ Kafka + Outbox 導入後，把步驟 6 和「逾時釋放」改成事件，變�
 
 | 順序 | 項目 | 重點 |
 |---|---|---|
-| 1 | user-service | Gateway 驗 JWT 需要它，最先做；步驟見 [user-service-implementation-plan.md](user-service-implementation-plan.md) |
+| 1 | user-service | Gateway 驗 JWT 需要它，最先做；步驟見 [user-service-implementation-plan.md](../implementation-plans/user-service-implementation-plan.md) |
 | 2 | api-gateway | 先接 product + user；驗證 JWT 驗簽、`X-User-Id` 傳遞、`/internal` 封鎖 |
 | 3 | 上 K8s | 用 kind 或 minikube 部署 gateway、product、user；熟悉 Deployment、Service、ConfigMap、Secret |
 | 4 | inventory-service | 預扣、確認、釋放與冪等 |

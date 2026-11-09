@@ -2,7 +2,7 @@
 
 > 建立日期：2026-11-09
 > 分支：`feature/user-service`
-> 對應：[microservice-architecture.md](microservice-architecture.md)「user-service」
+> 對應：[microservice-architecture.md](../architecture/microservice-architecture.md)「user-service」
 > 狀態：Step 1～6 全部完成（2026-11-09），後續項目見文末「之後再處理」
 
 ## 進度

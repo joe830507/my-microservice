@@ -2,7 +2,7 @@
 
 > 建立日期：2026-11-09
 > 分支：`feature/inventory-service`
-> 對應：[microservice-architecture.md](microservice-architecture.md)「inventory-service」、「服務互動：下單流程」
+> 對應：[microservice-architecture.md](../architecture/microservice-architecture.md)「inventory-service」、「服務互動：下單流程」
 > 狀態：Step 1–7 全部完成，並實際啟動驗證（2026-11-09）
 
 ## 進度
