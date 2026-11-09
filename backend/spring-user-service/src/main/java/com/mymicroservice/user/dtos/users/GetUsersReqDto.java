@@ -50,8 +50,10 @@ public record GetUsersReqDto(
     }
 
     // 再以 id 排序當作 tie-breaker：主要排序值相同時順序固定，翻頁才不會重複或漏掉資料
+    // id 和主要欄位用同一個方向，才能完整對上 (欄位, id) 索引（DESC 時反向掃描）；方向混用就只能靠額外排序
     public Pageable toPageable() {
-        Sort sort = Sort.by(Sort.Direction.fromString(sortDirection), sortBy).and(Sort.by("id"));
+        Sort.Direction direction = Sort.Direction.fromString(sortDirection);
+        Sort sort = Sort.by(direction, sortBy).and(Sort.by(direction, "id"));
         return PageRequest.of(page, size, sort);
     }
 }
