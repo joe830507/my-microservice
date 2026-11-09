@@ -116,6 +116,7 @@ ES 的資料同步要靠訊息佇列（見第 3 點），**先有 MQ 再上 ES**
 - 圖片放在 S3 / MinIO（本機開發用 MinIO），前面掛 CDN
 - 上傳流程：後端發 presigned URL → 前端直接上傳到物件儲存 → 再呼叫 API 寫入 `ProductImage`
 - 上傳流程最好早點定案，避免之後改 API
+- 詳細設計見 [product-image-upload-design.md](product-image-upload-design.md)
 
 ---
 
@@ -128,7 +129,7 @@ ES 的資料同步要靠訊息佇列（見第 3 點），**先有 MQ 再上 ES**
 | 分散式追蹤 | OpenTelemetry（+ Tempo / Jaeger） | 服務一多，沒有追蹤很難除錯 |
 | Log 收集 | Loki 或 ELK | 搭配 trace id 串 log |
 | DB 擴展 | Read replica、PgBouncer | 讀寫分離、連線池 |
-| 服務發現 / 設定中心 | K8s 原生，或 Nacos / Consul | 視部署平台決定 |
+| 服務發現 / 設定中心 | K8s 原生 | 已定案（2026-11-09），見 [microservice-architecture.md](microservice-architecture.md) |
 | 熔斷 / 重試 | Resilience4j | 函式庫，不需要另外架服務 |
 
 ---
@@ -137,6 +138,7 @@ ES 的資料同步要靠訊息佇列（見第 3 點），**先有 MQ 再上 ES**
 
 - **庫存不要放在 product-service**，應該獨立成 inventory-service
 - 秒殺扣庫存通常靠 Redis 原子操作（Lua 腳本）+ MQ 削峰，和商品資料的讀寫模式完全不同
+- 整體服務切分、API 與服務互動見 [microservice-architecture.md](microservice-architecture.md)
 
 ---
 
