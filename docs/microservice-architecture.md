@@ -83,10 +83,12 @@ backend/
 | `CommonEntity`（稽核欄位 + `@Version`） | 只有單一服務用到的設定（例如 product 的 `RedisConfig`） |
 | `X-User-*` header 常數、讀 header 的 `AuditorAware` | |
 | `@CurrentUserId`（注入目前使用者 id）、`@RequireRoles`（角色檢查） | |
+| `RequireRolesGuard`：用到 `@RequireRoles` 的服務要在啟動類別加 `@Import(RequireRolesGuard.class)` | |
 
 - 版本固定 `0.0.1-SNAPSHOT`，透過聚合 pom 一起建置，不發佈到 repository
 - 單獨建置某個服務：`./mvnw -pl spring-user-service -am package`（`-am` 會先建置 common）
 - 改 common 等於所有服務都要重新建置，所以要保持精簡
+- **打包服務一律加 `-am`**：沒加的話會用 `~/.m2` 裡可能過期的 common。舊版沒有 `RequireRoles` 時，JVM 會默默忽略 controller 上的 `@RequireRoles`，後台 API 等於沒有權限檢查。`RequireRolesGuard` 讓這種情況在編譯或啟動時就失敗
 - 實作步驟見 [backend-common-implementation-plan.md](backend-common-implementation-plan.md)
 
 ---
