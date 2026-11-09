@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/user-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「user-service」
-> 狀態：Step 1～5 完成（2026-11-09），下一步：dev 環境的 ADMIN 初始化（見 Step 5），再進 Step 6
+> 狀態：Step 1～5 完成（2026-11-09），下一步 Step 6
 
 ## 進度
 
@@ -13,7 +13,7 @@
 | 2 | DB 與設定 | 完成 |
 | 3 | 第一個 migration（使用者、角色） | 完成 |
 | 4 | 註冊、登入（密碼雜湊、簽發 JWT） | 完成（待確認事項見下方） |
-| 5 | JWKS endpoint、`/users/me`、後台使用者列表 | 完成（ADMIN 初始化未做） |
+| 5 | JWKS endpoint、`/users/me`、後台使用者列表、dev 的 ADMIN 初始化 | 完成 |
 | 6 | Refresh token（存放、輪替） | 未開始 |
 
 **第一個里程碑（Step 1～3）**：服務能連上自己的 DB 並啟動，Flyway 建好資料表。
@@ -304,9 +304,31 @@ RSAKey  →  new JWKSet(rsaKey)  →  new ImmutableJWKSet<>(jwkSet)  →  new Ni
 - 資料量小（例如 5 萬筆以下）時 planner 仍會選全表掃描，這是成本估算的正常結果，不是索引沒生效
 - keyword 少於 3 個字元時組不出 trigram，會退回掃描；後台列表可以接受，之後如有需要再限制最短長度
 
-### 待做：dev 環境的第一個 ADMIN 帳號
+### dev 環境的第一個 ADMIN 帳號
 
 決定：**只在 dev profile 執行的初始化程式**，不用 Flyway migration（避免密碼雜湊寫死在 SQL、每個環境都有同一個帳號）。
+
+**已完成**：`bootstrap/BootstrapAdminInitializer`、`properties/BootstrapAdminProperties`、`application-dev.yml`；測試 `BootstrapAdminInitializerIntegrationTests`（4）、`BootstrapAdminNotDevIntegrationTests`（2）。
+
+| 實際做法 | 說明 |
+|---|---|
+| 角色 | 只給 `ADMIN`，需要購物時另外註冊一般帳號 |
+| `BootstrapAdminProperties` 也加 `@Profile("dev")` | `@ConfigurationPropertiesScan` 會掃到它；不限定 profile 的話，非 dev 環境缺設定會被 `@Validated` 擋下而無法啟動 |
+| 密碼 | `BOOTSTRAP_ADMIN_PASSWORD` 環境變數，yml 不給預設值；沒設定時 dev 啟動失敗並指出 `app.bootstrap-admin.password` |
+| 多個實例同時啟動 | `saveAndFlush` 撞到唯一約束時視為已建立，記 info 後略過 |
+| `toString()` | 覆寫 record 預設的 `toString`，不把密碼印進日誌 |
+
+**本機啟動**：VS Code 用 `.vscode/launch.json` 的「user-service (dev)」，已設定工作目錄、dev profile，並從 `backend/spring-user-service/secrets/dev.env`（gitignore）讀取 `BOOTSTRAP_ADMIN_EMAIL`、`BOOTSTRAP_ADMIN_PASSWORD`。命令列：
+
+```bash
+# 單獨跑模組時 common 是從 ~/.m2 取得，common 有改動要先 install（正在執行的服務會鎖住 jar，先停掉）
+cd backend && ./mvnw -q -pl common install -DskipTests
+cd spring-user-service
+set -a; . secrets/dev.env; set +a
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+以下是原本的設計：
 
 | 項目 | 做法 |
 |---|---|
