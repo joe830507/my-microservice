@@ -3,13 +3,13 @@
 > 建立日期：2026-11-09
 > 分支：`feature/order-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「order-service」、「服務互動：下單流程」
-> 狀態：計畫完成，下一步 Step 1
+> 狀態：Step 1 完成（2026-11-09），下一步 Step 2
 
 ## 進度
 
 | Step | 內容 | 狀態 |
 |---|---|---|
-| 1 | 建立專案、DB 與資料表 | 未開始 |
+| 1 | 建立專案、DB 與資料表 | 完成 |
 | 2 | `POST /api/v1/orders` 建立訂單（呼叫 product、inventory） | 未開始 |
 | 3 | `GET /api/v1/orders/{id}` 訂單詳情 | 未開始 |
 | 4 | `GET /api/v1/orders` 訂單列表 | 未開始 |
@@ -64,6 +64,8 @@ order_item
 索引：`(user_id, created_at DESC)` 給列表；`(status, created_at)` 給逾時排程；`reservation_synced = false` 的部分索引給補做同步。
 
 **測試**：context 啟動、Flyway 套用成功、health、DB 約束。
+
+**已完成**：`OrderServiceApplication`、實體 `Order`、`OrderItem`、`V1__create_order_tables.sql`、compose 的 `order-db`；測試 `OrderServiceApplicationIntegrationTests`（10）：資料表建立、health，以及未知狀態、負數金額、數量 0、不存在的訂單都會被 DB 擋下。
 
 ---
 
