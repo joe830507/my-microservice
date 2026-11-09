@@ -1,0 +1,82 @@
+server:
+  port: 8080
+
+# 下游服務的位置：本機預設 localhost:{port}；K8s 部署時用環境變數改成 Service 名稱，例如 http://product-service:8081
+# 不用 discovery client：K8s Service 本身就提供 DNS 與負載均衡
+gateway:
+  services:
+    product-uri: ${PRODUCT_SERVICE_URI:http://localhost:8081}
+    user-uri: ${USER_SERVICE_URI:http://localhost:8084}
+  security:
+    jwt:
+      # user-service 的公鑰（JWKS）；Gateway 用它驗證 access token 的簽章
+      jwk-set-uri: ${gateway.services.user-uri}/api/v1/auth/jwks
+      # 必須和 user-service 的 jwt.issuer 一致
+      issuer: user-service
+      # 抓 JWKS 的時限；逾時回 503。JWKS 會快取，平常只有啟動後第一次、遇到新的 kid 時才會抓
+      jwks-connect-timeout: 1s
+      jwks-response-timeout: 2s
+  # 來源 IP：0 = 直接用連線 IP（本機）；Gateway 前面有 N 層會加 X-Forwarded-For 的代理（例如 K8s Ingress）時設成 N
+  # 只信任最後 N 個值中最前面那個：用戶端自己加的 X-Forwarded-For 在更前面，無法偽造 IP
+  client-ip:
+    trusted-proxies: ${GATEWAY_TRUSTED_PROXIES:0}
+  # 登入限流（token bucket）：每個請求消耗 requested-tokens，每秒補 replenish-rate，最多存 burst-capacity
+  # 1 / 60 / 6 → 一次最多 10 個請求，之後每 6 秒 1 個（每分鐘 10 個）
+  # replenish-rate 最小是 1（每秒），要比每秒 1 個更慢只能靠 requested-tokens 大於 1
+  login-rate-limit:
+    replenish-rate: 1
+    burst-capacity: 60
+    requested-tokens: 6
+
+spring:
+  application:
+    name: api-gateway
+  data:
+    redis:
+      host: ${GATEWAY_REDIS_HOST:localhost}
+      port: ${GATEWAY_REDIS_PORT:6381} # infra/docker-compose.yml 的 gateway-redis
+      timeout: 500ms # Redis 慢或掛掉時登入不會被拖住；失敗時放行
+      connect-timeout: 1s
+  cloud:
+    gateway:
+      server:
+        webflux:
+          # 轉送到下游的時限：沒設的話下游卡住時連線會一直被占著
+          # 連不上回 5xx；連上了但超過 response-timeout 沒回應回 504
+          httpclient:
+            connect-timeout: 2000 # 毫秒
+            response-timeout: 10s
+          # 路徑對應見 docs/microservice-architecture.md「api-gateway 路由」；/internal/** 一律不建路由
+          # Path 的 /** 也會比對到沒有子路徑的情況，例如 /api/v1/products
+          routes:
+            # 登入要依來源 IP 限流，獨立一條路由；order 比 user-service 小，先比對
+            - id: user-service-login
+              uri: ${gateway.services.user-uri}
+              order: -1
+              predicates:
+                - Path=/api/v1/auth/login
+                - Method=POST
+              filters:
+                - name: ClientIpRateLimit
+                  args:
+                    replenish-rate: ${gateway.login-rate-limit.replenish-rate}
+                    burst-capacity: ${gateway.login-rate-limit.burst-capacity}
+                    requested-tokens: ${gateway.login-rate-limit.requested-tokens}
+            - id: product-service
+              uri: ${gateway.services.product-uri}
+              predicates:
+                - Path=/api/v1/products/**,/api/v1/categories/**
+            - id: user-service
+              uri: ${gateway.services.user-uri}
+              predicates:
+                - Path=/api/v1/auth/**,/api/v1/users/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  health:
+    redis:
+      # Redis 只用來限流，掛掉時放行；不能讓它把 Gateway 標成 DOWN（K8s 會因此重啟或移出流量）
+      enabled: false

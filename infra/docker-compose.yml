@@ -60,6 +60,18 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+  # api-gateway 依來源 IP 的登入限流（token bucket）；和其他服務分開。只放短期計數，不需要持久化
+  gateway-redis:
+    image: redis:8.2
+    container_name: my-microservice-gateway-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6381:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 volumes:
   product-db-data:
   user-db-data:
