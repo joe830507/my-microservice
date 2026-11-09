@@ -1,0 +1,6 @@
+# 測試用設定，搭配 @ActiveProfiles("test")；DB 連線由 Testcontainers 的 @ServiceConnection 提供
+jwt:
+  # 測試專用金鑰，可以 commit；不要拿去其他環境使用
+  private-key-location: classpath:jwt/test-private.pem
+  public-key-location: classpath:jwt/test-public.pem
+  key-id: user-service-test
