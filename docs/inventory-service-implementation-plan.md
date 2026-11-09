@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/inventory-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「inventory-service」、「服務互動：下單流程」
-> 狀態：Step 1–3 完成（2026-11-09），下一步 Step 4
+> 狀態：Step 1–4 完成（2026-11-09），下一步 Step 5
 
 ## 進度
 
@@ -12,7 +12,7 @@
 | 1 | 建立專案、DB 與資料表 | 完成 |
 | 2 | `GET /api/v1/inventory/{sku}` 查庫存 | 完成 |
 | 3 | `PUT /api/v1/inventory/{sku}` 後台設定庫存（ADMIN） | 完成 |
-| 4 | `POST /internal/v1/inventory/reservations` 預扣 | 未開始 |
+| 4 | `POST /internal/v1/inventory/reservations` 預扣 | 完成 |
 | 5 | `POST /internal/v1/inventory/reservations/{orderId}/confirm` 確認扣除 | 未開始 |
 | 6 | `POST /internal/v1/inventory/reservations/{orderId}/release` 釋放預扣 | 未開始 |
 | 7 | api-gateway 加上 `/api/v1/inventory/**` 路由 | 未開始 |
@@ -126,6 +126,14 @@ SKU 雛型階段不檢查 product-service 裡是否存在；之後改成接收 `
 - 兩個相同 `orderId` 的請求同時送達：後到的會被 `reservation` 的主鍵擋下，回 409 `DATA_CONFLICT`；呼叫方重試時就會走冪等的路徑
 
 **測試**：成功扣減、庫存不足時完全不扣、SKU 不存在、重送相同內容、重送不同內容、重複 SKU 合併、併發搶最後一件只有一個成功。
+
+**已完成**：`InternalReservationController`、`ReservationService.reserve`、`StockRepository.reserve`（條件式 UPDATE）；測試 `InternalReservationReserveIntegrationTests`（33）。
+
+- 預扣會讓 stock 的 `version + 1`：後台正在編輯同一個 SKU 時，PUT 會收到 409，不會把扣掉的數量蓋回去
+- 失敗不留紀錄：補貨後用同一個 `orderId` 重試可以成功
+- 已付款（`CONFIRMED`）後重送相同內容，回 200 和 `CONFIRMED` 狀態
+- 併發測試：10 張訂單搶最後 1 件只有 1 張成功；20 張訂單以相反順序搶 2 個 SKU，不超賣也不死結；同一張訂單同時重送 5 次只扣 1 次
+- 驗證過死結測試有效：故意改成依請求順序更新，PostgreSQL 回 `deadlock detected`，測試失敗
 
 ---
 

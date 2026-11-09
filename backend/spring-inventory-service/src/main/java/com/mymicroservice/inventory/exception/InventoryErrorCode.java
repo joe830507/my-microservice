@@ -13,7 +13,16 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum InventoryErrorCode implements ErrorCode {
     // Stock
-    STOCK_NOT_FOUND(HttpStatus.NOT_FOUND, "stock not found: %s.");
+    // 預扣時列出所有不存在的 SKU，以逗號分隔
+    STOCK_NOT_FOUND(HttpStatus.NOT_FOUND, "stock not found: %s."),
+
+    // Reservation
+    // 列出所有庫存不足的 SKU，以逗號分隔；整筆預扣都沒有生效
+    INSUFFICIENT_STOCK(HttpStatus.CONFLICT, "insufficient stock: %s."),
+    // 同一個 orderId 已經預扣過，但這次送來的品項或數量不同
+    RESERVATION_MISMATCH(HttpStatus.CONFLICT, "reservation for order %s already exists with different items."),
+    // 已經釋放過（取消或逾時），不能再預扣；延遲送達的預扣請求會收到這個錯誤
+    RESERVATION_ALREADY_RELEASED(HttpStatus.CONFLICT, "reservation for order %s has already been released.");
 
     private final HttpStatus status;
     private final String message;
