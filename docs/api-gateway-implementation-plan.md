@@ -52,7 +52,7 @@
 | `/api/v1/products/**`、`/api/v1/categories/**` | product-service |
 | `/api/v1/auth/**`、`/api/v1/users/**` | user-service |
 
-payment 的路由等服務建立後再加；inventory 的路由（`/api/v1/inventory/**`，`GET` 公開）在 inventory-service 的 Step 7、order 的路由（`/api/v1/orders/**`，全部需要登入）在 order-service 的 Step 9 加上。
+inventory 的路由（`/api/v1/inventory/**`，`GET` 公開）在 inventory-service 的 Step 7、order 的路由（`/api/v1/orders/**`，全部需要登入）在 order-service 的 Step 9、payment 的路由（`/api/v1/payments/**`，全部需要登入）在 payment-service 的 Step 6 加上。
 
 **測試**：用 WireMock 模擬下游服務，確認路徑轉到正確的服務、method、query、body 原樣轉送，不在路由表的路徑回 404。
 
@@ -192,7 +192,6 @@ Gateway（8080）+ user-service + product-service + `gateway-redis`，用 curl �
 
 ## 之後再處理
 
-- payment 的路由（服務建立後）
 - CORS（前端接上時）
 - 上 K8s：目標 URI 改成 Service 名稱、`/internal` 加 NetworkPolicy
 - 升級到 Boot 4.1 + Spring Cloud 2026.0.0（正式版發布後）

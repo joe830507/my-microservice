@@ -52,6 +52,10 @@ class GatewayJwtIntegrationTests {
             .options(wireMockConfig().dynamicPort()).build();
 
     @RegisterExtension
+    static final WireMockExtension PAYMENT_SERVICE = WireMockExtension.newInstance()
+            .options(wireMockConfig().dynamicPort()).build();
+
+    @RegisterExtension
     static final WireMockExtension JWKS_SERVER = WireMockExtension.newInstance()
             .options(wireMockConfig().dynamicPort()).build();
 
@@ -61,6 +65,7 @@ class GatewayJwtIntegrationTests {
         registry.add("gateway.services.user-uri", USER_SERVICE::baseUrl);
         registry.add("gateway.services.inventory-uri", INVENTORY_SERVICE::baseUrl);
         registry.add("gateway.services.order-uri", ORDER_SERVICE::baseUrl);
+        registry.add("gateway.services.payment-uri", PAYMENT_SERVICE::baseUrl);
         registry.add("gateway.security.jwt.jwk-set-uri", () -> JWKS_SERVER.baseUrl() + "/jwks");
         TestRedis.register(registry);
     }
@@ -75,6 +80,7 @@ class GatewayJwtIntegrationTests {
         USER_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse().withStatus(200)));
         INVENTORY_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse().withStatus(200)));
         ORDER_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse().withStatus(200)));
+        PAYMENT_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse().withStatus(200)));
     }
 
     private static void stubJwks(RSAKey... keys) {
@@ -104,6 +110,7 @@ class GatewayJwtIntegrationTests {
         USER_SERVICE.verify(0, anyRequestedFor(anyUrl()));
         INVENTORY_SERVICE.verify(0, anyRequestedFor(anyUrl()));
         ORDER_SERVICE.verify(0, anyRequestedFor(anyUrl()));
+        PAYMENT_SERVICE.verify(0, anyRequestedFor(anyUrl()));
     }
 
     // ---------- 有效的 token ----------
@@ -235,7 +242,18 @@ class GatewayJwtIntegrationTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = { "/api/v1/payments", "/api/v1/unknown" })
+    @ValueSource(strings = { "/api/v1/payments", "/api/v1/payments/01a1bfeb-4351-7899-9b58-142decdf4850/mock-callback" })
+    void paymentRoutes_requireToken(String path) {
+        expectUnauthenticated(webTestClient.post().uri(path)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{}")
+                .exchange());
+        expectUnauthenticated(webTestClient.get().uri("/api/v1/payments/01a1bfeb-4351-7899-9b58-142decdf4850").exchange());
+        expectNoDownstreamCalls();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "/api/v1/shipments", "/api/v1/unknown" })
     void unroutedPathWithoutToken_returns401(String path) {
         // 沒登入看不出哪些路徑存在；有 token 才會拿到 404（見 GatewayRoutingIntegrationTests）
         expectUnauthenticated(webTestClient.get().uri(path).exchange());

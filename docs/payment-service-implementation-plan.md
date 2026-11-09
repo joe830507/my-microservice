@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/payment-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「payment-service」、「服務互動：下單流程」
-> 狀態：Step 1–5 完成（2026-11-09），下一步 Step 6
+> 狀態：Step 1–6 全部完成，並實際啟動驗證完整下單流程（2026-11-09）
 
 ## 進度
 
@@ -14,7 +14,7 @@
 | 3 | `GET /api/v1/payments/{id}` 查付款狀態 | 完成 |
 | 4 | `POST /api/v1/payments/{id}/mock-callback` 模擬金流回呼，成功時通知 order-service | 完成 |
 | 5 | 排程：重試通知 order-service 失敗的付款 | 完成 |
-| 6 | api-gateway 加上 `/api/v1/payments/**` 路由 | 未開始 |
+| 6 | api-gateway 加上 `/api/v1/payments/**` 路由 | 完成 |
 
 每一步都附整合測試，測試通過後單獨 commit。呼叫 order-service 的部分在測試裡用 WireMock 模擬。
 
@@ -106,6 +106,27 @@ payment
 ## Step 6：Gateway 路由
 
 `/api/v1/payments/**` → payment-service（`PAYMENT_SERVICE_URI`，預設 `http://localhost:8085`），全部需要 JWT。
+
+**已完成**：api-gateway 的 `payment-service` 路由；`GatewayRoutingIntegrationTests`（+2）、`GatewayJwtIntegrationTests`（+2），api-gateway 共 99 個測試。原本拿 `/api/v1/payments` 當「不在路由表」例子的測試改用 `/api/v1/shipments`。
+
+---
+
+## 實際啟動驗證：完整下單流程（2026-11-09）
+
+六個服務都用真的程式啟動，全部經過 Gateway 呼叫：
+
+| 情境 | 結果 |
+|---|---|
+| 下單 2 件（庫存 5） | 庫存 3 / 預扣 2 |
+| 別人替這張訂單付款 | 404 `ORDER_NOT_FOUND` |
+| 建立付款（body 帶 `amount: 0.01`） | `PENDING`，金額 399.98（取自訂單，忽略 body） |
+| 再建立一次 | 200，回同一筆付款 |
+| 回呼 `SUCCESS` | 付款 `SUCCEEDED`；訂單 `PAID`；庫存 3 / 0（預扣轉成正式扣除） |
+| 成功後回呼 `FAILED`；再付款；取消訂單 | 409 `PAYMENT_ALREADY_COMPLETED`；409 `ORDER_ALREADY_PAID`；409 `ORDER_NOT_CANCELLABLE` |
+| 另一張訂單回呼 `FAILED` | 付款 `FAILED`，訂單仍是 `PENDING_PAYMENT` |
+| 重新建立付款並回呼 `SUCCESS` | 新的付款 id；訂單 `PAID`；庫存 1 / 0 |
+| 已取消的訂單建立付款 | 409 `ORDER_NOT_PAYABLE` |
+| 不帶 token 查付款 | 401 |
 
 ---
 
