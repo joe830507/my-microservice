@@ -3,13 +3,13 @@
 > 建立日期：2026-11-09
 > 分支：`feature/inventory-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「inventory-service」、「服務互動：下單流程」
-> 狀態：計畫完成，下一步 Step 1
+> 狀態：Step 1 完成（2026-11-09），下一步 Step 2
 
 ## 進度
 
 | Step | 內容 | 狀態 |
 |---|---|---|
-| 1 | 建立專案、DB 與資料表 | 未開始 |
+| 1 | 建立專案、DB 與資料表 | 完成 |
 | 2 | `GET /api/v1/inventory/{sku}` 查庫存 | 未開始 |
 | 3 | `PUT /api/v1/inventory/{sku}` 後台設定庫存（ADMIN） | 未開始 |
 | 4 | `POST /internal/v1/inventory/reservations` 預扣 | 未開始 |
@@ -62,6 +62,8 @@ reservation_item
 - 庫存的數量變動一律用**條件式 UPDATE**（`WHERE available >= ?`），不先讀再寫，避免併發時超賣
 
 **測試**：context 啟動、Flyway 套用成功、`/actuator/health` 為 UP。
+
+**已完成**：`InventoryServiceApplication`、實體 `Stock`、`Reservation`、`ReservationItem`、`V1__create_inventory_tables.sql`、compose 的 `inventory-db`；測試 `InventoryServiceApplicationIntegrationTests`（6）：資料表建立、health，以及負數庫存、不存在的 SKU、數量 0、未知狀態都會被 DB 擋下。
 
 ---
 
