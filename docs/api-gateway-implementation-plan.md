@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/api-gateway`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「api-gateway 路由」
-> 狀態：Step 2 完成（2026-11-09），下一步 Step 3
+> 狀態：Step 3 完成（2026-11-09），下一步 Step 4
 
 ## 進度
 
@@ -11,7 +11,7 @@
 |---|---|---|
 | 1 | 建立專案、路由到 product-service 與 user-service | 完成 |
 | 2 | JWT 驗簽（JWKS）與需要登入的路由 | 完成 |
-| 3 | 身分 header：移除用戶端送來的 `X-User-*`，改填 JWT 的值 | 未開始 |
+| 3 | 身分 header：移除用戶端送來的 `X-User-*`，改填 JWT 的值 | 完成 |
 | 4 | 封鎖 `/internal/**` | 未開始 |
 | 5 | 依來源 IP 限制登入請求次數（Redis） | 未開始 |
 
@@ -103,6 +103,13 @@ order、inventory、payment 的路由等服務建立後再加。
 - 這一步不做，下游所有「信任 header」的設計（`@CurrentUserId`、`@RequireRoles`、稽核）都會失效
 
 **測試**：WireMock 檢查下游收到的 header；用戶端偽造的 `X-User-Id` 在公開與需登入的路由上都要被換掉或移除。
+
+**已完成**：`UserContextHeadersFilter`（`GlobalFilter`，最先執行）；測試 `GatewayUserContextHeadersIntegrationTests`（11）。
+
+- 同名 header 送多筆、大小寫不同（`x-user-id`、`X-USER-ID`）都一併移除
+- JWT 沒有 `roles` 或是空陣列時不帶 `X-User-Roles`，下游視為沒有角色
+- 公開的 GET 路由帶了有效 token 也會填入身分；`/api/v1/auth/**` 不讀 token，只移除不填入
+- 確認過拿掉這個 filter 後，11 個測試有 10 個失敗（剩下那個是沒帶 token 被 401 擋下）
 
 ---
 

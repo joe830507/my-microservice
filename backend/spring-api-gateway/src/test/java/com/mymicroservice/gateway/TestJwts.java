@@ -19,7 +19,8 @@ import com.nimbusds.jwt.SignedJWT;
 final class TestJwts {
 
     static final String ISSUER = "user-service";
-    static final String USER_ID = "42";
+    // 和 user-service 一樣，sub 是 UUID 格式的 userId
+    static final String USER_ID = "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b";
 
     // user-service 目前的簽章金鑰，JWKS 裡有它的公鑰
     static final RSAKey SIGNING_KEY = generate("test-key-1");
