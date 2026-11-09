@@ -24,6 +24,7 @@ import com.mymicroservice.order.clients.ProductClient.Product;
 import com.mymicroservice.order.dtos.CreateOrderReqDto;
 import com.mymicroservice.order.dtos.GetOrdersReqDto;
 import com.mymicroservice.order.dtos.GetOrdersResDto;
+import com.mymicroservice.order.dtos.InternalOrderResDto;
 import com.mymicroservice.order.dtos.OrderResDto;
 import com.mymicroservice.order.entities.Order;
 import com.mymicroservice.order.entities.OrderItem;
@@ -98,6 +99,15 @@ public class OrderServiceImpl implements OrderService {
                     getOrdersReqDto.status()));
         }
         return GetOrdersResDto.from(orderRepository.findAll(specification, getOrdersReqDto.toPageable()));
+    }
+
+    // 內部查詢（payment-service）：不檢查擁有者，不需要明細
+    @Override
+    @Transactional(readOnly = true)
+    public InternalOrderResDto getInternalOrder(UUID orderId) {
+        return orderRepository.findById(orderId)
+                .map(InternalOrderResDto::from)
+                .orElseThrow(() -> new AppException(OrderErrorCode.ORDER_NOT_FOUND, orderId));
     }
 
     // 只有 PENDING_PAYMENT 可以取消；已經取消的回 200（冪等）；別人的訂單回 404

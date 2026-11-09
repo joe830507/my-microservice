@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/order-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「order-service」、「服務互動：下單流程」
-> 狀態：Step 1–5 完成（2026-11-09），下一步 Step 6
+> 狀態：Step 1–6 完成（2026-11-09），下一步 Step 7
 
 ## 進度
 
@@ -14,7 +14,7 @@
 | 3 | `GET /api/v1/orders/{id}` 訂單詳情 | 完成 |
 | 4 | `GET /api/v1/orders` 訂單列表 | 完成 |
 | 5 | `POST /api/v1/orders/{id}/cancel` 取消訂單 | 完成 |
-| 6 | `GET /internal/v1/orders/{id}` 給 payment-service 查訂單 | 未開始 |
+| 6 | `GET /internal/v1/orders/{id}` 給 payment-service 查訂單 | 完成 |
 | 7 | `POST /internal/v1/orders/{id}/paid` 付款成功通知 | 未開始 |
 | 8 | 排程：付款逾時自動取消、補做失敗的庫存釋放與確認 | 未開始 |
 | 9 | api-gateway 加上 `/api/v1/orders/**` 路由 | 未開始 |
@@ -144,6 +144,8 @@ order_item
 ## Step 6：內部查詢訂單
 
 `GET /internal/v1/orders/{id}`：回傳 `{id, userId, status, totalAmount}`，給 payment-service 取得金額與狀態。
+
+**已完成**：`InternalOrderController`；測試 `InternalOrderGetIntegrationTests`（4）。不需要身分 header，不檢查擁有者，不帶明細。
 
 ## Step 7：付款成功通知
 
