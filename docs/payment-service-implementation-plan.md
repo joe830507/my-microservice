@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/payment-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「payment-service」、「服務互動：下單流程」
-> 狀態：Step 1–3 完成（2026-11-09），下一步 Step 4
+> 狀態：Step 1–4 完成（2026-11-09），下一步 Step 5
 
 ## 進度
 
@@ -12,7 +12,7 @@
 | 1 | 建立專案、DB 與資料表 | 完成 |
 | 2 | `POST /api/v1/payments` 建立付款（向 order-service 取金額） | 完成 |
 | 3 | `GET /api/v1/payments/{id}` 查付款狀態 | 完成 |
-| 4 | `POST /api/v1/payments/{id}/mock-callback` 模擬金流回呼，成功時通知 order-service | 未開始 |
+| 4 | `POST /api/v1/payments/{id}/mock-callback` 模擬金流回呼，成功時通知 order-service | 完成 |
 | 5 | 排程：重試通知 order-service 失敗的付款 | 未開始 |
 | 6 | api-gateway 加上 `/api/v1/payments/**` 路由 | 未開始 |
 
@@ -90,6 +90,12 @@ payment
 - 狀態轉換用條件式 UPDATE（`WHERE status = 'PENDING'`），重複或同時回呼只有一個生效
 - 通知 order-service 的結果：200 → `DONE`；409 訂單已取消 → `REJECTED`（記 error log，之後要退款）；連不上、5xx → 維持 `PENDING`
 - 通知失敗不影響回呼的回應
+
+**已完成**：`PaymentController.mockCallback`、`PaymentRepository.completeIfPending`、`markOrderNotification`、`OrderClient.notifyPaid`；測試 `PaymentControllerMockCallbackIntegrationTests`（15）。
+
+- 狀態改完並 commit 後才通知 order-service；同樣的成功回呼再送一次，還沒通知成功的會重試
+- order-service 回 404 也記成 `REJECTED`（訂單不存在，同樣要退款）
+- 併發測試：成功與失敗的回呼同時送達，只有一個生效
 
 ## Step 5：排程
 
