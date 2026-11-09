@@ -1,0 +1,11 @@
+# 測試用設定，搭配 @ActiveProfiles("test")；DB 與 Redis 連線由 Testcontainers 的 @ServiceConnection 提供
+jwt:
+  # 測試專用金鑰，可以 commit；不要拿去其他環境使用
+  private-key-location: classpath:jwt/test-private.pem
+  public-key-location: classpath:jwt/test-public.pem
+  key-id: user-service-test
+app:
+  # 其他測試會反覆用同一個 email 登入失敗，計數又跨測試保留在 Redis；
+  # 調高上限避免互相干擾，LoginAttemptIntegrationTests 會自己改回小的值
+  login-attempt:
+    max-failures: 1000

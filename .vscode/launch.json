@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "user-service (dev)",
+      "request": "launch",
+      "mainClass": "com.mymicroservice.user.UserServiceApplication",
+      "projectName": "user-service",
+      // 金鑰路徑 file:./secrets/... 相對於工作目錄，預設的 workspace 根目錄會找不到
+      "cwd": "${workspaceFolder}/backend/spring-user-service",
+      "args": "--spring.profiles.active=dev",
+      // BOOTSTRAP_ADMIN_EMAIL、BOOTSTRAP_ADMIN_PASSWORD；secrets/ 已被 gitignore
+      "envFile": "${workspaceFolder}/backend/spring-user-service/secrets/dev.env"
+    }
+  ]
+}

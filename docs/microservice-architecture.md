@@ -22,7 +22,7 @@
 |---|---|---|
 | `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、之後的限流 | 空目錄 |
 | `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取） |
-| `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 骨架完成（DB、migration），開發中 |
+| `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 註冊、登入（簽發 JWT）完成，開發中（下一步 JWKS、`/users/me`） |
 | `spring-inventory-service` | 庫存、預扣、確認、釋放 | 待建立 |
 | `spring-order-service` | 訂單、商品快照、訂單狀態 | 空目錄 |
 | `spring-payment-service` | 付款（雛型階段用模擬金流） | 待建立 |
@@ -49,14 +49,14 @@
 
 ### 本機 port 分配
 
-| 服務 | 應用程式 port | DB port |
-|---|---|---|
-| api-gateway | 8080 | — |
-| product-service | 8081 | 5432 |
-| order-service | 8082 | 5433 |
-| inventory-service | 8083 | 5434 |
-| user-service | 8084 | 5435 |
-| payment-service | 8085 | 5436 |
+| 服務 | 應用程式 port | DB port | Redis port |
+|---|---|---|---|
+| api-gateway | 8080 | — | — |
+| product-service | 8081 | 5432 | 6379（快取） |
+| order-service | 8082 | 5433 | — |
+| inventory-service | 8083 | 5434 | — |
+| user-service | 8084 | 5435 | 6380（登入失敗計數） |
+| payment-service | 8085 | 5436 | — |
 
 > 現有的 `GET /api/v1/products/batch` 主要給 order-service 用。之後可以搬到 `/internal/v1/products/batch`，或是對內、對外各留一支；雛型階段先不動。
 
@@ -82,6 +82,7 @@ backend/
 | `ErrorCode` interface + 共用錯誤碼 `CommonErrorCode` | 服務間呼叫的請求、回應類別（由呼叫方自己定義） |
 | `CommonEntity`（稽核欄位 + `@Version`） | 只有單一服務用到的設定（例如 product 的 `RedisConfig`） |
 | `X-User-*` header 常數、讀 header 的 `AuditorAware` | |
+| `@CurrentUserId`（注入目前使用者 id）、`@RequireRoles`（角色檢查） | |
 
 - 版本固定 `0.0.1-SNAPSHOT`，透過聚合 pom 一起建置，不發佈到 repository
 - 單獨建置某個服務：`./mvnw -pl spring-user-service -am package`（`-am` 會先建置 common）
@@ -98,7 +99,9 @@ backend/
 |---|---|---|
 | POST | `/api/v1/auth/register` | 註冊 |
 | POST | `/api/v1/auth/login` | 回傳 access token、refresh token |
-| POST | `/api/v1/auth/refresh` | 換新的 access token |
+| POST | `/api/v1/auth/refresh` | 換新的 access token 與 refresh token（輪替，舊的立即失效） |
+| POST | `/api/v1/auth/logout` | 撤銷 refresh token；一律回 204 |
+| DELETE | `/api/v1/users/me/sessions` | 登出所有裝置（需要 JWT） |
 | GET | `/api/v1/auth/jwks` | 公鑰（JWKS），Gateway 用來驗簽；不需要 JWT |
 | GET | `/api/v1/users/me` | 自己的資料 |
 | GET | `/api/v1/users` | 後台查使用者列表（ADMIN） |

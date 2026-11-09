@@ -48,6 +48,18 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+  # user-service 的登入失敗計數；和 product 分開，資料不混用。只放短期計數，不需要持久化
+  user-redis:
+    image: redis:8.2
+    container_name: my-microservice-user-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 volumes:
   product-db-data:
   user-db-data:
