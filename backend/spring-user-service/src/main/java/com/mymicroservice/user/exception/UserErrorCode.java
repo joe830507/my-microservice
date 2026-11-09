@@ -21,7 +21,10 @@ public enum UserErrorCode implements ErrorCode {
     // 帳號不存在與密碼錯誤一律回此錯誤，避免被用來探測哪些 email 已註冊
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "email or password is incorrect."),
     // 必須在密碼驗證通過後才檢查，否則同樣會洩漏帳號是否存在
-    USER_DISABLED(HttpStatus.FORBIDDEN, "user is disabled.");
+    USER_DISABLED(HttpStatus.FORBIDDEN, "user is disabled."),
+
+    // User
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "user not found.");
 
     private final HttpStatus status;
     private final String message;

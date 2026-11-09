@@ -16,4 +16,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     // 登入要把角色放進 JWT：一次 join 撈回 roles，避免延遲載入多一次查詢
     @EntityGraph(attributePaths = "roles")
     Optional<User> findByEmail(String email);
+
+    // 與 findById 相同，但一次撈回 roles；回應要帶角色時使用
+    @EntityGraph(attributePaths = "roles")
+    Optional<User> findWithRolesById(UUID id);
 }
