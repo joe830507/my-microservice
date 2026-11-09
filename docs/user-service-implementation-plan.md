@@ -445,6 +445,18 @@ set -a; . secrets/dev.env; set +a
 
 - 資料量很大時，一次 DELETE 可能鎖住大量資料列；到時再改成分批刪除
 
+### 登出所有裝置：`DELETE /api/v1/users/me/sessions`
+
+**已完成**：`UserController#revokeAllSessions`、`UserServiceImpl#revokeAllSessions`；測試 `UserControllerSessionsIntegrationTests`（8）。
+
+| 項目 | 做法 |
+|---|---|
+| 路徑 | 放在 `/users/me` 而不是 `/auth`：Gateway 對 `/api/v1/auth/**` 不要求 JWT，這支 API 需要可信任的 `X-User-Id`（`@CurrentUserId`） |
+| 行為 | `revokeAllActiveByUserId`，撤銷目前使用者所有有效的 refresh token；回 204 |
+| 寬限期 | 撤銷不寫 `replaced_by`；剛輪替掉的舊 token 也因新 token 已被撤銷而失去寬限 |
+| access token | 無法撤銷，各裝置在到期（最多 15 分鐘）後無法再換發 |
+| 沒有 token | 一樣回 204 |
+
 ---
 
 ## 之後再處理
@@ -452,4 +464,3 @@ set -a; . secrets/dev.env; set +a
 - Gateway 接上 JWKS 驗簽（`feature/api-gateway` 分支）
 - 金鑰輪替：JWKS 同時發布新舊兩把公鑰，用 `kid` 區分
 - 登入失敗次數限制（搭配 Redis）
-- 「登出所有裝置」：需要 access token（`@CurrentUserId`），呼叫 `revokeAllActiveByUserId`

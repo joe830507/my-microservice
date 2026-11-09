@@ -11,4 +11,6 @@ public interface UserService {
     public GetMeResDto getMe(UUID userId);
 
     public GetUsersResDto getUsers(GetUsersReqDto getUsersReqDto);
+
+    public void revokeAllSessions(UUID userId);
 }

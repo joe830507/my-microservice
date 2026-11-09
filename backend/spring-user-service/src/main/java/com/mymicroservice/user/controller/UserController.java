@@ -5,6 +5,7 @@ import java.util.UUID;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -33,6 +34,14 @@ public class UserController {
     @ResponseStatus(HttpStatus.OK)
     public GetMeResDto getMe(@CurrentUserId UUID userId) {
         return userService.getMe(userId);
+    }
+
+    // 登出所有裝置：撤銷目前使用者所有的 refresh token
+    // 放在 /users/me 而非 /auth：Gateway 對 /api/v1/auth/** 不要求 JWT，這裡需要可信任的 X-User-Id
+    @DeleteMapping("/me/sessions")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revokeAllSessions(@CurrentUserId UUID userId) {
+        userService.revokeAllSessions(userId);
     }
 
     // 後台使用者列表，限 ADMIN

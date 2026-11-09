@@ -1,5 +1,6 @@
 package com.mymicroservice.user.service.impl;
 
+import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -14,6 +15,7 @@ import com.mymicroservice.user.dtos.users.GetUsersReqDto;
 import com.mymicroservice.user.dtos.users.GetUsersResDto;
 import com.mymicroservice.user.entities.User;
 import com.mymicroservice.user.exception.UserErrorCode;
+import com.mymicroservice.user.repositories.RefreshTokenRepository;
 import com.mymicroservice.user.repositories.UserRepository;
 import com.mymicroservice.user.service.UserService;
 
@@ -24,6 +26,16 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
+
+    // 登出所有裝置：撤銷該使用者所有仍有效的 refresh token
+    // 撤銷時不寫 replaced_by；剛輪替掉的舊 token 也因為新 token 已被撤銷而失去寬限期
+    // access token 無法撤銷，各裝置會在到期（最多 15 分鐘）後無法再換發
+    // 沒有任何 token、或使用者不存在，結果都是「沒有有效 token」，不回錯誤
+    @Override
+    public void revokeAllSessions(UUID userId) {
+        refreshTokenRepository.revokeAllActiveByUserId(userId, Instant.now());
+    }
 
     // 停用的帳號仍回傳資料（status 為 DISABLED）：access token 在到期前依然有效，
     // 擋下停用帳號是登入與之後 refresh 的責任，前端可依 status 顯示提示
