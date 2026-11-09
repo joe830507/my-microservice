@@ -45,4 +45,18 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
             WHERE o.id = :id AND o.reservationStatus = :reservationStatus AND o.reservationSynced = false
             """)
     int markReservationSynced(@Param("id") UUID id, @Param("reservationStatus") ReservationStatus reservationStatus);
+
+    // 付款成功：只有 PENDING_PAYMENT 才會改，回傳 1 = 成功、0 = 狀態不對
+    // 同時把預扣標成「應該確認、尚未同步」；和取消同時送達時只有一個會成功
+    @Transactional
+    @Modifying
+    @Query("""
+            UPDATE Order o
+            SET o.status = com.mymicroservice.order.enums.OrderStatus.PAID, o.paidAt = :now,
+                o.reservationStatus = com.mymicroservice.order.enums.ReservationStatus.CONFIRMED,
+                o.reservationSynced = false,
+                o.version = o.version + 1, o.updatedAt = :now, o.updatedBy = :updatedBy
+            WHERE o.id = :id AND o.status = com.mymicroservice.order.enums.OrderStatus.PENDING_PAYMENT
+            """)
+    int markPaidIfPending(@Param("id") UUID id, @Param("now") Instant now, @Param("updatedBy") UUID updatedBy);
 }

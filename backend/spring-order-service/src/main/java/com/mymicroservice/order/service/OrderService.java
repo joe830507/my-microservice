@@ -19,4 +19,6 @@ public interface OrderService {
     public OrderResDto cancelOrder(UUID orderId, UUID userId, boolean admin);
 
     public InternalOrderResDto getInternalOrder(UUID orderId);
+
+    public InternalOrderResDto markPaid(UUID orderId);
 }

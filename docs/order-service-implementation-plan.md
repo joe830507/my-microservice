@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/order-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「order-service」、「服務互動：下單流程」
-> 狀態：Step 1–6 完成（2026-11-09），下一步 Step 7
+> 狀態：Step 1–7 完成（2026-11-09），下一步 Step 8
 
 ## 進度
 
@@ -15,7 +15,7 @@
 | 4 | `GET /api/v1/orders` 訂單列表 | 完成 |
 | 5 | `POST /api/v1/orders/{id}/cancel` 取消訂單 | 完成 |
 | 6 | `GET /internal/v1/orders/{id}` 給 payment-service 查訂單 | 完成 |
-| 7 | `POST /internal/v1/orders/{id}/paid` 付款成功通知 | 未開始 |
+| 7 | `POST /internal/v1/orders/{id}/paid` 付款成功通知 | 完成 |
 | 8 | 排程：付款逾時自動取消、補做失敗的庫存釋放與確認 | 未開始 |
 | 9 | api-gateway 加上 `/api/v1/orders/**` 路由 | 未開始 |
 
@@ -156,6 +156,13 @@ order_item
 | `PENDING_PAYMENT` | 改成 `PAID`、`reservation_status = CONFIRMED`，再呼叫 inventory 確認；呼叫失敗由 Step 8 重試 |
 | `PAID` | 200（冪等） |
 | `CANCELLED` | 409 `ORDER_ALREADY_CANCELLED`（payment-service 要退款，雛型階段只記錄） |
+
+**已完成**：`InternalOrderController.markPaid`、`OrderRepository.markPaidIfPending`；測試 `InternalOrderPaidIntegrationTests`（9）。
+
+- 和取消的做法一樣：狀態改完並 commit 後才呼叫 inventory 確認；inventory 掛掉時付款照樣記成功，由排程重試
+- `SHIPPED`、`COMPLETED` 也視為已付款，回 200
+- 併發測試：付款通知與取消同時送達，只有一個成功，訂單狀態與呼叫 inventory 的動作一致
+- 已知限制：inventory 回 409（例如預扣已被逾時釋放）時，確認會一直失敗並由排程重試；付款期限 30 分鐘、inventory 逾時釋放 1 小時，正常不會發生
 
 ## Step 8：排程
 

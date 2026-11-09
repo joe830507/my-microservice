@@ -16,6 +16,8 @@ public enum OrderErrorCode implements ErrorCode {
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "order not found: %s."),
     // 只有 PENDING_PAYMENT 可以取消；已付款的要走退款流程（雛型階段不做）
     ORDER_NOT_CANCELLABLE(HttpStatus.CONFLICT, "order %s cannot be cancelled in status %s."),
+    // 付款成功通知送到時訂單已經取消（例如付款逾時被自動取消）；payment-service 要退款
+    ORDER_ALREADY_CANCELLED(HttpStatus.CONFLICT, "order %s has already been cancelled."),
 
     // 建立訂單：列出所有有問題的商品 id 或 SKU，以逗號分隔
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "product not found: %s."),

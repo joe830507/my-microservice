@@ -110,6 +110,31 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new AppException(OrderErrorCode.ORDER_NOT_FOUND, orderId));
     }
 
+    // 付款成功（payment-service 呼叫）：PENDING_PAYMENT → PAID，commit 後呼叫 inventory 確認扣除
+    // 已經付款的回 200（冪等），還沒同步的會重試確認；已取消的回 409
+    // 確認失敗不影響結果：reservationSynced 維持 false，由排程重試
+    @Override
+    public InternalOrderResDto markPaid(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(OrderErrorCode.ORDER_NOT_FOUND, orderId));
+
+        boolean paid = orderRepository.markPaidIfPending(orderId, Instant.now(),
+                auditorAware.getCurrentAuditor().orElseThrow()) == 1;
+        if (!paid) {
+            order = orderRepository.findById(orderId).orElseThrow();
+            if (order.getStatus() == OrderStatus.CANCELLED) {
+                throw new AppException(OrderErrorCode.ORDER_ALREADY_CANCELLED, orderId);
+            }
+            // PAID 之後的狀態（SHIPPED、COMPLETED）也算已付款
+            if (order.isReservationSynced() || order.getReservationStatus() != ReservationStatus.CONFIRMED) {
+                return InternalOrderResDto.from(order);
+            }
+        }
+
+        syncReservation(orderId, ReservationStatus.CONFIRMED);
+        return InternalOrderResDto.from(orderRepository.findById(orderId).orElseThrow());
+    }
+
     // 只有 PENDING_PAYMENT 可以取消；已經取消的回 200（冪等）；別人的訂單回 404
     // 不加 @Transactional：狀態改完並 commit 後才呼叫 inventory，呼叫期間不佔著 DB 連線
     // 釋放失敗不影響取消的結果：reservationSynced 維持 false，由排程重試
