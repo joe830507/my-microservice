@@ -28,11 +28,11 @@
 | [inventory-service-implementation-plan.md](implementation-plans/inventory-service-implementation-plan.md) | 完成：庫存、預扣、確認、釋放、預扣逾時釋放 |
 | [order-service-implementation-plan.md](implementation-plans/order-service-implementation-plan.md) | 完成：建單、查詢、取消、付款通知、付款逾時 |
 | [payment-service-implementation-plan.md](implementation-plans/payment-service-implementation-plan.md) | 完成：建立付款、模擬金流回呼、通知重試；含完整下單流程的實測 |
-| [product-image-upload-implementation-plan.md](implementation-plans/product-image-upload-implementation-plan.md) | 進行中：商品圖片上傳（相容 S3 的物件儲存），讓商品能正常上架 |
+| [product-image-upload-implementation-plan.md](implementation-plans/product-image-upload-implementation-plan.md) | 完成：商品圖片上傳（相容 S3 的物件儲存，本機用 SeaweedFS），商品能正常上架 |
 
 ## 設計與評估
 
 | 文件 | 狀態 |
 |---|---|
 | [product-service-middleware-evaluation.md](design/product-service-middleware-evaluation.md) | product-service 的中介軟體評估；Redis 已導入，其餘評估中 |
-| [product-image-upload-design.md](design/product-image-upload-design.md) | 商品圖片上傳（MinIO / S3）；實作中，見對應的實作計畫 |
+| [product-image-upload-design.md](design/product-image-upload-design.md) | 商品圖片上傳（MinIO / S3，本機改用 SeaweedFS）；已實作 |

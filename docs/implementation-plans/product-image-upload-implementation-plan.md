@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/product-image-upload`
 > 設計：[product-image-upload-design.md](../design/product-image-upload-design.md)（流程、關鍵決定、API、錯誤碼都以設計文件為準，這裡只列步驟與實作細節）
-> 狀態：Step 1–4 完成（2026-11-09），下一步 Step 5
+> 狀態：Step 1–5 全部完成，並實際啟動驗證（2026-11-09）
 
 ## 進度
 
@@ -13,7 +13,7 @@
 | 2 | `ImageStorage` 與 `POST /api/v1/products/{productId}/images/upload-url` | 完成 |
 | 3 | V4 migration（`url` → `object_key`）與改寫登記圖片 API | 完成 |
 | 4 | 刪除圖片時一併刪除物件 | 完成 |
-| 5 | 實際啟動驗證：上傳主圖 → 正常上架 → 下單 | 未開始 |
+| 5 | 實際啟動驗證：上傳主圖 → 正常上架 → 下單 | 完成 |
 
 每一步都附整合測試，測試通過後單獨 commit。測試用 Testcontainers 跑真的物件儲存（SeaweedFS），實際 PUT 檔案，不用假的 S3。
 
@@ -85,6 +85,22 @@
 ## Step 5：實際啟動驗證
 
 用 compose 的物件儲存，經過 Gateway：申請網址 → PUT → 登記為主圖 → **正常上架**（不再直接改 DB）→ 下單 → 付款。
+
+**結果**（六個服務 + compose 的 SeaweedFS，全部經過 Gateway；product-service 啟動時把本機 DB 遷移到 V4）：
+
+| 情境 | 結果 |
+|---|---|
+| 沒有主圖就上架 | 400 `PRODUCT_PRIMARY_IMAGE_REQUIRED` |
+| CUSTOMER 申請上傳網址 | 403 |
+| ADMIN 申請上傳網址，用 curl PUT 3000 bytes 的檔案 | 200 |
+| 登記為主圖 | 201，`url` 是 `http://localhost:8333/product-images/products/...` |
+| 匿名讀取公開網址 | 拿到和上傳時完全相同的檔案 |
+| 匿名讀取 tmp/ 的 key | 403（已經搬走，且 tmp/ 不公開） |
+| 上架 | 200 `ACTIVE`；公開的圖片列表帶網址 |
+| 下單 1 件 → 付款成功 | 訂單 `PAID`，庫存 2 / 0 |
+| 刪除上架中商品的主圖 | 400 `PRODUCT_IMAGE_PRIMARY_UNDELETABLE`，公開網址仍可讀 |
+
+之前兩次完整流程的實測都要直接在 DB 把商品改成 `ACTIVE`，這次不需要了。
 
 ---
 
