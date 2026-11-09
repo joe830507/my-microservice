@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/order-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「order-service」、「服務互動：下單流程」
-> 狀態：Step 1–2 完成（2026-11-09），下一步 Step 3
+> 狀態：Step 1–3 完成（2026-11-09），下一步 Step 4
 
 ## 進度
 
@@ -11,7 +11,7 @@
 |---|---|---|
 | 1 | 建立專案、DB 與資料表 | 完成 |
 | 2 | `POST /api/v1/orders` 建立訂單（呼叫 product、inventory） | 完成 |
-| 3 | `GET /api/v1/orders/{id}` 訂單詳情 | 未開始 |
+| 3 | `GET /api/v1/orders/{id}` 訂單詳情 | 完成 |
 | 4 | `GET /api/v1/orders` 訂單列表 | 未開始 |
 | 5 | `POST /api/v1/orders/{id}/cancel` 取消訂單 | 未開始 |
 | 6 | `GET /internal/v1/orders/{id}` 給 payment-service 查訂單 | 未開始 |
@@ -108,6 +108,8 @@ order_item
 
 - 只能看自己的；ADMIN 可以看全部
 - 別人的訂單回 **404**（不是 403），不透露這個 id 存在
+
+**已完成**：`OrderController.getOrder`；測試 `OrderControllerGetIntegrationTests`（11）。角色比對區分大小寫（`admin`、`ADMINISTRATOR` 都不算 ADMIN）；回應不含 `reservationStatus` 等內部欄位。
 
 ## Step 4：訂單列表
 

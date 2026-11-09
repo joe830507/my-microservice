@@ -9,6 +9,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.mymicroservice.common.exception.AppException;
 import com.mymicroservice.order.clients.InventoryClient;
@@ -58,6 +59,17 @@ public class OrderServiceImpl implements OrderService {
             throw exception;
         }
         return OrderResDto.from(order);
+    }
+
+    // 只能看自己的；ADMIN 可以看全部
+    // 別人的訂單和不存在一樣回 404，不透露這個 id 存在
+    @Override
+    @Transactional(readOnly = true)
+    public OrderResDto getOrder(UUID orderId, UUID userId, boolean admin) {
+        return orderRepository.findWithItemsById(orderId)
+                .filter(order -> admin || order.getUserId().equals(userId))
+                .map(OrderResDto::from)
+                .orElseThrow(() -> new AppException(OrderErrorCode.ORDER_NOT_FOUND, orderId));
     }
 
     // 不存在的商品 → 404；沒有上架的 → 409；兩種都列出全部有問題的

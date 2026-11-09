@@ -12,6 +12,9 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum OrderErrorCode implements ErrorCode {
+    // 不存在，或不是自己的訂單（不透露別人的訂單 id 存在）
+    ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "order not found: %s."),
+
     // 建立訂單：列出所有有問題的商品 id 或 SKU，以逗號分隔
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "product not found: %s."),
     // 商品存在但不是上架狀態（DRAFT、INACTIVE、ARCHIVED）
