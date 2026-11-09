@@ -10,6 +10,10 @@ spring:
     password: ${DB_PASSWORD:postgres}
   flyway:
     schemas: inventory_service
+  jackson:
+    deserialization:
+      # 數量必須是整數：預設會把 1.5 默默轉成 1
+      accept-float-as-int: false
   jpa:
     hibernate:
       ddl-auto: validate

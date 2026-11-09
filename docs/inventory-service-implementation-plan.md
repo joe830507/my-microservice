@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/inventory-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「inventory-service」、「服務互動：下單流程」
-> 狀態：Step 1–2 完成（2026-11-09），下一步 Step 3
+> 狀態：Step 1–3 完成（2026-11-09），下一步 Step 4
 
 ## 進度
 
@@ -11,7 +11,7 @@
 |---|---|---|
 | 1 | 建立專案、DB 與資料表 | 完成 |
 | 2 | `GET /api/v1/inventory/{sku}` 查庫存 | 完成 |
-| 3 | `PUT /api/v1/inventory/{sku}` 後台設定庫存（ADMIN） | 未開始 |
+| 3 | `PUT /api/v1/inventory/{sku}` 後台設定庫存（ADMIN） | 完成 |
 | 4 | `POST /internal/v1/inventory/reservations` 預扣 | 未開始 |
 | 5 | `POST /internal/v1/inventory/reservations/{orderId}/confirm` 確認扣除 | 未開始 |
 | 6 | `POST /internal/v1/inventory/reservations/{orderId}/release` 釋放預扣 | 未開始 |
