@@ -1,5 +1,6 @@
 package com.mymicroservice.user.service.impl;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -102,7 +103,7 @@ public class AuthServiceImpl implements AuthService {
 
     // 輪替：舊的 refresh token 作廢，換發新的 access token 與 refresh token
     // noRollbackFor：偵測到重複使用時會先撤銷該使用者所有 token 再丟例外，撤銷必須保留下來
-    // （這個方法丟出 AppException 之前的寫入只有撤銷，不會留下做一半的換發）
+    // （丟出 AppException 時，這次新建立的 refresh token 也已一併被撤銷，不會留下可用的 token）
     @Override
     @Transactional(noRollbackFor = AppException.class)
     public TokenResDto refresh(RefreshReqDto refreshReqDto) {
@@ -113,10 +114,10 @@ public class AuthServiceImpl implements AuthService {
                 .findByTokenHash(refreshTokenGenerator.hash(refreshReqDto.refreshToken()))
                 .orElseThrow(() -> new AppException(UserErrorCode.REFRESH_TOKEN_INVALID));
 
-        // 2. 已撤銷的 token 又被拿來用：正常的前端不會這樣做，代表 token 可能被竊取
-        // 撤銷該使用者所有 token，讓攻擊者與使用者手上的 refresh token 都失效，使用者需重新登入
+        // 2. 已撤銷的 token 又被拿來用：剛輪替掉的在寬限期內放行（多分頁同時 refresh、回應遺失後重送）；
+        // 其他情況代表 token 可能被竊取，撤銷該使用者所有 token，使用者需重新登入
         if (refreshToken.isRevoked()) {
-            revokeAllOnReuse(refreshToken.getUserId(), now);
+            requireReuseWithinGrace(refreshToken, now);
         }
 
         // 3. 過期只是自然失效，不需要撤銷其他 token
@@ -132,15 +133,43 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(UserErrorCode.USER_DISABLED);
         }
 
-        // 5. 條件式撤銷舊 token；回傳 0 代表同一個 token 被另一個請求搶先用掉，視為重複使用
-        if (refreshTokenRepository.revokeIfActive(refreshToken.getId(), now) == 0) {
-            revokeAllOnReuse(user.getId(), now);
+        // 5. 先建立新的 refresh token：輪替舊 token 時要記錄換成哪一個
+        IssuedRefreshToken newRefreshToken = issueRefreshToken(user, now);
+
+        // 6. 條件式輪替舊 token（第 2 步已放行的寬限期 token 本來就已撤銷，不用再輪替）
+        // 更新 0 筆代表同一個 token 被另一個請求搶先輪替，例如兩個分頁同時 refresh：
+        // 重新讀取後一樣交給寬限期判斷；不放行時撤銷全部，剛建立的新 token 也會一起被撤銷
+        if (!refreshToken.isRevoked()
+                && refreshTokenRepository.rotateIfActive(refreshToken.getId(), newRefreshToken.id(), now) == 0) {
+            RefreshToken latest = refreshTokenRepository.findById(refreshToken.getId()).orElse(null);
+            if (latest == null) {
+                revokeAllOnReuse(user.getId(), now);
+            } else {
+                requireReuseWithinGrace(latest, now);
+            }
         }
 
-        // 6. 換發；roles 從 DB 重新讀取，角色有異動時新的 access token 會反映
-        return issueTokens(user, now);
+        // 7. 換發；roles 從 DB 重新讀取，角色有異動時新的 access token 會反映
+        return toTokenResDto(issueAccessToken(user, now), newRefreshToken);
     }
 
+    // 寬限條件全部成立才放行，否則視為重複使用：
+    //   - 因輪替而撤銷（replaced_by 有值）：登出、停用、重複使用偵測撤銷的都沒有，不給寬限
+    //   - 撤銷後還在寬限時間內
+    //   - 換成的新 token 仍有效：新 token 被撤銷代表整組已被撤銷（或已登出），不能讓舊 token 把登入狀態救回來
+    private void requireReuseWithinGrace(RefreshToken token, Instant now) {
+        Duration grace = jwtProperties.refreshTokenReuseGrace();
+        boolean withinGrace = grace.isPositive()
+                && token.getReplacedBy() != null
+                && now.isBefore(token.getRevokedAt().plus(grace))
+                && refreshTokenRepository.existsByIdAndRevokedAtIsNull(token.getReplacedBy());
+        if (!withinGrace) {
+            revokeAllOnReuse(token.getUserId(), now);
+        }
+        log.info("rotated refresh token {} reused within grace period, issuing new tokens", token.getId());
+    }
+
+    // 一律丟出例外；回傳型別寫成 void，呼叫端之後的程式不會執行
     private void revokeAllOnReuse(UUID userId, Instant now) {
         int revoked = refreshTokenRepository.revokeAllActiveByUserId(userId, now);
         log.warn("refresh token reuse detected for user {}, revoked {} active token(s)", userId, revoked);
@@ -148,10 +177,12 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private TokenResDto issueTokens(User user, Instant now) {
-        String accessToken = issueAccessToken(user, now);
-        String refreshToken = issueRefreshToken(user, now);
+        return toTokenResDto(issueAccessToken(user, now), issueRefreshToken(user, now));
+    }
+
+    private TokenResDto toTokenResDto(String accessToken, IssuedRefreshToken refreshToken) {
         return TokenResDto.bearer(accessToken, jwtProperties.accessTokenTtl().toSeconds(),
-                refreshToken, jwtProperties.refreshTokenTtl().toSeconds());
+                refreshToken.token(), jwtProperties.refreshTokenTtl().toSeconds());
     }
 
     private String issueAccessToken(User user, Instant now) {
@@ -172,16 +203,19 @@ public class AuthServiceImpl implements AuthService {
         return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
     }
 
-    // 回傳原始 token（只會出現在這次回應中），DB 只存雜湊值
-    private String issueRefreshToken(User user, Instant now) {
+    // 回傳原始 token（只會出現在這次回應中），DB 只存雜湊值；id 給輪替時寫入 replaced_by
+    private IssuedRefreshToken issueRefreshToken(User user, Instant now) {
         String token = refreshTokenGenerator.generate();
 
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUserId(user.getId());
         refreshToken.setTokenHash(refreshTokenGenerator.hash(token));
         refreshToken.setExpiresAt(now.plus(jwtProperties.refreshTokenTtl()));
-        refreshTokenRepository.save(refreshToken);
+        RefreshToken saved = refreshTokenRepository.save(refreshToken);
 
-        return token;
+        return new IssuedRefreshToken(saved.getId(), token);
+    }
+
+    private record IssuedRefreshToken(UUID id, String token) {
     }
 }

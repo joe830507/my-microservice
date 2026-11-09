@@ -373,7 +373,7 @@ set -a; . secrets/dev.env; set +a
 
 ### 完成內容：`POST /api/v1/auth/refresh`
 
-**已完成**：`V3__create_refresh_token_table.sql`、`RefreshToken`、`RefreshTokenRepository`、`RefreshTokenGenerator`、`AuthServiceImpl#refresh`；測試 `AuthControllerRefreshIntegrationTests`（16）。**`/logout` 尚未做。**
+**已完成**：`V3__create_refresh_token_table.sql`、`RefreshToken`、`RefreshTokenRepository`、`RefreshTokenGenerator`、`AuthServiceImpl#refresh`；測試 `AuthControllerRefreshIntegrationTests`（21）。**`/logout` 尚未做。**
 
 | 項目 | 實際做法 |
 |---|---|
@@ -386,11 +386,26 @@ set -a; . secrets/dev.env; set +a
 **refresh 的檢查順序**
 
 1. 用雜湊值查不到 → `REFRESH_TOKEN_INVALID`（亂填、或使用者被刪除時已被 FK cascade 刪掉）
-2. 已撤銷 → **重複使用**：撤銷該使用者所有 token，回 `REFRESH_TOKEN_INVALID`
+2. 已撤銷 → 符合寬限條件就放行（見下方）；否則視為**重複使用**：撤銷該使用者所有 token，回 `REFRESH_TOKEN_INVALID`
 3. 已過期 → `REFRESH_TOKEN_INVALID`，不撤銷其他 token（自然失效不是竊取）
 4. 帳號停用 → 撤銷該使用者所有 token，回 `USER_DISABLED`
-5. 條件式撤銷舊 token（`UPDATE ... WHERE revoked_at IS NULL`）；更新 0 筆代表被另一個請求搶先，同樣當作重複使用
-6. 換發新的 access token 與 refresh token
+5. 建立新的 refresh token
+6. 條件式輪替舊 token（`UPDATE ... SET revoked_at, replaced_by WHERE revoked_at IS NULL`）；更新 0 筆代表被另一個請求搶先，重新讀取後同樣交給寬限條件判斷
+7. 換發新的 access token
+
+**重複使用的寬限期**（`jwt.refresh-token-reuse-grace: 10s`，`V4` 新增 `replaced_by`）
+
+多分頁同時 refresh、回應在網路上遺失後重送，都會讓剛輪替掉的 token 再被送來。沒有寬限期時，使用者會被整個登出。以下條件**全部成立**才放行，並換發一組新的 token，其他 token 不受影響：
+
+| 條件 | 原因 |
+|---|---|
+| `replaced_by` 有值（因輪替而撤銷） | 登出、停用、重複使用偵測撤銷的 token 沒有這個值，剛撤銷也不放行 |
+| 撤銷後不到寬限時間 | 超過就當作竊取 |
+| `replaced_by` 指向的新 token 仍有效 | 新 token 已被撤銷代表整組被撤銷或已登出，不能讓舊 token 把登入狀態救回來 |
+
+- 設成 `0s` 代表不給寬限
+- 代價：token 被竊取後，攻擊者在合法使用者輪替後的 10 秒內使用也會成功。這是為了避免一般使用者被誤登出的取捨
+- 併發測試（兩個執行緒同時用同一個 token）跑 5 輪，兩個請求都成功，日誌確認走的是寬限期路徑
 
 **兩個容易出錯的地方**
 
@@ -406,4 +421,3 @@ set -a; . secrets/dev.env; set +a
 - 登入失敗次數限制（搭配 Redis）
 - `POST /api/v1/auth/logout`：撤銷 body 帶來的 refresh token；token 不存在或已撤銷也回成功（204），不洩漏狀態
 - 清除過期與已撤銷的 refresh token：排程刪除 `expires_at` 已過一段時間的資料，避免表無限成長
-- 重複使用的寬限期：前端多個分頁同時 refresh、或回應在網路上遺失後重送，都會被當成重複使用而登出。如果實際遇到，可以讓剛撤銷幾秒內的 token 再被使用時只回錯誤、不撤銷全部

@@ -6,8 +6,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -31,8 +37,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.jayway.jsonpath.JsonPath;
 import com.mymicroservice.user.TestcontainersConfiguration;
+import com.mymicroservice.user.dtos.token.RefreshReqDto;
+import com.mymicroservice.user.dtos.token.TokenResDto;
 import com.mymicroservice.user.properties.JwtProperties;
 import com.mymicroservice.user.repositories.RefreshTokenRepository;
+import com.mymicroservice.user.service.AuthService;
 import com.mymicroservice.user.service.impl.RefreshTokenGenerator;
 import com.nimbusds.jose.jwk.RSAKey;
 
@@ -59,6 +68,8 @@ class AuthControllerRefreshIntegrationTests {
     private TransactionTemplate transactionTemplate;
     @Autowired
     private RSAKey rsaKey;
+    @Autowired
+    private AuthService authService;
 
     private JwtDecoder jwtDecoder;
 
@@ -169,8 +180,9 @@ class AuthControllerRefreshIntegrationTests {
         // 合法使用者先換發一次，拿到新的
         String rotated = JsonPath.read(refresh(stolen).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString(), "$.refreshToken");
+        ageRevocationBeyondGrace(stolen);
 
-        // 攻擊者拿舊的再用一次
+        // 攻擊者在寬限期過後拿舊的再用一次
         refresh(stolen)
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("REFRESH_TOKEN_INVALID"));
@@ -189,10 +201,94 @@ class AuthControllerRefreshIntegrationTests {
         String bobToken = loginForRefreshToken("bob@example.com");
 
         refresh(aliceToken).andExpect(status().isOk());
+        ageRevocationBeyondGrace(aliceToken);
         refresh(aliceToken).andExpect(status().isUnauthorized());
 
         assertThat(activeTokenCount(bobId)).isEqualTo(1);
         refresh(bobToken).andExpect(status().isOk());
+    }
+
+    // ---------- 重複使用的寬限期 ----------
+
+    @Test
+    void refresh_rotatedTokenReusedWithinGrace_issuesNewTokensWithoutRevokingOthers() throws Exception {
+        // 多分頁同時 refresh、或回應遺失後重送：同一個 token 在輪替後幾秒內又被送來
+        UUID userId = register("alice@example.com");
+        String original = loginForRefreshToken("alice@example.com");
+        String otherDevice = loginForRefreshToken("alice@example.com");
+
+        String firstRotation = refreshForToken(original);
+        String secondRotation = JsonPath.read(refresh(original)
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(), "$.refreshToken");
+
+        assertThat(secondRotation).isNotEqualTo(firstRotation);
+        // 兩個分頁各自拿到的新 token、另一個裝置的 token 都有效
+        assertThat(activeTokenCount(userId)).isEqualTo(3);
+        refresh(firstRotation).andExpect(status().isOk());
+        refresh(otherDevice).andExpect(status().isOk());
+    }
+
+    @Test
+    void refresh_rotation_recordsReplacedBy() throws Exception {
+        register("alice@example.com");
+        String original = loginForRefreshToken("alice@example.com");
+
+        String rotated = refreshForToken(original);
+
+        assertThat(replacedByOf(original)).isEqualTo(idOf(rotated));
+        assertThat(replacedByOf(rotated)).isNull();
+    }
+
+    @Test
+    void refresh_reusedWithinGraceButSuccessorRevoked_isTreatedAsReuse() throws Exception {
+        // 新 token 已被撤銷（例如已登出、或整組已被撤銷），舊 token 不能把登入狀態救回來
+        UUID userId = register("alice@example.com");
+        String original = loginForRefreshToken("alice@example.com");
+        String otherDevice = loginForRefreshToken("alice@example.com");
+        String rotated = refreshForToken(original);
+        jdbcTemplate.update("UPDATE user_service.refresh_token SET revoked_at = now() WHERE token_hash = ?",
+                refreshTokenGenerator.hash(rotated));
+
+        refresh(original)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("REFRESH_TOKEN_INVALID"));
+
+        assertThat(activeTokenCount(userId)).isZero();
+        refresh(otherDevice).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refresh_tokenRevokedWithoutRotation_getsNoGrace() throws Exception {
+        // 登出、停用等撤銷沒有 replaced_by，就算剛撤銷也不放行
+        UUID userId = register("alice@example.com");
+        String revoked = loginForRefreshToken("alice@example.com");
+        loginForRefreshToken("alice@example.com");
+        UUID revokedId = idOf(revoked);
+        transactionTemplate.executeWithoutResult(
+                status -> refreshTokenRepository.revokeIfActive(revokedId, Instant.now()));
+
+        refresh(revoked).andExpect(status().isUnauthorized());
+
+        assertThat(activeTokenCount(userId)).isZero();
+    }
+
+    @Test
+    void refresh_concurrentRequestsWithSameToken_bothSucceed() throws Exception {
+        // 兩個請求同時用同一個 token：一個輪替成功，另一個條件式 UPDATE 得到 0 筆，由寬限期放行
+        // 競爭不一定每次都發生，多跑幾次；不論走哪條路，結果都應該是兩個都成功
+        for (int round = 0; round < 5; round++) {
+            jdbcTemplate.execute("TRUNCATE user_service.users CASCADE");
+            UUID userId = register("alice@example.com");
+            String original = loginForRefreshToken("alice@example.com");
+
+            List<TokenResDto> results = refreshConcurrently(original, 2);
+
+            assertThat(results).hasSize(2);
+            assertThat(results.get(0).refreshToken()).isNotEqualTo(results.get(1).refreshToken());
+            assertThat(activeTokenCount(userId)).isEqualTo(2);
+            assertThat(replacedByOf(original)).isNotNull();
+        }
     }
 
     @Test
@@ -311,6 +407,49 @@ class AuthControllerRefreshIntegrationTests {
                 .content("""
                         {"refreshToken": "%s"}
                         """.formatted(refreshToken)));
+    }
+
+    private String refreshForToken(String refreshToken) throws Exception {
+        return JsonPath.read(refresh(refreshToken).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(), "$.refreshToken");
+    }
+
+    // 直接呼叫 service，讓多個執行緒在同一時間點出發
+    private List<TokenResDto> refreshConcurrently(String refreshToken, int threads) throws Exception {
+        CountDownLatch start = new CountDownLatch(1);
+        try (ExecutorService executor = Executors.newFixedThreadPool(threads)) {
+            List<Future<TokenResDto>> futures = new ArrayList<>();
+            for (int i = 0; i < threads; i++) {
+                futures.add(executor.submit(() -> {
+                    start.await();
+                    return authService.refresh(new RefreshReqDto(refreshToken));
+                }));
+            }
+            start.countDown();
+            List<TokenResDto> results = new ArrayList<>();
+            for (Future<TokenResDto> future : futures) {
+                results.add(future.get(10, TimeUnit.SECONDS));
+            }
+            return results;
+        }
+    }
+
+    // 把撤銷時間往前推，模擬寬限期已過
+    private void ageRevocationBeyondGrace(String refreshToken) {
+        jdbcTemplate.update("UPDATE user_service.refresh_token SET revoked_at = revoked_at - ? * interval '1 second' "
+                + "WHERE token_hash = ?", jwtProperties.refreshTokenReuseGrace().toSeconds() + 1,
+                refreshTokenGenerator.hash(refreshToken));
+    }
+
+    private UUID idOf(String refreshToken) {
+        return jdbcTemplate.queryForObject("SELECT id FROM user_service.refresh_token WHERE token_hash = ?",
+                UUID.class, refreshTokenGenerator.hash(refreshToken));
+    }
+
+    private UUID replacedByOf(String refreshToken) {
+        return jdbcTemplate.queryForObject(
+                "SELECT replaced_by FROM user_service.refresh_token WHERE token_hash = ?", UUID.class,
+                refreshTokenGenerator.hash(refreshToken));
     }
 
     private Instant revokedAtOf(String refreshToken) {

@@ -29,6 +29,10 @@ public record JwtProperties(
         @NotNull Duration accessTokenTtl,
 
         // refresh token 有效時間，例如 14d；每次 refresh 換新的 token 時重新計算
-        @NotNull Duration refreshTokenTtl) {
+        @NotNull Duration refreshTokenTtl,
+
+        // 剛輪替掉的 refresh token 在這段時間內再被使用，不視為竊取（多分頁同時 refresh、回應遺失後重送）
+        // 設為 0 代表不給寬限，一律當作重複使用
+        @NotNull Duration refreshTokenReuseGrace) {
 
 }

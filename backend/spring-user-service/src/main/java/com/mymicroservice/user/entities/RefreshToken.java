@@ -17,7 +17,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 // 不繼承 CommonEntity：建立後只會被撤銷，不需要 updated_*、created_by 與樂觀鎖
-// 撤銷用條件式 UPDATE（RefreshTokenRepository），不透過實體修改
+// 撤銷與輪替用條件式 UPDATE（RefreshTokenRepository），不透過實體修改
 @Getter
 @Setter
 @Entity
@@ -42,6 +42,11 @@ public class RefreshToken {
 
     @Column(name = "revoked_at")
     private Instant revokedAt;
+
+    // 因輪替而撤銷時指向新的 token；登出、停用、重複使用偵測撤銷的是 null
+    // 由 RefreshTokenRepository#rotateIfActive 寫入
+    @Column(name = "replaced_by")
+    private UUID replacedBy;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

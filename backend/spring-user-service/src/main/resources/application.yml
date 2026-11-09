@@ -25,3 +25,4 @@ jwt:
   issuer: user-service
   access-token-ttl: 15m
   refresh-token-ttl: 14d
+  refresh-token-reuse-grace: 10s
