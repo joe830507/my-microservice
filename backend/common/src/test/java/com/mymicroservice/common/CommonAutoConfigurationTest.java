@@ -15,6 +15,7 @@ import org.springframework.data.domain.AuditorAware;
 
 import com.mymicroservice.common.audit.HeaderAuditorAware;
 import com.mymicroservice.common.exception.GlobalExceptionHandler;
+import com.mymicroservice.common.web.UserContextWebMvcConfigurer;
 
 class CommonAutoConfigurationTest {
 
@@ -25,6 +26,7 @@ class CommonAutoConfigurationTest {
     void registersDefaultBeansInServletApplication() {
         webContextRunner.run(context -> {
             assertThat(context).hasSingleBean(GlobalExceptionHandler.class);
+            assertThat(context).hasSingleBean(UserContextWebMvcConfigurer.class);
             assertThat(context).getBean(CommonAutoConfiguration.AUDITOR_AWARE_BEAN_NAME)
                     .isInstanceOf(HeaderAuditorAware.class);
         });
@@ -43,7 +45,10 @@ class CommonAutoConfigurationTest {
     void skipsExceptionHandlerOutsideServletApplication() {
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(CommonAutoConfiguration.class))
-                .run(context -> assertThat(context).doesNotHaveBean(GlobalExceptionHandler.class));
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(GlobalExceptionHandler.class);
+                    assertThat(context).doesNotHaveBean(UserContextWebMvcConfigurer.class);
+                });
     }
 
     @Configuration(proxyBeanMethods = false)

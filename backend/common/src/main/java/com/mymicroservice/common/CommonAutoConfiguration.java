@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Bean;
 
 import com.mymicroservice.common.audit.HeaderAuditorAware;
 import com.mymicroservice.common.exception.GlobalExceptionHandler;
+import com.mymicroservice.common.web.UserContextWebMvcConfigurer;
 
 // 服務加入 common 依賴後自動載入，不需要調整 scanBasePackages
 // 提供的 bean 一律加 @ConditionalOnMissingBean，讓服務可以自行覆寫
@@ -21,6 +22,14 @@ public class CommonAutoConfiguration {
     @ConditionalOnMissingBean
     public GlobalExceptionHandler globalExceptionHandler() {
         return new GlobalExceptionHandler();
+    }
+
+    // 讓 controller 可以使用 @CurrentUserId、@RequireRoles
+    @Bean
+    @ConditionalOnWebApplication(type = Type.SERVLET)
+    @ConditionalOnMissingBean
+    public UserContextWebMvcConfigurer userContextWebMvcConfigurer() {
+        return new UserContextWebMvcConfigurer();
     }
 
     // 服務需自行宣告 @EnableJpaAuditing(auditorAwareRef = "auditorAware")

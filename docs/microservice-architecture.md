@@ -82,6 +82,7 @@ backend/
 | `ErrorCode` interface + 共用錯誤碼 `CommonErrorCode` | 服務間呼叫的請求、回應類別（由呼叫方自己定義） |
 | `CommonEntity`（稽核欄位 + `@Version`） | 只有單一服務用到的設定（例如 product 的 `RedisConfig`） |
 | `X-User-*` header 常數、讀 header 的 `AuditorAware` | |
+| `@CurrentUserId`（注入目前使用者 id）、`@RequireRoles`（角色檢查） | |
 
 - 版本固定 `0.0.1-SNAPSHOT`，透過聚合 pom 一起建置，不發佈到 repository
 - 單獨建置某個服務：`./mvnw -pl spring-user-service -am package`（`-am` 會先建置 common）

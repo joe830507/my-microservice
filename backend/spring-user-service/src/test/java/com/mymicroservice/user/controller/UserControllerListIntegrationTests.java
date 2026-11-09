@@ -216,6 +216,23 @@ class UserControllerListIntegrationTests {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    void getUsers_notAdminWithInvalidParam_returns403Not400() throws Exception {
+        // 權限檢查在參數驗證之前，非 ADMIN 不會因為參數錯誤得知參數格式
+        mockMvc.perform(get(USERS_URL).param("size", "0")
+                .header(UserContextHeaders.USER_ID, ADMIN_ID)
+                .header(UserContextHeaders.USER_ROLES, "CUSTOMER"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void getUsers_noIdentityWithInvalidParam_returns401Not400() throws Exception {
+        mockMvc.perform(get(USERS_URL).param("size", "0"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
+    }
+
     // ---------- 參數驗證 ----------
 
     static Stream<Arguments> invalidParams() {
