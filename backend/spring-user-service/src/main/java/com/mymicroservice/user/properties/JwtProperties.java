@@ -1,11 +1,14 @@
 package com.mymicroservice.user.properties;
 
 import java.time.Duration;
+import java.util.List;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.core.io.Resource;
 import org.springframework.validation.annotation.Validated;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -13,6 +16,7 @@ import jakarta.validation.constraints.NotNull;
 @Validated
 @ConfigurationProperties(prefix = "jwt")
 public record JwtProperties(
+        // 目前用來簽章的金鑰
         // 放的是金鑰路徑而非內容，Spring 會把 file:...、classpath:... 轉成 Resource
         // 私鑰須為 PKCS#8（BEGIN PRIVATE KEY），公鑰須為 X.509（BEGIN PUBLIC KEY）
         @NotNull Resource privateKeyLocation,
@@ -33,6 +37,16 @@ public record JwtProperties(
 
         // 剛輪替掉的 refresh token 在這段時間內再被使用，不視為竊取（多分頁同時 refresh、回應遺失後重送）
         // 設為 0 代表不給寬限，一律當作重複使用
-        @NotNull Duration refreshTokenReuseGrace) {
+        @NotNull Duration refreshTokenReuseGrace,
 
+        // 金鑰輪替：換掉的舊公鑰繼續發布在 JWKS，讓輪替前簽發、還沒到期的 access token 仍能驗過
+        // 只需要公鑰，不再用來簽章；舊 token 全部到期後（access-token-ttl + Gateway 的 JWKS 快取時間）再移除
+        // 沒有設定時為空清單
+        @Valid @DefaultValue List<PreviousKey> previousKeys) {
+
+    public record PreviousKey(
+            @NotBlank String keyId,
+
+            @NotNull Resource publicKeyLocation) {
+    }
 }

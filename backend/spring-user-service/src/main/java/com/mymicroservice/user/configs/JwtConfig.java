@@ -4,6 +4,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,6 +19,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
 import com.mymicroservice.user.properties.JwtProperties;
 import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.KeyUse;
 import com.nimbusds.jose.jwk.RSAKey;
@@ -28,7 +33,7 @@ import com.nimbusds.jose.proc.SecurityContext;
 @Configuration
 public class JwtConfig {
 
-    // 單獨做成 bean：JWKS endpoint 會注入同一把 RSAKey 輸出公鑰，確保 kid 與簽章用的金鑰一致
+    // 目前的簽章金鑰（含私鑰）；publicJwkSet 也從它取公鑰，確保 kid 與簽章用的金鑰一致
     @Bean
     public RSAKey rsaKey(JwtProperties jwtProperties) {
         RSAPublicKey publicKey = readKey(jwtProperties.publicKeyLocation(), RsaKeyConverters.x509());
@@ -42,6 +47,31 @@ public class JwtConfig {
                 .keyUse(KeyUse.SIGNATURE)
                 .algorithm(JWSAlgorithm.RS256)
                 .build();
+    }
+
+    // JWKS endpoint 發布的公鑰：目前的簽章金鑰在第一個，後面接輪替前的舊公鑰
+    // 簽章只用目前的金鑰（jwtEncoder 只拿到 rsaKey），舊公鑰只用來讓 Gateway 驗輪替前簽發的 token
+    // kid 重複時 Gateway 無法分辨該用哪一把，啟動時直接失敗
+    @Bean
+    public JWKSet publicJwkSet(RSAKey rsaKey, JwtProperties jwtProperties) {
+        List<JWK> keys = new ArrayList<>();
+        keys.add(rsaKey.toPublicJWK());
+        for (JwtProperties.PreviousKey previousKey : jwtProperties.previousKeys()) {
+            RSAPublicKey publicKey = readKey(previousKey.publicKeyLocation(), RsaKeyConverters.x509());
+            keys.add(new RSAKey.Builder(publicKey)
+                    .keyID(previousKey.keyId())
+                    .keyUse(KeyUse.SIGNATURE)
+                    .algorithm(JWSAlgorithm.RS256)
+                    .build());
+        }
+
+        Set<String> keyIds = new HashSet<>();
+        for (JWK key : keys) {
+            if (!keyIds.add(key.getKeyID())) {
+                throw new IllegalStateException("duplicate JWT key id: " + key.getKeyID());
+            }
+        }
+        return new JWKSet(keys);
     }
 
     // RSAKey → JWKSet → ImmutableJWKSet（JWKSource）→ NimbusJwtEncoder

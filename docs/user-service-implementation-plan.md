@@ -457,10 +457,40 @@ set -a; . secrets/dev.env; set +a
 | access token | 無法撤銷，各裝置在到期（最多 15 分鐘）後無法再換發 |
 | 沒有 token | 一樣回 204 |
 
+### JWKS 金鑰輪替
+
+**已完成**：`JwtProperties.previousKeys`、`JwtConfig#publicJwkSet`、`JwksController` 改用 `publicJwkSet`；測試 `JwksKeyRotationIntegrationTests`（5）、`JwtConfigTest`（4）。
+
+| 項目 | 做法 |
+|---|---|
+| 簽章 | 只用目前的金鑰（`jwt.private-key-location`、`jwt.key-id`） |
+| JWKS | 目前的公鑰在第一個，後面接 `jwt.previous-keys` 的舊公鑰；Gateway 依 token header 的 `kid` 挑選 |
+| 舊金鑰 | 只需要公鑰，私鑰可以銷毀 |
+| `kid` 重複 | 啟動失敗：Gateway 無法分辨該用哪一把 |
+| 舊公鑰檔案讀不到 | 啟動失敗，錯誤訊息帶檔案位置 |
+
+**輪替步驟**
+
+1. 產生新的金鑰對，取新的 `kid`（例如 `user-service-2027-05`）
+2. 設定改成：
+   ```yaml
+   jwt:
+     private-key-location: file:./secrets/jwt-private-2027-05.pem   # 新私鑰
+     public-key-location: file:./secrets/jwt-public-2027-05.pem
+     key-id: user-service-2027-05
+     previous-keys:
+       - key-id: user-service-2026-11                                 # 原本的 kid
+         public-key-location: file:./secrets/jwt-public.pem           # 原本的公鑰
+   ```
+3. 部署。之後新簽的 token 用新金鑰；輪替前簽的 token 靠 JWKS 裡的舊公鑰繼續驗過
+4. 等舊 token 全部到期後，從 `previous-keys` 移除舊公鑰再部署一次。至少要等 `access-token-ttl`（15 分鐘）加上 JWKS 的快取時間（`max-age=300`，5 分鐘）
+
+- refresh token 不受輪替影響：它是存在 DB 的隨機字串，不是用金鑰簽的
+- K8s：新私鑰放進 Secret，`previous-keys` 的公鑰可以放同一個 Secret 或 ConfigMap
+
 ---
 
 ## 之後再處理
 
 - Gateway 接上 JWKS 驗簽（`feature/api-gateway` 分支）
-- 金鑰輪替：JWKS 同時發布新舊兩把公鑰，用 `kid` 區分
 - 登入失敗次數限制（搭配 Redis）
