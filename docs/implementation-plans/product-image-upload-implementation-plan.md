@@ -1,0 +1,65 @@
+# 商品圖片上傳實作步驟
+
+> 建立日期：2026-11-09
+> 分支：`feature/product-image-upload`
+> 設計：[product-image-upload-design.md](../design/product-image-upload-design.md)（流程、關鍵決定、API、錯誤碼都以設計文件為準，這裡只列步驟與實作細節）
+> 狀態：計畫完成，下一步 Step 1
+
+## 進度
+
+| Step | 內容 | 狀態 |
+|---|---|---|
+| 1 | compose 加 MinIO 與初始化；product-service 接上 S3 SDK（`StorageProperties`、`StorageConfig`） | 未開始 |
+| 2 | `ImageStorage` 與 `POST /api/v1/products/{productId}/images/upload-url` | 未開始 |
+| 3 | V4 migration（`url` → `object_key`）與改寫登記圖片 API | 未開始 |
+| 4 | 刪除圖片時一併刪除物件 | 未開始 |
+| 5 | 實際啟動驗證：上傳主圖 → 正常上架 → 下單 | 未開始 |
+
+每一步都附整合測試，測試通過後單獨 commit。測試用 Testcontainers 的 MinIO，實際 PUT 檔案，不用假的 S3。
+
+---
+
+## Step 1：MinIO 與 S3 SDK
+
+| 項目 | 值 |
+|---|---|
+| 映像 | `minio/minio`（API 9000、console 9001），固定版本 |
+| 初始化 | `minio-init`（`minio/mc`）：建立 bucket `product-images`、`products/*` 匿名讀、`tmp/` lifecycle 1 天；執行完就結束 |
+| 帳密 | 本機預設 `minioadmin`，可用環境變數覆蓋 |
+| SDK | `software.amazon.awssdk:s3`（BOM 管版本）、`forcePathStyle(true)` |
+| 設定 | `storage.endpoint`、`public-base-url`、`bucket`、`access-key`、`secret-key`、`upload-url-ttl`、`max-size`、`allowed-content-types` |
+
+**測試**：context 啟動、`S3Client` 能列出測試容器裡的 bucket。
+
+## Step 2：申請上傳網址
+
+- `ImageStorage`：`presignUpload`、`head`、`promote`（tmp → products）、`delete`、`publicUrl`；`ProductImageServiceImpl` 不直接碰 S3 SDK
+- 限 ADMIN（和其他寫入 API 一致）；商品不存在 404、已封存 `PRODUCT_ARCHIVED`
+- `contentType`、`contentLength` 都簽進 presigned URL
+
+**測試**：實際用回傳的網址 PUT 檔案成功；帶不同的 Content-Length 或 Content-Type 被 MinIO 拒絕；類型不允許、超過大小、商品不存在、非 ADMIN。
+
+## Step 3：登記圖片
+
+- V4：`url` 改成 `object_key`；開發資料直接清除（現有的 `url` 都是手動填的，沒有對應的檔案）
+- 依設計文件的四個驗證步驟；回應的 `url` 由 `publicBaseUrl + "/" + objectKey` 組成，對外格式不變
+- 主圖、排序規則不變
+
+**測試**：完整流程（申請 → PUT → 登記 → 匿名 GET 公開網址拿到同樣的檔案）、tmp 物件已刪除、別的商品的 key、不存在的 key、上傳後的實際類型或大小不符。
+
+## Step 4：刪除圖片
+
+刪資料列後在 afterCommit 刪除物件，失敗只記 log；交易 rollback 時不刪。
+
+**測試**：刪除後物件不存在；刪除失敗（例如 rollback）時物件還在。
+
+## Step 5：實際啟動驗證
+
+用 compose 的 MinIO，經過 Gateway：申請網址 → PUT → 登記為主圖 → **正常上架**（不再直接改 DB）→ 下單 → 付款。
+
+---
+
+## 之後再處理
+
+- K8s 部署時，presigned URL 的主機名稱要是瀏覽器連得到的位址（和 product-service 內部連 MinIO 的位址可能不同），屆時加一個 `presign-endpoint` 設定
+- 設計文件的「之後再處理」：CDN、縮圖、物件對帳清理
