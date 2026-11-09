@@ -10,7 +10,7 @@
 | Step | 內容 | 狀態 |
 |---|---|---|
 | 0 | 後端前置問題：SeaweedFS CORS、決定要補哪些後台 API | 完成：CORS 不用改；補上訂單 `ship`、`complete` |
-| 1 | 建立專案、Element Plus、Vite proxy | 未開始 |
+| 1 | 建立專案、Element Plus、Vite proxy | 進行中：專案、proxy 已完成，待辦見 Step 1 |
 | 2 | HTTP 層：axios 實例、`ApiError` | 未開始 |
 | 3 | 登入：token store、refresh（同時只發一次）、登出、路由守衛 | 未開始 |
 | 4 | AdminLayout、選單、403 / 404 | 未開始 |
@@ -134,6 +134,34 @@ frontend/vue-management/
 - `vite.config.ts` 設定 proxy：`/api` → `http://localhost:8080`
 
 **測試**：`npm run build`、`npm run test:unit` 通過；冒煙測試能掛載 App。
+
+**檢查結果（2026-11-09）**：
+
+| 檢查 | 結果 |
+|---|---|
+| `npm run build`（含 `vue-tsc`） | 通過 |
+| eslint、oxlint | 沒有問題 |
+| `vitest` | 1 個通過（create-vue 的範例測試） |
+| dev server + proxy | 首頁 200；`/api/v1/products` 有轉送到 `localhost:8080`（Gateway 沒啟動時回 502 `ECONNREFUSED`，代表 proxy 設定正確） |
+
+- 一開始 IDE 在 `vite.config.ts`、`tsconfig.node.json` 報找不到 `vite`、`@types/node`：只是還沒執行 `npm install`
+- `npm audit` 有 16 個 moderate，全部在開發工具（eslint 相關、`editorconfig` 依賴的 `minimatch`），不會打包進前端；**不要用 `npm audit fix --force`**，會跨主要版本升降級，可能弄壞 eslint 設定，等上游出新版再 `npm update`
+
+**待辦**：
+
+- [ ] 加入 Element Plus：安裝 `element-plus`；建議按需引入（`unplugin-vue-components`、`unplugin-auto-import` + `ElementPlusResolver`），只打包用到的元件
+- [ ] 整理 `vite.config.ts`
+  - [ ] 用 Prettier 格式化：`npx prettier --write vite.config.ts`（`npm run format` 只處理 `src/`）
+  - [ ] 刪除 `secure: false`：只對 https 目標有作用
+  - [ ] 刪除註解掉的 `rewrite`：Gateway 的路徑本來就是 `/api/v1/...`，前綴不能去掉
+  - [ ] 範例的英文註解改成專案說明（開發時轉給 api-gateway；正式環境由 nginx 轉發）
+- [ ] 清掉 create-vue 的範例內容
+  - [ ] 刪除 `src/stores/counter.ts`
+  - [ ] `App.vue` 只放 `<RouterView />`，router 加一個暫時的首頁路由
+  - [ ] `App.spec.ts` 改成冒煙測試：掛載 App + router，確認首頁顯示；順便確認 Element Plus 元件能渲染
+- [ ] 刪除 `frontend/vue-management/.gitkeep`
+- [ ] `.env.development`：`VITE_API_BASE=/api/v1`（也可以延到 Step 2 寫 `http.ts` 時再加）
+- [ ] 補完後重新檢查，整個前端專案（含 `package-lock.json`）commit 並 push
 
 ## Step 2：HTTP 層
 
