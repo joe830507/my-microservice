@@ -3,14 +3,14 @@
 > 建立日期：2026-11-09
 > 分支：`feature/inventory-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「inventory-service」、「服務互動：下單流程」
-> 狀態：Step 1 完成（2026-11-09），下一步 Step 2
+> 狀態：Step 1–2 完成（2026-11-09），下一步 Step 3
 
 ## 進度
 
 | Step | 內容 | 狀態 |
 |---|---|---|
 | 1 | 建立專案、DB 與資料表 | 完成 |
-| 2 | `GET /api/v1/inventory/{sku}` 查庫存 | 未開始 |
+| 2 | `GET /api/v1/inventory/{sku}` 查庫存 | 完成 |
 | 3 | `PUT /api/v1/inventory/{sku}` 後台設定庫存（ADMIN） | 未開始 |
 | 4 | `POST /internal/v1/inventory/reservations` 預扣 | 未開始 |
 | 5 | `POST /internal/v1/inventory/reservations/{orderId}/confirm` 確認扣除 | 未開始 |
@@ -78,6 +78,8 @@ reservation_item
 | 錯誤 | SKU 不存在 → 404 `STOCK_NOT_FOUND` |
 
 **測試**：存在、不存在、SKU 超過 64 字元回 400。
+
+**已完成**：`StockController`、`StockService`、`InventoryErrorCode`；測試 `StockControllerGetIntegrationTests`（5），涵蓋 SKU 區分大小寫，回應不含稽核欄位與 version。
 
 ---
 
