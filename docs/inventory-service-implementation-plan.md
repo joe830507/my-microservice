@@ -221,9 +221,25 @@ Gateway、user-service、inventory-service 都用真的程式啟動，經過 Gat
 
 ---
 
+## 補強：預扣逾時釋放（2026-11-09）
+
+預扣的保險：order-service 正常會在取消或付款逾時時呼叫釋放；但它自己也失敗時（例如預扣成功後訂單存檔失敗、連釋放都送不出去），庫存會一直被扣住。
+
+| 項目 | 做法 |
+|---|---|
+| 排程 | `ReservationExpiryJob`，每 5 分鐘（`app.reservation-expiry.cron`，UTC；設 `-` 停用） |
+| 條件 | 建立超過 `ttl`（1 小時）仍是 `RESERVED` |
+| ttl | **必須比 order-service 的付款期限（30 分鐘）長**，否則使用者在期限內付款，確認時預扣已被釋放 |
+| 做法 | 每筆用 `ReservationService.release`（各自的交易、條件式 UPDATE），一筆失敗不影響其他筆；分批處理（`batch-size` 100），整批都失敗就停，避免無窮迴圈 |
+| 索引 | `V2`：`reservation(created_at) WHERE status = 'RESERVED'` 的部分索引 |
+| 多實例 | 不需要分散式鎖：同一筆只會被釋放一次 |
+
+**測試**：`ReservationExpiryJobIntegrationTests`（5）：只釋放逾時的 `RESERVED`（不動新的與已確認的）、分批處理到全部、被排程釋放後才到的確認回 409、cron 有註冊。
+
+---
+
 ## 之後再處理
 
-- 預扣逾時的保險：inventory 自己定期釋放超過一定時間仍是 `RESERVED` 的預扣（以防 order-service 沒有呼叫釋放）
 - 接收 product 的 `ProductCreated` 事件，自動建立庫存紀錄
 - 換成 Redis Lua 扣庫存（熱門商品高併發）
 - Kafka 導入後，確認與釋放改成接收 `PaymentSucceeded`、`OrderCancelled` 事件

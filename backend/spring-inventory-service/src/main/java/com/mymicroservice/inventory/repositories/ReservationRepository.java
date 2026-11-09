@@ -1,9 +1,11 @@
 package com.mymicroservice.inventory.repositories;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -29,4 +31,12 @@ public interface ReservationRepository extends JpaRepository<Reservation, UUID> 
             """)
     int transition(@Param("orderId") UUID orderId, @Param("from") ReservationStatus from,
             @Param("to") ReservationStatus to, @Param("now") Instant now, @Param("updatedBy") UUID updatedBy);
+
+    // ReservationExpiryJob：建立超過一段時間仍是 RESERVED 的預扣，最舊的先處理；使用 idx_reservation_reserved_created
+    @Query("""
+            SELECT r.orderId FROM Reservation r
+            WHERE r.status = com.mymicroservice.inventory.enums.ReservationStatus.RESERVED AND r.createdAt < :cutoff
+            ORDER BY r.createdAt
+            """)
+    List<UUID> findReservedCreatedBefore(@Param("cutoff") Instant cutoff, Pageable pageable);
 }

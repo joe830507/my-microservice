@@ -98,7 +98,7 @@ order_item
 - 需要 `spring-boot-starter-restclient`：Boot 4 把 `RestClient.Builder` 的自動設定拆成獨立模組
 - **HttpClient 固定 HTTP/1.1**：JDK HttpClient 預設對 `http://` 嘗試升級成 HTTP/2（h2c），下游回 5xx 或逾時時，WireMock 收到的預扣請求 body 是空的；固定 HTTP/1.1 後正常
 - inventory 回 `RESERVATION_MISMATCH` 等非預期的 4xx 時回 500（全新的 orderId 不應該發生）
-- 預扣成功但訂單存檔失敗時會呼叫釋放；連釋放都失敗只能記 log（訂單不存在，排程補不到），之後靠 inventory 的逾時釋放（inventory 計畫的「之後再處理」）
+- 預扣成功但訂單存檔失敗時會呼叫釋放；連釋放都失敗只能記 log（訂單不存在，排程補不到），由 inventory 的 `ReservationExpiryJob` 在 1 小時後釋放
 
 ---
 
