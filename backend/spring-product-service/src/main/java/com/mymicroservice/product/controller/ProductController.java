@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.mymicroservice.common.web.RequireRoles;
 import com.mymicroservice.product.controller.api.ProductApi;
 import com.mymicroservice.product.dto.product.addOneNewProduct.AddOneNewProductReq;
 import com.mymicroservice.product.dto.product.addOneNewProduct.AddOneNewProductRes;
@@ -33,6 +34,7 @@ import com.mymicroservice.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
 
 // API 文件說明與參數驗證請見 ProductApi
+// 讀取公開（Gateway 對 GET 放行）；新增、修改、刪除限 ADMIN（@RequireRoles）
 @RestController
 @RequestMapping(value = "/api/v1/products")
 @RequiredArgsConstructor
@@ -40,6 +42,7 @@ public class ProductController implements ProductApi {
     private final ProductService productService;
 
     @Override
+    @RequireRoles("ADMIN")
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(value = HttpStatus.CREATED)
     public AddOneNewProductRes addOneNewProduct(
@@ -82,6 +85,7 @@ public class ProductController implements ProductApi {
     }
 
     @Override
+    @RequireRoles("ADMIN")
     @PutMapping("/{id}")
     @ResponseStatus(value = HttpStatus.OK)
     public UpdateOneProductRes updateOneProduct(
@@ -91,6 +95,7 @@ public class ProductController implements ProductApi {
     }
 
     @Override
+    @RequireRoles("ADMIN")
     @PostMapping("/{id}/publish")
     @ResponseStatus(value = HttpStatus.OK)
     public ChangeProductStatusRes publishProduct(
@@ -100,6 +105,7 @@ public class ProductController implements ProductApi {
     }
 
     @Override
+    @RequireRoles("ADMIN")
     @PostMapping("/{id}/unpublish")
     @ResponseStatus(value = HttpStatus.OK)
     public ChangeProductStatusRes unpublishProduct(
@@ -109,6 +115,7 @@ public class ProductController implements ProductApi {
     }
 
     @Override
+    @RequireRoles("ADMIN")
     @PostMapping("/{id}/archive")
     @ResponseStatus(value = HttpStatus.OK)
     public ChangeProductStatusRes archiveProduct(

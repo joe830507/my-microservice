@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.mymicroservice.common.web.RequireRoles;
 import com.mymicroservice.product.controller.api.CategoryApi;
 import com.mymicroservice.product.dto.category.addOneNewCategory.AddOneNewCategoryReq;
 import com.mymicroservice.product.dto.category.addOneNewCategory.AddOneNewCategoryRes;
@@ -28,6 +29,7 @@ import com.mymicroservice.product.service.CategoryService;
 import lombok.RequiredArgsConstructor;
 
 // API 文件說明與參數驗證請見 CategoryApi
+// 讀取公開（Gateway 對 GET 放行）；新增、修改、刪除限 ADMIN（@RequireRoles）
 @RestController
 @RequestMapping(value = "/api/v1/categories")
 @RequiredArgsConstructor
@@ -35,6 +37,7 @@ public class CategoryController implements CategoryApi {
     private final CategoryService categoryService;
 
     @Override
+    @RequireRoles("ADMIN")
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(value = HttpStatus.CREATED)
     public AddOneNewCategoryRes addOneNewCategory(
@@ -66,6 +69,7 @@ public class CategoryController implements CategoryApi {
     }
 
     @Override
+    @RequireRoles("ADMIN")
     @PutMapping("/{id}")
     @ResponseStatus(value = HttpStatus.OK)
     public UpdateOneCategoryRes updateOneCategory(
@@ -75,6 +79,7 @@ public class CategoryController implements CategoryApi {
     }
 
     @Override
+    @RequireRoles("ADMIN")
     @DeleteMapping("/{id}")
     @ResponseStatus(value = HttpStatus.NO_CONTENT)
     public ResponseEntity<String> deleteOneCategoryById(
