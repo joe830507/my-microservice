@@ -21,7 +21,7 @@
 | 服務 | 職責 | 狀態 |
 |---|---|---|
 | `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、限流 | 已實作；細節見 [api-gateway-implementation-plan.md](../implementation-plans/api-gateway-implementation-plan.md) |
-| `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取）；讀取公開，新增、修改、刪除限 ADMIN |
+| `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取、圖片上傳到物件儲存）；讀取公開，新增、修改、刪除限 ADMIN |
 | `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 已實作 |
 | `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](../implementation-plans/inventory-service-implementation-plan.md) |
 | `spring-order-service` | 訂單、商品快照、訂單狀態 | 已實作；步驟見 [order-service-implementation-plan.md](../implementation-plans/order-service-implementation-plan.md) |
@@ -52,7 +52,7 @@
 | 服務 | 應用程式 port | DB port | Redis port |
 |---|---|---|---|
 | api-gateway | 8080 | — | 6381（登入限流） |
-| product-service | 8081 | 5432 | 6379（快取） |
+| product-service | 8081 | 5432 | 6379（快取）；物件儲存 8333（商品圖片） |
 | order-service | 8082 | 5433 | — |
 | inventory-service | 8083 | 5434 | — |
 | user-service | 8084 | 5435 | 6380（登入失敗計數） |

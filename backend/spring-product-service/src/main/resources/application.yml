@@ -26,6 +26,22 @@ spring:
       connect-timeout: 1s # 建立連線最多等多久
   cache:
     type: redis
+# 商品圖片的物件儲存；本機是 infra/docker-compose.yml 的 object-storage（SeaweedFS）
+# 帳密只用在本機，和 infra/seaweedfs/s3.json 一致；正式環境用環境變數覆蓋
+storage:
+  endpoint: ${STORAGE_ENDPOINT:http://localhost:8333}
+  # 之後掛 CDN 只要換成 CDN 網域
+  public-base-url: ${STORAGE_PUBLIC_BASE_URL:http://localhost:8333/product-images}
+  bucket: product-images
+  region: us-east-1
+  access-key: ${STORAGE_ACCESS_KEY:product-service}
+  secret-key: ${STORAGE_SECRET_KEY:product-service-secret}
+  upload-url-ttl: 10m
+  max-size: 5MB
+  allowed-content-types:
+    - image/jpeg
+    - image/png
+    - image/webp
 springdoc:
   # 不把 @RestControllerAdvice 的所有錯誤碼套到每支 API，改由各 API 的 @ApiResponses 明確標示
   override-with-generic-response: false

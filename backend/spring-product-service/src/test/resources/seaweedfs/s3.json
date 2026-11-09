@@ -1,0 +1,13 @@
+{
+  "identities": [
+    {
+      "name": "product-service",
+      "credentials": [{ "accessKey": "test-access", "secretKey": "test-secret" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    },
+    {
+      "name": "anonymous",
+      "actions": ["Read:product-images/products/*"]
+    }
+  ]
+}

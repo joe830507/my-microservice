@@ -18,6 +18,8 @@ import com.mymicroservice.common.web.RequireRoles;
 import com.mymicroservice.product.controller.api.ProductImageApi;
 import com.mymicroservice.product.dto.productImage.addOneNewProductImage.AddOneNewProductImageReq;
 import com.mymicroservice.product.dto.productImage.addOneNewProductImage.AddOneNewProductImageRes;
+import com.mymicroservice.product.dto.productImage.createUploadUrl.CreateUploadUrlReq;
+import com.mymicroservice.product.dto.productImage.createUploadUrl.CreateUploadUrlRes;
 import com.mymicroservice.product.dto.productImage.getProductImages.GetProductImagesRes;
 import com.mymicroservice.product.dto.productImage.reorderProductImages.ReorderProductImagesReq;
 import com.mymicroservice.product.dto.productImage.updateOneProductImage.UpdateOneProductImageReq;
@@ -91,5 +93,17 @@ public class ProductImageController implements ProductImageApi {
             @PathVariable UUID productId,
             @RequestBody ReorderProductImagesReq reorderProductImagesReq) {
         return productImageService.reorderProductImages(productId, reorderProductImagesReq);
+    }
+
+    // 不建立任何資料，回 200
+    @Override
+    @RequireRoles("ADMIN")
+    @PostMapping(value = "/upload-url", consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(value = HttpStatus.OK)
+    public CreateUploadUrlRes createUploadUrl(
+            @PathVariable UUID productId,
+            @RequestBody CreateUploadUrlReq createUploadUrlReq) {
+        return productImageService.createUploadUrl(productId, createUploadUrlReq);
     }
 }

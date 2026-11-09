@@ -7,6 +7,8 @@ import org.springframework.http.ProblemDetail;
 
 import com.mymicroservice.product.dto.productImage.addOneNewProductImage.AddOneNewProductImageReq;
 import com.mymicroservice.product.dto.productImage.addOneNewProductImage.AddOneNewProductImageRes;
+import com.mymicroservice.product.dto.productImage.createUploadUrl.CreateUploadUrlReq;
+import com.mymicroservice.product.dto.productImage.createUploadUrl.CreateUploadUrlRes;
 import com.mymicroservice.product.dto.productImage.getProductImages.GetProductImagesRes;
 import com.mymicroservice.product.dto.productImage.reorderProductImages.ReorderProductImagesReq;
 import com.mymicroservice.product.dto.productImage.updateOneProductImage.UpdateOneProductImageReq;
@@ -88,4 +90,15 @@ public interface ProductImageApi {
         GetProductImagesRes reorderProductImages(
                         @Parameter(description = "商品 id（UUIDv7）", example = "01a17c88-9d2b-7788-a9e8-b7530ab28287") UUID productId,
                         @Valid ReorderProductImagesReq reorderProductImagesReq);
+
+        @Operation(summary = "申請圖片上傳網址", description = "回傳簽名過的上傳網址，前端用 PUT 直接把檔案上傳到物件儲存（不經過 product-service），"
+                        + "並帶上 requiredHeaders；上傳後用 objectKey 呼叫新增商品圖片。類型限 JPEG、PNG、WebP，大小上限 5 MB，網址 10 分鐘內有效。")
+        @ApiResponses({
+                        @ApiResponse(responseCode = "200", description = "申請成功"),
+                        @ApiResponse(responseCode = "400", description = "欄位驗證失敗、類型不允許、超過大小上限，或商品已封存", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ProblemDetail.class))),
+                        @ApiResponse(responseCode = "404", description = "商品不存在", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ProblemDetail.class)))
+        })
+        CreateUploadUrlRes createUploadUrl(
+                        @Parameter(description = "商品 id（UUIDv7）", example = "01a17c88-9d2b-7788-a9e8-b7530ab28287") UUID productId,
+                        @Valid CreateUploadUrlReq createUploadUrlReq);
 }

@@ -91,6 +91,35 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+  # 相容 S3 的物件儲存（商品圖片）；MinIO 已不提供免費映像，改用 SeaweedFS
+  # 帳號與匿名讀取權限在 seaweedfs/s3.json：只有 products/ 開放匿名讀，tmp/ 私有
+  object-storage:
+    image: chrislusf/seaweedfs:3.80
+    container_name: my-microservice-object-storage
+    command: ["server", "-s3", "-s3.port=8333", "-s3.config=/etc/seaweedfs/s3.json",
+              "-dir=/data", "-ip=object-storage", "-ip.bind=0.0.0.0"]
+    ports:
+      - "8333:8333"
+    volumes:
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+      - object-storage-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9333/cluster/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  # 建立 bucket、設定 tmp/ 一天後自動刪除（沒有登記的上傳檔案）；執行完就結束，重複執行沒關係
+  object-storage-init:
+    image: chrislusf/seaweedfs:3.80
+    container_name: my-microservice-object-storage-init
+    depends_on:
+      object-storage:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        printf 's3.bucket.create -name product-images\nfs.configure -locationPrefix=/buckets/product-images/tmp/ -ttl=1d -apply\n'
+        | weed shell -master=object-storage:9333
   product-redis:
     image: redis:8.2
     container_name: my-microservice-product-redis
@@ -129,6 +158,7 @@ services:
 volumes:
   product-db-data:
   user-db-data:
+  object-storage-data:
   inventory-db-data:
   order-db-data:
   payment-db-data:

@@ -3,6 +3,8 @@ package com.mymicroservice.product.service;
 import java.util.UUID;
 
 import com.mymicroservice.product.dto.productImage.addOneNewProductImage.AddOneNewProductImageReq;
+import com.mymicroservice.product.dto.productImage.createUploadUrl.CreateUploadUrlReq;
+import com.mymicroservice.product.dto.productImage.createUploadUrl.CreateUploadUrlRes;
 import com.mymicroservice.product.dto.productImage.addOneNewProductImage.AddOneNewProductImageRes;
 import com.mymicroservice.product.dto.productImage.getProductImages.GetProductImagesRes;
 import com.mymicroservice.product.dto.productImage.reorderProductImages.ReorderProductImagesReq;
@@ -23,4 +25,6 @@ public interface ProductImageService {
 
     GetProductImagesRes reorderProductImages(UUID productId, ReorderProductImagesReq reorderProductImagesReq);
 
+
+    public CreateUploadUrlRes createUploadUrl(UUID productId, CreateUploadUrlReq createUploadUrlReq);
 }

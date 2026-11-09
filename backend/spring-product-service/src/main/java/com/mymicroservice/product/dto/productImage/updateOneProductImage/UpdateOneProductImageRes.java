@@ -1,5 +1,6 @@
 package com.mymicroservice.product.dto.productImage.updateOneProductImage;
 
+import java.util.function.UnaryOperator;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -10,6 +11,7 @@ public record UpdateOneProductImageRes(
 
         UUID productId,
 
+        // 公開網址，由 object key 組成（換 CDN 只要改設定）
         String url,
 
         String altText,
@@ -26,11 +28,11 @@ public record UpdateOneProductImageRes(
         Long version) {
 
     // 需在 flush 之後呼叫，updatedAt 與 version 才會是更新後的值
-    public static UpdateOneProductImageRes from(ProductImage productImage) {
+    public static UpdateOneProductImageRes from(ProductImage productImage, UnaryOperator<String> urlOf) {
         return new UpdateOneProductImageRes(
                 productImage.getId(),
                 productImage.getProductId(),
-                productImage.getUrl(),
+                urlOf.apply(productImage.getObjectKey()),
                 productImage.getAltText(),
                 productImage.getSortOrder(),
                 productImage.getIsPrimary(),
