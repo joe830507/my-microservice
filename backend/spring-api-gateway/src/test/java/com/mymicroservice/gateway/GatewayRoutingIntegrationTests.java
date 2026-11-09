@@ -9,6 +9,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.putRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
@@ -46,6 +47,10 @@ class GatewayRoutingIntegrationTests {
     static final WireMockExtension USER_SERVICE = WireMockExtension.newInstance()
             .options(wireMockConfig().dynamicPort()).build();
 
+    @RegisterExtension
+    static final WireMockExtension INVENTORY_SERVICE = WireMockExtension.newInstance()
+            .options(wireMockConfig().dynamicPort()).build();
+
     // JWKS 獨立一個 server，才不會讓 user-service 的請求紀錄多出 JWKS 的呼叫
     @RegisterExtension
     static final WireMockExtension JWKS_SERVER = WireMockExtension.newInstance()
@@ -55,6 +60,7 @@ class GatewayRoutingIntegrationTests {
     static void downstreamUris(DynamicPropertyRegistry registry) {
         registry.add("gateway.services.product-uri", PRODUCT_SERVICE::baseUrl);
         registry.add("gateway.services.user-uri", USER_SERVICE::baseUrl);
+        registry.add("gateway.services.inventory-uri", INVENTORY_SERVICE::baseUrl);
         registry.add("gateway.security.jwt.jwk-set-uri", () -> JWKS_SERVER.baseUrl() + "/jwks");
         TestRedis.register(registry);
     }
@@ -77,6 +83,10 @@ class GatewayRoutingIntegrationTests {
                 .withStatus(200)
                 .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .withBody("{\"from\": \"user-service\"}")));
+        INVENTORY_SERVICE.stubFor(any(anyUrl()).willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                .withBody("{\"from\": \"inventory-service\"}")));
     }
 
     // ---------- product-service ----------
@@ -132,6 +142,35 @@ class GatewayRoutingIntegrationTests {
                 .withRequestBody(equalToJson(body)));
     }
 
+    // ---------- inventory-service ----------
+
+    @ParameterizedTest
+    @ValueSource(strings = { "/api/v1/inventory/SKU-001", "/api/v1/inventory" })
+    void inventoryPaths_areRoutedToInventoryService(String path) {
+        webTestClient.get().uri(path).exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$.from").isEqualTo("inventory-service");
+
+        INVENTORY_SERVICE.verify(getRequestedFor(urlEqualTo(path)));
+        PRODUCT_SERVICE.verify(0, anyRequestedFor(anyUrl()));
+        USER_SERVICE.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    void inventoryPut_isForwardedWithBody() {
+        String body = "{\"available\": 10}";
+
+        webTestClient.put().uri("/api/v1/inventory/SKU-001")
+                .headers(headers -> headers.setBearerAuth(TestJwts.validToken()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(body)
+                .exchange()
+                .expectStatus().isOk();
+
+        INVENTORY_SERVICE.verify(putRequestedFor(urlEqualTo("/api/v1/inventory/SKU-001"))
+                .withRequestBody(equalToJson(body)));
+    }
+
     // ---------- 回應 ----------
 
     @Test
@@ -168,6 +207,7 @@ class GatewayRoutingIntegrationTests {
 
         PRODUCT_SERVICE.verify(0, anyRequestedFor(anyUrl()));
         USER_SERVICE.verify(0, anyRequestedFor(anyUrl()));
+        INVENTORY_SERVICE.verify(0, anyRequestedFor(anyUrl()));
     }
 
     @Test

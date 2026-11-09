@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/inventory-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「inventory-service」、「服務互動：下單流程」
-> 狀態：Step 1–6 完成（2026-11-09），下一步 Step 7
+> 狀態：Step 1–7 全部完成，並實際啟動驗證（2026-11-09）
 
 ## 進度
 
@@ -15,7 +15,7 @@
 | 4 | `POST /internal/v1/inventory/reservations` 預扣 | 完成 |
 | 5 | `POST /internal/v1/inventory/reservations/{orderId}/confirm` 確認扣除 | 完成 |
 | 6 | `POST /internal/v1/inventory/reservations/{orderId}/release` 釋放預扣 | 完成 |
-| 7 | api-gateway 加上 `/api/v1/inventory/**` 路由 | 未開始 |
+| 7 | api-gateway 加上 `/api/v1/inventory/**` 路由 | 完成 |
 
 每一步都附整合測試，測試通過後單獨 commit。
 
@@ -195,6 +195,29 @@ SKU 雛型階段不檢查 product-service 裡是否存在；之後改成接收 `
 `/internal/v1/inventory/**` 本來就被 Gateway 擋下，不需要另外處理。
 
 **測試**：在 api-gateway 的路由、JWT 測試補上 inventory 的案例。
+
+**已完成**：api-gateway 的 `application.yml` 加上 `inventory-service` 路由，`SecurityConfig` 放行 `GET /api/v1/inventory/**`；`GatewayRoutingIntegrationTests`（+3）、`GatewayJwtIntegrationTests`（+2），api-gateway 共 90 個測試通過。
+
+---
+
+## 實際啟動驗證（2026-11-09）
+
+Gateway、user-service、inventory-service 都用真的程式啟動，經過 Gateway 呼叫：
+
+| 情境 | 結果 |
+|---|---|
+| `GET` 庫存，不帶 token | 200（不存在的 SKU 回 404 `STOCK_NOT_FOUND`） |
+| `PUT` 不帶 token | 401 `UNAUTHENTICATED`（Gateway 擋下） |
+| `PUT` 用 CUSTOMER 的 token；另外自己加 `X-User-Roles: ADMIN` | 都是 403 `FORBIDDEN` |
+| `PUT` 用 ADMIN 的 token | 第一次 201、之後 200 |
+| 經 Gateway 呼叫 `/internal/v1/inventory/reservations` | 404 |
+| 直接呼叫內部 API：預扣 4 → 重送 → 再預扣超量 → 確認 → 釋放已確認的 | 201 → 200 → 409 `INSUFFICIENT_STOCK` → 200 → 409 `RESERVATION_ALREADY_CONFIRMED`；庫存 6/0 → 2/4 → 2/0 |
+
+**驗證時發現的建置陷阱**：用 `-pl spring-inventory-service`（沒加 `-am`）打包時，Maven 會拿 `~/.m2` 裡舊版的 common，舊版沒有 `RequireRolesInterceptor`，`@RequireRoles` 被默默忽略，CUSTOMER 也能設定庫存。測試沒有抓到，因為測試用的是 reactor 裡最新的 common。
+
+- 打包服務一律加 `-am`：`./mvnw -pl spring-inventory-service -am package`
+- 或是改完 common 後先 `./mvnw -pl common install`（common 的 jar 被正在跑的服務鎖住時會失敗，要先停掉服務）
+- 之後可以考慮讓 common 在「有 `@RequireRoles` 但沒有註冊 interceptor」時啟動失敗，而不是默默放行
 
 ---
 
