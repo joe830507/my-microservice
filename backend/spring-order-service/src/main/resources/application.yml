@@ -1,6 +1,15 @@
 server:
   port: 8082
 
+# 下游服務的位置：本機預設 localhost:{port}；K8s 部署時用環境變數改成 Service 名稱
+order:
+  services:
+    product-uri: ${PRODUCT_SERVICE_URI:http://localhost:8081}
+    inventory-uri: ${INVENTORY_SERVICE_URI:http://localhost:8083}
+    connect-timeout: 2s
+    # 建單時依序呼叫 product、inventory，最久約 2 × read-timeout
+    read-timeout: 5s
+
 spring:
   application:
     name: order-service

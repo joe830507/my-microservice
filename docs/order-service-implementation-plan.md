@@ -3,14 +3,14 @@
 > 建立日期：2026-11-09
 > 分支：`feature/order-service`
 > 對應：[microservice-architecture.md](microservice-architecture.md)「order-service」、「服務互動：下單流程」
-> 狀態：Step 1 完成（2026-11-09），下一步 Step 2
+> 狀態：Step 1–2 完成（2026-11-09），下一步 Step 3
 
 ## 進度
 
 | Step | 內容 | 狀態 |
 |---|---|---|
 | 1 | 建立專案、DB 與資料表 | 完成 |
-| 2 | `POST /api/v1/orders` 建立訂單（呼叫 product、inventory） | 未開始 |
+| 2 | `POST /api/v1/orders` 建立訂單（呼叫 product、inventory） | 完成 |
 | 3 | `GET /api/v1/orders/{id}` 訂單詳情 | 未開始 |
 | 4 | `GET /api/v1/orders` 訂單列表 | 未開始 |
 | 5 | `POST /api/v1/orders/{id}/cancel` 取消訂單 | 未開始 |
@@ -92,6 +92,13 @@ order_item
 | 回應 | 201，訂單詳情 |
 
 **測試**：成功（快照、金額、預扣的內容）、商品不存在、商品下架、庫存不足、product 掛掉、inventory 逾時時會呼叫釋放、沒有身分 401。
+
+**已完成**：`OrderController.createOrder`、`OrderService`、`ProductClient`、`InventoryClient`、`RestClientConfig`、`UuidV7`；測試 `OrderControllerCreateIntegrationTests`（27）。
+
+- 需要 `spring-boot-starter-restclient`：Boot 4 把 `RestClient.Builder` 的自動設定拆成獨立模組
+- **HttpClient 固定 HTTP/1.1**：JDK HttpClient 預設對 `http://` 嘗試升級成 HTTP/2（h2c），下游回 5xx 或逾時時，WireMock 收到的預扣請求 body 是空的；固定 HTTP/1.1 後正常
+- inventory 回 `RESERVATION_MISMATCH` 等非預期的 4xx 時回 500（全新的 orderId 不應該發生）
+- 預扣成功但訂單存檔失敗時會呼叫釋放；連釋放都失敗只能記 log（訂單不存在，排程補不到），之後靠 inventory 的逾時釋放（inventory 計畫的「之後再處理」）
 
 ---
 
