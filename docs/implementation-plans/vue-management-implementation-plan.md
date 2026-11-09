@@ -9,7 +9,7 @@
 
 | Step | 內容 | 狀態 |
 |---|---|---|
-| 0 | 後端前置問題：SeaweedFS CORS、決定要補哪些後台 API | 未開始 |
+| 0 | 後端前置問題：SeaweedFS CORS、決定要補哪些後台 API | 進行中：CORS 已確認不用改，訂單出貨 API 待決定 |
 | 1 | 建立專案、Element Plus、Vite proxy | 未開始 |
 | 2 | HTTP 層：axios 實例、`ApiError` | 未開始 |
 | 3 | 登入：token store、refresh（同時只發一次）、登出、路由守衛 | 未開始 |
@@ -32,7 +32,7 @@
 | 問題 | 現況 | 決定 |
 |---|---|---|
 | CORS | Gateway 沒有設定 CORS | 開發時用 **Vite proxy** 把 `/api` 轉到 `localhost:8080`；正式環境由 nginx 轉發，維持同一個網域，後端不設 CORS |
-| 圖片直傳 | presigned URL 讓瀏覽器直接 PUT 到 SeaweedFS `:8333`，是跨網域請求 | **SeaweedFS 要設定 CORS**。簽章包含 Host，不能靠 proxy 改 Host 繞過。Step 7 之前先實測 |
+| 圖片直傳 | presigned URL 讓瀏覽器直接 PUT 到 SeaweedFS `:8333`，是跨網域請求 | 已實測：SeaweedFS 預設允許所有來源，不用改設定（見 Step 0）。簽章包含 Host，不能靠 proxy 改 Host 繞過 |
 | 庫存列表 | 只有 `GET /api/v1/inventory/{sku}` | 雛型階段在商品編輯頁依 SKU 查詢；需要總覽頁時再補列表 API |
 | 訂單出貨、完成 | 沒有 API，`SHIPPED`、`COMPLETED` 無法到達 | 待決定；補的話放在 Step 9 之前 |
 | 付款列表 | 沒有 | 雛型階段不做 |
@@ -105,6 +105,15 @@ frontend/vue-management/
 
 - 實測 SeaweedFS 的 CORS：從 `http://localhost:5173` 對 presigned URL 發 PUT，確認 preflight 通過；不通過就在 compose 的初始化加入 CORS 設定
 - 決定訂單出貨、完成 API 要不要補；要補就照後端流程（整合測試、單獨 commit）
+
+**CORS 實測結果（2026-11-09）**：不用改設定。
+
+- SeaweedFS 3.80 預設就允許所有來源：OPTIONS 預檢回 200，帶 `Access-Control-Allow-Origin: *`、`Allow-Methods: *`、`Allow-Headers: *`
+- 用簽了 `content-type`、`content-length` 的 presigned URL、帶 `Origin: http://localhost:5173` 實際 PUT：回 200，回應也帶 `Access-Control-Allow-Origin: *`；換成別的 Content-Type 仍然回 403，簽章檢查沒有因為 CORS 放寬
+- 前端上傳**不能帶 credentials**（axios 的 `withCredentials` 保持 false）：回應是 `*` 加上 `Allow-Credentials: true`，瀏覽器在帶 credentials 時會拒絕 `*`
+- 正式環境的物件儲存（S3 或 SeaweedFS）如果改成只允許後台網域，要再設定 bucket CORS
+- 順便遇到的本機問題：Windows 的 TCP 動態 port 範圍從 1024 開始時，Hyper-V / WSL 會保留 8045–8344 一帶的 port，造成 8080–8085、8333 綁定失敗。修正方式：系統管理員執行 `netsh int ipv4 set dynamic tcp start=49152 num=16384`，再重啟 `winnat`
+- compose 的 `object-storage-init` 可能在 filer 準備好之前就執行，出現 `fail to dial` 錯誤但仍然以 0 結束；重新執行 `docker compose up object-storage-init` 即可
 
 ## Step 1：建立專案
 
