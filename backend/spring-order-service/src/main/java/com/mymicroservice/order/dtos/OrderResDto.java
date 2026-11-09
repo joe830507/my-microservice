@@ -26,6 +26,8 @@ public record OrderResDto(
 
         Instant paidAt,
 
+        Instant shippedAt,
+
         Instant cancelledAt) {
 
     public record Item(
@@ -57,6 +59,7 @@ public record OrderResDto(
                 order.getItems().stream().map(Item::from).toList(),
                 order.getCreatedAt(),
                 order.getPaidAt(),
+                order.getShippedAt(),
                 order.getCancelledAt());
     }
 }

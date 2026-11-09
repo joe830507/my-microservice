@@ -133,6 +133,7 @@ backend/
 | GET | `/api/v1/orders/{id}` | 訂單詳情，只能看自己的 |
 | GET | `/api/v1/orders` | 自己的訂單列表；ADMIN 可查全部 |
 | POST | `/api/v1/orders/{id}/cancel` | 取消，只限尚未付款的訂單 |
+| POST | `/api/v1/orders/{id}/ship` | 後台出貨（ADMIN），只限 `PAID`；已出貨的回 200 |
 | GET | `/internal/v1/orders/{id}` | 給 payment-service 查金額與狀態 |
 | POST | `/internal/v1/orders/{id}/paid` | payment-service 通知付款成功 |
 

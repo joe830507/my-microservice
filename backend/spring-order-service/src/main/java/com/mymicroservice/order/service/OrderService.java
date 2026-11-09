@@ -18,6 +18,9 @@ public interface OrderService {
 
     public OrderResDto cancelOrder(UUID orderId, UUID userId, boolean admin);
 
+    // 後台出貨（ADMIN）：PAID → SHIPPED
+    public OrderResDto shipOrder(UUID orderId);
+
     public InternalOrderResDto getInternalOrder(UUID orderId);
 
     public InternalOrderResDto markPaid(UUID orderId);

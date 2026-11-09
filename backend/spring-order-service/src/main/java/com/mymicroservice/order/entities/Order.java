@@ -59,6 +59,9 @@ public class Order extends CommonEntity {
     @Column(name = "paid_at")
     private Instant paidAt;
 
+    @Column(name = "shipped_at")
+    private Instant shippedAt;
+
     @Column(name = "cancelled_at")
     private Instant cancelledAt;
 
