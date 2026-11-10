@@ -65,7 +65,7 @@ public interface ProductApi {
             @Parameter(hidden = true) String roles,
             @Parameter(description = "商品 sku", example = "SHOE-NK-001") String sku);
 
-    @Operation(summary = "查詢商品列表", description = "可依分類、狀態篩選，支援分頁與排序。不是 ADMIN 時只列出上架中（ACTIVE）的商品，傳入的 status 會被忽略。每筆帶主圖網址 primaryImageUrl（沒有主圖為 null）。")
+    @Operation(summary = "查詢商品列表", description = "可依分類、狀態篩選，支援分頁與排序。不是 ADMIN 時只列出上架中（ACTIVE）的商品，傳入的 status 會被忽略。每筆帶主圖網址 primaryImageUrl（沒有主圖為 null）。includeSubcategories=true 時，categoryId 連同所有子孫分類一起查。")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "查詢成功"),
             @ApiResponse(responseCode = "400", description = "查詢參數驗證失敗",

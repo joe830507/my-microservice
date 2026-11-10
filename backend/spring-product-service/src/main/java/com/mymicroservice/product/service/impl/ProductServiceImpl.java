@@ -1,9 +1,13 @@
 package com.mymicroservice.product.service.impl;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -25,6 +29,7 @@ import com.mymicroservice.product.dto.product.getProductList.ProductQueryRespons
 import com.mymicroservice.product.dto.product.getProductsByIds.GetProductsByIdsRes;
 import com.mymicroservice.product.dto.product.updateOneProduct.UpdateOneProductReq;
 import com.mymicroservice.product.dto.product.updateOneProduct.UpdateOneProductRes;
+import com.mymicroservice.product.entity.Category;
 import com.mymicroservice.product.entity.Product;
 import com.mymicroservice.product.entity.ProductImage;
 import com.mymicroservice.product.entity.ProductStatus;
@@ -106,6 +111,24 @@ public class ProductServiceImpl implements ProductService {
         return ProductQueryResponse.from(productPage, primaryImageUrls(productPage.getContent()));
     }
 
+    // 分類自己加上所有子孫分類的 id（含停用的，商品的可見性另外由狀態決定）
+    // 分類數量有限，一次讀出全部再往下展開；用 result 記錄看過的 id，資料有循環也不會無限迴圈
+    private Set<UUID> withDescendants(UUID rootId) {
+        Map<UUID, List<UUID>> childrenByParentId = categoryRepository.findAll().stream()
+                .filter(category -> category.getParentId() != null)
+                .collect(Collectors.groupingBy(Category::getParentId,
+                        Collectors.mapping(Category::getId, Collectors.toList())));
+        Set<UUID> result = new HashSet<>();
+        Deque<UUID> pending = new ArrayDeque<>(List.of(rootId));
+        while (!pending.isEmpty()) {
+            UUID current = pending.pop();
+            if (result.add(current)) {
+                pending.addAll(childrenByParentId.getOrDefault(current, List.of()));
+            }
+        }
+        return result;
+    }
+
     // 一次查出這一頁商品的主圖（每個商品最多一張主圖），轉成公開網址
     private Map<UUID, String> primaryImageUrls(List<Product> products) {
         if (products.isEmpty()) {
@@ -127,8 +150,13 @@ public class ProductServiceImpl implements ProductService {
             specification = specification.and((root, query, cb) -> cb.like(cb.lower(root.get("name")), pattern, '\\'));
         }
         if (productQueryRequest.categoryId() != null) {
-            specification = specification.and((root, query, cb) -> cb.equal(root.get("categoryId"),
-                    productQueryRequest.categoryId()));
+            if (Boolean.TRUE.equals(productQueryRequest.includeSubcategories())) {
+                Set<UUID> categoryIds = withDescendants(productQueryRequest.categoryId());
+                specification = specification.and((root, query, cb) -> root.get("categoryId").in(categoryIds));
+            } else {
+                specification = specification.and((root, query, cb) -> cb.equal(root.get("categoryId"),
+                        productQueryRequest.categoryId()));
+            }
         }
         if (status != null) {
             specification = specification.and((root, query, cb) -> cb.equal(root.get("status"), status));
