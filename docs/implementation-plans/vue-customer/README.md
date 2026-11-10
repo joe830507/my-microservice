@@ -3,7 +3,7 @@
 > 建立日期：2026-11-10
 > 分支：之後另開 `feature/vue-customer`
 > 位置：`frontend/vue-customer`（目前只有 `.gitkeep`）
-> 狀態：進行中（Step 0–1 完成）
+> 狀態：進行中（Step 0–2 完成）
 
 顧客用的商店前台：瀏覽商品、購物車、註冊登入、下單、付款（模擬金流）、查詢自己的訂單。後台是 [vue-management](../vue-management/README.md)。
 
@@ -13,7 +13,7 @@
 | ---- | ------------------------------------------------------------ | ------ |
 | [0](step-00-backend-prereqs.md) | 後端前置問題：公開商品 API 只回上架中、列表帶主圖、分類含子分類 | 完成   |
 | [1](step-01-project-setup.md) | 建立專案、Vite proxy、版面骨架                               | 完成   |
-| 2    | HTTP 層與登入狀態（沿用後台的做法）                          | 未開始 |
+| [2](step-02-http-layer.md) | HTTP 層與登入狀態（沿用後台的做法）                          | 完成   |
 | 3    | 註冊、登入、登出                                             | 未開始 |
 | 4    | 商品列表：分類、搜尋、篩選、排序、分頁                       | 未開始 |
 | 5    | 商品詳情：圖片、價格、庫存、加入購物車                       | 未開始 |
@@ -117,14 +117,6 @@ frontend/vue-customer/
 ---
 
 ## 還沒開始的 step
-
-### Step 2：HTTP 層與登入狀態
-
-- 從後台複製 `api/http.ts`、`api/errors.ts`、`features/auth` 的 store 與攔截器，拿掉 ADMIN 檢查
-- refresh token 的 localStorage key 用 `vue-customer.refreshToken`，和後台分開（同一台電腦可以同時登入兩邊的不同帳號）
-- 路由守衛：`meta.requiresAuth` 的頁面才需要登入（和後台相反：後台是 `meta.public` 的頁面才不用登入）
-
-**測試**：沿用後台的攔截器測試（同時兩個 401 只 refresh 一次等）；不需要登入的頁面未登入也能進入；需要登入的頁面導到登入頁並帶 `redirect`。
 
 ### Step 3：註冊、登入、登出
 
