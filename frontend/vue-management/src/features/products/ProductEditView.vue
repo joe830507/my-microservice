@@ -378,7 +378,7 @@ const dirty = computed(() => {
 
 .title {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--el-font-size-large);
 }
 
 .status-bar {

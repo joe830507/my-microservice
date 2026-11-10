@@ -224,12 +224,12 @@ function statusOf(row: unknown): OrderStatus {
 
 .order-id {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
+  font-size: var(--el-font-size-small);
 }
 
 .user-filter {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
+  font-size: var(--el-font-size-small);
 }
 
 .pagination {

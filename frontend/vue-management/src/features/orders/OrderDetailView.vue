@@ -182,7 +182,7 @@ const timeline = computed(() => {
 
 .title {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--el-font-size-large);
 }
 
 .load-error,
@@ -193,11 +193,11 @@ const timeline = computed(() => {
 
 .section-title {
   margin: 24px 0 12px;
-  font-size: 16px;
+  font-size: var(--el-font-size-medium);
 }
 
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
+  font-size: var(--el-font-size-small);
 }
 </style>

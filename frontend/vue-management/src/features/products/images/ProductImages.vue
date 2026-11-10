@@ -263,12 +263,12 @@ async function onDrop(index: number): Promise<void> {
 
 .images-title {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--el-font-size-medium);
 }
 
 .images-hint {
   color: var(--el-text-color-secondary);
-  font-size: 13px;
+  font-size: var(--el-font-size-small);
 }
 
 .file-input {
@@ -319,7 +319,7 @@ async function onDrop(index: number): Promise<void> {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--el-font-size-small);
   color: var(--el-text-color-secondary);
 }
 

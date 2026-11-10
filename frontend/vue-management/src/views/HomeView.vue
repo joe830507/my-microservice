@@ -293,7 +293,7 @@ function shortId(id: string): string {
 
 .dashboard-title {
   margin: 0;
-  font-size: 22px;
+  font-size: 24px;
 }
 
 .dashboard-subtitle {
@@ -343,18 +343,18 @@ function shortId(id: string): string {
 }
 
 .kpi-label {
-  font-size: 14px;
+  font-size: var(--el-font-size-base);
   opacity: 0.95;
 }
 
 .kpi-value {
-  font-size: 40px;
+  font-size: 42px;
   font-weight: 700;
   line-height: 1.1;
 }
 
 .kpi-hint {
-  font-size: 12px;
+  font-size: var(--el-font-size-extra-small);
   opacity: 0.8;
 }
 
@@ -462,7 +462,7 @@ function shortId(id: string): string {
 }
 
 .todo-meta {
-  font-size: 12px;
+  font-size: var(--el-font-size-extra-small);
   color: var(--el-text-color-secondary);
 }
 

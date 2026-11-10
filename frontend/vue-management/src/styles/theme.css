@@ -43,6 +43,66 @@ html.dark {
   --el-color-primary-dark-2: #af7df8;
 
   --el-border-radius-base: 8px;
+
+  /* 字體整體放大（Element Plus 預設 base 14px、small 13px、extra-small 12px，各加 2px） */
+  --el-font-size-extra-large: 22px;
+  --el-font-size-large: 20px;
+  --el-font-size-medium: 18px;
+  --el-font-size-base: 16px;
+  --el-font-size-small: 15px;
+  --el-font-size-extra-small: 14px;
+  /* 輸入框、按鈕跟著加高，放大後的字才不會擠 */
+  --el-component-size-large: 44px;
+  --el-component-size: 36px;
+  --el-component-size-small: 28px;
+}
+
+/* 麵包屑的字級寫死 14px，改成跟著字級變數 */
+html.dark .el-breadcrumb {
+  font-size: var(--el-font-size-base);
+}
+
+/* 原生 <button> 不會繼承頁面字級（瀏覽器預設約 13px），自己做的按鈕卡片要跟著 */
+button {
+  font: inherit;
+}
+
+/* 這些元件用自己的變數寫死 14px（或 12px），改成跟著字級變數 */
+html.dark .el-select {
+  --el-select-input-font-size: var(--el-font-size-base);
+}
+
+html.dark .el-select__wrapper {
+  font-size: var(--el-font-size-base);
+}
+
+html.dark .el-pagination {
+  --el-pagination-font-size: var(--el-font-size-base);
+  --el-pagination-font-size-small: var(--el-font-size-small);
+}
+
+html.dark .el-alert {
+  --el-alert-title-font-size: var(--el-font-size-base);
+  --el-alert-description-font-size: var(--el-font-size-base);
+  --el-alert-title-with-description-font-size: var(--el-font-size-medium);
+}
+
+html.dark .el-descriptions__cell,
+html.dark .el-timeline-item__timestamp {
+  font-size: var(--el-font-size-base) !important;
+}
+
+html.dark .el-dialog {
+  --el-dialog-content-font-size: var(--el-font-size-base);
+}
+
+html.dark .el-message .el-message__content {
+  font-size: var(--el-font-size-base);
+}
+
+/* 標籤的字級是寫死的 12px，改成跟著字級變數 */
+html.dark .el-tag {
+  --el-tag-font-size: var(--el-font-size-extra-small);
 }
 
 /* 卡片：沒有邊框、大圓角，和參考圖一致 */

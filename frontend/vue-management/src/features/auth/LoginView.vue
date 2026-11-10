@@ -205,20 +205,20 @@ async function onSubmit(): Promise<void> {
 }
 
 .brand-name {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 600;
   letter-spacing: 0.5px;
 }
 
 .brand-tagline {
   margin: 6px 0 0;
-  font-size: 12px;
+  font-size: var(--el-font-size-extra-small);
   color: var(--login-muted);
 }
 
 .login-title {
   margin: 36px 0 28px;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 500;
 }
 
@@ -234,7 +234,7 @@ async function onSubmit(): Promise<void> {
 /* 標籤：小字、淺色 */
 .login-form :deep(.el-form-item__label) {
   padding-bottom: 2px;
-  font-size: 12px;
+  font-size: var(--el-font-size-extra-small);
   line-height: 18px;
   color: var(--login-text);
 }

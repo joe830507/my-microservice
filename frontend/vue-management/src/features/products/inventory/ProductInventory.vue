@@ -121,7 +121,7 @@ async function onSave(): Promise<void> {
 <style scoped>
 .inventory-title {
   margin: 0 0 16px;
-  font-size: 16px;
+  font-size: var(--el-font-size-medium);
 }
 
 .inventory-error,
@@ -133,6 +133,6 @@ async function onSave(): Promise<void> {
 .inventory-hint {
   margin: 0;
   color: var(--el-text-color-secondary);
-  font-size: 13px;
+  font-size: var(--el-font-size-small);
 }
 </style>

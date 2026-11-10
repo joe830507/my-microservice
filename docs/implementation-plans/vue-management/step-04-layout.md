@@ -90,3 +90,14 @@ vitest 261 個通過、`npm run build`（含 `vue-tsc`）、eslint、oxlint、pr
 - 名稱集中在 `src/router/index.ts` 的 `APP_TITLE`：側邊欄、瀏覽器分頁標題（「頁面標題 - 商城管理後台」）、登入頁都用它；`index.html` 的 `<title>` 也改了
 - 登入頁的說明改成「商品、訂單與庫存管理」，避免和名稱重複「後台管理」
 - **沒改的**：repo、資料夾、`package.json` 的名稱仍是 `vue-management`；localStorage 的 key `vue-management.refreshToken` 是內部用的，改了會讓已登入的人都被登出
+
+## 字體放大（2026-11-10）
+
+使用者覺得整體字體偏小。做法是在 `src/styles/theme.css` 統一調整，不在各頁面個別改：
+
+- Element Plus 的字級變數各加 2px：`--el-font-size-base` 14 → 16px、`small` 13 → 15px、`extra-small` 12 → 14px、`medium` 16 → 18px、`large` 18 → 20px、`extra-large` 20 → 22px；`body` 也用 `--el-font-size-base`
+- 元件高度跟著加高（`--el-component-size` 32 → 36px、`large` 40 → 44px、`small` 24 → 28px），放大後的字不會擠
+- 自己寫死的字級（12、13、14、16、18、20px）都改成上面的變數，之後要再調只改一個地方；標題、數字卡片這類大字改成 24、28、42px
+- **Element Plus 有些元件不用字級變數，另外覆寫**：`el-tag`（12px）、`el-breadcrumb`、`el-select__wrapper` 與 `--el-select-input-font-size`、`el-pagination`、`el-alert`、`el-dialog` 內容、`el-message`、`el-descriptions` 的儲存格、`el-timeline` 的時間（都是寫死 14px 或 12px）
+- **原生 `<button>` 不會繼承頁面字級**（瀏覽器預設約 13px）：首頁的數字卡片、小卡片、待辦項目是自己做的按鈕，全域加上 `button { font: inherit }`
+- 用 headless Chrome 截圖確認首頁、商品列表、訂單詳情

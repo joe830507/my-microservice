@@ -114,7 +114,7 @@ async function onLogout(): Promise<void> {
 
 .admin-brand {
   padding: 28px 24px 20px;
-  font-size: 20px;
+  font-size: var(--el-font-size-extra-large);
   font-weight: 700;
   letter-spacing: 0.3px;
   color: var(--el-text-color-primary);
@@ -140,7 +140,7 @@ async function onLogout(): Promise<void> {
 }
 
 .menu-section {
-  font-size: 12px;
+  font-size: var(--el-font-size-extra-small);
   font-weight: 700;
   letter-spacing: 2px;
   color: var(--app-accent-magenta);
@@ -148,7 +148,7 @@ async function onLogout(): Promise<void> {
 
 .admin-menu .el-menu-item {
   padding-left: 24px !important;
-  font-size: 14px;
+  font-size: var(--el-font-size-base);
 }
 
 /* 選中的項目：紫色漸層底，左邊一條強調色 */

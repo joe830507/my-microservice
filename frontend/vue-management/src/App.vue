@@ -10,6 +10,7 @@ body {
   margin: 0;
   background: var(--el-bg-color-page);
   color: var(--el-text-color-primary);
+  font-size: var(--el-font-size-base);
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
 }
