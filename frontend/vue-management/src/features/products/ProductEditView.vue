@@ -8,6 +8,7 @@ import { buildTree } from '@/features/categories/tree'
 import type { Category, CategoryNode } from '@/features/categories/types'
 import * as productApi from './api'
 import type { StatusAction } from './api'
+import ProductImages from './images/ProductImages.vue'
 import { productErrorMessage } from './messages'
 import {
   canArchive,
@@ -354,6 +355,12 @@ const dirty = computed(() => {
         <el-button @click="router.push({ name: 'products' })">回列表</el-button>
       </el-form-item>
     </el-form>
+
+    <!-- 圖片要等商品建立後才能上傳 -->
+    <template v-if="product">
+      <el-divider />
+      <ProductImages :product-id="product.id" :read-only="readOnly" />
+    </template>
   </el-card>
 </template>
 

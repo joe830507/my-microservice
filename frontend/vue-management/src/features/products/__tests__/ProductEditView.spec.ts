@@ -22,7 +22,13 @@ afterAll(() => server.close())
 
 beforeEach(() => {
   vi.mocked(confirmDanger).mockReset()
-  server.use(http.get('*/categories', () => HttpResponse.json({ categories: allCategories })))
+  server.use(
+    http.get('*/categories', () => HttpResponse.json({ categories: allCategories })),
+    // 編輯頁也會讀圖片；圖片的行為另外在 ProductImages.spec.ts 測
+    http.get('*/products/:id/images', ({ params }) =>
+      HttpResponse.json({ productId: params.id, images: [] }),
+    ),
+  )
 })
 
 afterEach(() => {

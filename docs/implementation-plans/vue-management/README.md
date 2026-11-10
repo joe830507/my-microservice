@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/vue-management`
 > 位置：`frontend/vue-management`
-> 狀態：進行中（Step 6 完成）
+> 狀態：進行中（Step 7 完成）
 
 ## 進度
 
@@ -16,7 +16,7 @@
 | [4](step-04-layout.md) | AdminLayout、選單、403 / 404                               | 完成                                               |
 | [5](step-05-categories.md) | 分類管理                                                   | 完成：後端補上含停用分類的列表 API                 |
 | [6](step-06-products.md) | 商品管理                                                   | 完成                                               |
-| 7    | 商品圖片                                                   | 未開始                                             |
+| [7](step-07-product-images.md) | 商品圖片                                                   | 完成                                               |
 | 8    | 庫存（放在商品編輯頁）                                     | 未開始                                             |
 | 9    | 訂單管理                                                   | 未開始                                             |
 | 10   | 使用者列表                                                 | 未開始                                             |
@@ -105,13 +105,6 @@ frontend/vue-management/
 ---
 
 ## 還沒開始的 step
-
-### Step 7：商品圖片
-
-- 流程：選檔 → 前端先檢查類型與大小 → `upload-url` → 帶 `requiredHeaders` PUT → 登記
-- 設定主圖、拖曳排序、刪除
-
-**測試**：類型或大小不符時不發請求；PUT 失敗不會登記；排序送出的順序正確。
 
 ### Step 8：庫存
 
