@@ -76,7 +76,7 @@
 - **又是 ES2020 的 `lib`**：測試裡用了 `Array.prototype.at`，`vue-tsc` 才報錯（vitest 不做型別檢查）。改成自己寫 `lastRequest()`
 - **Element Plus 的型別比較通用**：`el-table` 的 `sort-change` 參數 `prop` 可能是 `null`；`el-tree-select` 的 `disabled` 函式參數是 `TreeNodeData`。都在函式裡自己判斷或轉型
 - **動態 import 的頁面**：按「編輯」導到編輯頁時要等元件載入，`flushPromises` 不夠，測試改用 `vi.waitFor`
-- **還沒接真正的後端測試**：寫完時 compose 沒有啟動
+- **還沒接真正的後端測試**：寫完時 compose 沒有啟動（2026-11-10 已接上後端，用 API 實測過，見 [backend-integration-check.md](backend-integration-check.md)；畫面還沒在瀏覽器操作過）
 
 ### 發現的後端問題（沒有修改）
 

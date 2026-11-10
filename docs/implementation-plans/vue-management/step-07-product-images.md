@@ -66,7 +66,7 @@
   - 上傳本體這一步在測試裡 `vi.spyOn(storageClient, 'put')`，驗證網址、檔案、header
   - 申請網址、登記等我們的 API 照樣用 MSW
   - `storageClient` 因此匯出，註解寫明原因
-- **還沒在瀏覽器實際上傳過**：寫完時 compose 沒有啟動。實際操作時要特別確認 presigned PUT 的 CORS 與簽章（`Content-Type` 要和申請時一致）
+- **還沒在瀏覽器實際上傳過**：寫完時 compose 沒有啟動。實際操作時要特別確認 presigned PUT 的 CORS 與簽章（`Content-Type` 要和申請時一致）（2026-11-10 已接上後端，用 API 實測過，見 [backend-integration-check.md](backend-integration-check.md)；畫面還沒在瀏覽器操作過）
 
 ## 最終檢查
 

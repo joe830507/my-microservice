@@ -88,7 +88,7 @@
 - **`auto-imports.d.ts` 是執行 vite（dev、build、vitest）時才更新**：第一次用到 `ElMessage` 後要跑過一次，檔案才會加上宣告；這個檔案有 commit
 - **`el-table` 插槽的 `row` 是通用的 `DefaultRow`**：在插槽解構上標型別會和 Element Plus 的插槽型別衝突，改成呼叫時 `row as CategoryNode`
 - **表單驗證訊息要等下一次渲染**：`validate()` 失敗後訊息不會馬上出現在 DOM，測試要用 `vi.waitFor`
-- **還沒接真正的後端測試**：寫完時 compose 沒有啟動。前端只用 MSW 驗證；後端 API 已用整合測試（Testcontainers）驗證
+- **還沒接真正的後端測試**：寫完時 compose 沒有啟動。前端只用 MSW 驗證；後端 API 已用整合測試（Testcontainers）驗證（2026-11-10 已接上後端，用 API 實測過，見 [backend-integration-check.md](backend-integration-check.md)；畫面還沒在瀏覽器操作過）
 
 ## 最終檢查
 

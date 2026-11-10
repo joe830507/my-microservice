@@ -42,7 +42,7 @@
 ### 遇到的問題
 
 - **`Array.prototype.at` 型別檢查失敗**：專案的 TS `lib` 是 ES2020（Step 2 的 `Error.cause` 也是同一個原因），vitest 不做型別檢查所以測試照樣通過，`vue-tsc` 才報錯。改用 `items[items.length - 1]`
-- **還沒在瀏覽器實際看過畫面**：後端沒有啟動，登入後才看得到 AdminLayout；版面只靠測試確認結構。之後啟動 compose 時要用 `npm run dev` 檢查版面（含窄螢幕）
+- **還沒在瀏覽器實際看過畫面**：後端沒有啟動，登入後才看得到 AdminLayout；版面只靠測試確認結構。之後啟動 compose 時要用 `npm run dev` 檢查版面（含窄螢幕）（2026-11-10 已接上後端，用 API 實測過，見 [backend-integration-check.md](backend-integration-check.md)；畫面還沒在瀏覽器操作過）
 
 ## 最終檢查
 

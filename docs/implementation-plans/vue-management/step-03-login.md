@@ -70,7 +70,7 @@
 ### 遇到的問題
 
 - **`problem()` 的回傳型別**：一開始標成 `HttpResponse<never>` 再轉型，`vue-tsc` 報型別不相容（vitest 不做型別檢查所以測試照樣通過）。拿掉標註，讓 TypeScript 推斷即可
-- **還沒接真正的後端測試**：寫完時 Gateway 沒有啟動，登入流程只用 MSW 驗證過；之後啟動 compose 時要用 `npm run dev` 實際登入一次（含重新整理頁面後恢復登入、登出）
+- **還沒接真正的後端測試**：寫完時 Gateway 沒有啟動，登入流程只用 MSW 驗證過；之後啟動 compose 時要用 `npm run dev` 實際登入一次（含重新整理頁面後恢復登入、登出）（2026-11-10 已接上後端，用 API 實測過，見 [backend-integration-check.md](backend-integration-check.md)；畫面還沒在瀏覽器操作過）
 
 ## 最終檢查
 
