@@ -19,6 +19,7 @@ import com.mymicroservice.common.web.RequireRoles;
 import com.mymicroservice.product.controller.api.CategoryApi;
 import com.mymicroservice.product.dto.category.addOneNewCategory.AddOneNewCategoryReq;
 import com.mymicroservice.product.dto.category.addOneNewCategory.AddOneNewCategoryRes;
+import com.mymicroservice.product.dto.category.getAllCategories.GetAllCategoriesRes;
 import com.mymicroservice.product.dto.category.getCategoriesTree.GetCategoriesTreeRes;
 import com.mymicroservice.product.dto.category.getCategoryById.GetCategoryByIdRes;
 import com.mymicroservice.product.dto.category.getCategoryBySlug.GetCategoryBySlugRes;
@@ -43,6 +44,14 @@ public class CategoryController implements CategoryApi {
     public AddOneNewCategoryRes addOneNewCategory(
             @RequestBody AddOneNewCategoryReq addOneNewCategoryReq) {
         return categoryService.addOneNewCategory(addOneNewCategoryReq);
+    }
+
+    @Override
+    @RequireRoles("ADMIN")
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(value = HttpStatus.OK)
+    public GetAllCategoriesRes getAllCategories() {
+        return categoryService.getAllCategories();
     }
 
     @Override

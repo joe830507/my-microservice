@@ -21,7 +21,7 @@
 | 服務 | 職責 | 狀態 |
 |---|---|---|
 | `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、限流 | 已實作；細節見 [api-gateway-implementation-plan.md](../implementation-plans/api-gateway-implementation-plan.md) |
-| `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取、圖片上傳到物件儲存）；讀取公開，新增、修改、刪除限 ADMIN |
+| `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取、圖片上傳到物件儲存）；讀取公開，新增、修改、刪除限 ADMIN；後台的分類列表 `GET /api/v1/categories`（含停用的分類）也限 ADMIN |
 | `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 已實作 |
 | `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](../implementation-plans/inventory-service-implementation-plan.md) |
 | `spring-order-service` | 訂單、商品快照、訂單狀態 | 已實作；步驟見 [order-service-implementation-plan.md](../implementation-plans/order-service-implementation-plan.md) |

@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import com.mymicroservice.product.dto.category.addOneNewCategory.AddOneNewCategoryReq;
 import com.mymicroservice.product.dto.category.addOneNewCategory.AddOneNewCategoryRes;
+import com.mymicroservice.product.dto.category.getAllCategories.GetAllCategoriesRes;
 import com.mymicroservice.product.dto.category.getCategoriesTree.GetCategoriesTreeRes;
 import com.mymicroservice.product.dto.category.getCategoryById.GetCategoryByIdRes;
 import com.mymicroservice.product.dto.category.getCategoryBySlug.GetCategoryBySlugRes;
@@ -19,6 +20,8 @@ public interface CategoryService {
     public GetCategoryBySlugRes getCategoryBySlug(String slug);
 
     public GetCategoriesTreeRes getCategoriesTree();
+
+    public GetAllCategoriesRes getAllCategories();
 
     public UpdateOneCategoryRes updateOneCategory(UUID id, UpdateOneCategoryReq updateOneCategoryReq);
 

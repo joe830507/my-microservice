@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.mymicroservice.product.cache.CategoryTreeCache;
 import com.mymicroservice.product.dto.category.addOneNewCategory.AddOneNewCategoryReq;
 import com.mymicroservice.product.dto.category.addOneNewCategory.AddOneNewCategoryRes;
+import com.mymicroservice.product.dto.category.getAllCategories.CategoryListItem;
+import com.mymicroservice.product.dto.category.getAllCategories.GetAllCategoriesRes;
 import com.mymicroservice.product.dto.category.getCategoriesTree.CategoryTreeNode;
 import com.mymicroservice.product.dto.category.getCategoriesTree.GetCategoriesTreeRes;
 import com.mymicroservice.product.dto.category.getCategoryById.GetCategoryByIdRes;
@@ -99,6 +101,17 @@ public class CategoryServiceImpl implements CategoryService {
             categoryTreeCache.put(tree);
             return tree;
         });
+    }
+
+    // 後台用，不經過快取：分類樹的快取只放啟用中的分類，而且後台修改後要立即看到結果
+    @Override
+    @Transactional(readOnly = true)
+    public GetAllCategoriesRes getAllCategories() {
+        List<CategoryListItem> categories = categoryRepository.findAll().stream()
+                .sorted(SIBLING_ORDER)
+                .map(CategoryListItem::from)
+                .toList();
+        return new GetAllCategoriesRes(categories);
     }
 
     private GetCategoriesTreeRes loadCategoriesTree() {

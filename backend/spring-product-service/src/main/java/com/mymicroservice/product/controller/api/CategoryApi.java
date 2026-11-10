@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 
 import com.mymicroservice.product.dto.category.addOneNewCategory.AddOneNewCategoryReq;
 import com.mymicroservice.product.dto.category.addOneNewCategory.AddOneNewCategoryRes;
+import com.mymicroservice.product.dto.category.getAllCategories.GetAllCategoriesRes;
 import com.mymicroservice.product.dto.category.getCategoriesTree.GetCategoriesTreeRes;
 import com.mymicroservice.product.dto.category.getCategoryById.GetCategoryByIdRes;
 import com.mymicroservice.product.dto.category.getCategoryBySlug.GetCategoryBySlugRes;
@@ -38,6 +39,16 @@ public interface CategoryApi {
                     content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ProblemDetail.class)))
     })
     AddOneNewCategoryRes addOneNewCategory(@Valid AddOneNewCategoryReq addOneNewCategoryReq);
+
+    @Operation(summary = "取得所有分類（後台用）", description = "限 ADMIN。回傳平面列表，包含停用的分類；前端依 parentId 組成樹。依 sortOrder、name 排序，不分頁。")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "查詢成功"),
+            @ApiResponse(responseCode = "401", description = "沒有身分",
+                    content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "403", description = "不是 ADMIN",
+                    content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    GetAllCategoriesRes getAllCategories();
 
     @Operation(summary = "依 id 查詢分類（後台用）", description = "回傳完整資料，包含停用的分類與 version。")
     @ApiResponses({
