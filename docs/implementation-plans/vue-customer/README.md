@@ -3,7 +3,7 @@
 > 建立日期：2026-11-10
 > 分支：之後另開 `feature/vue-customer`
 > 位置：`frontend/vue-customer`（目前只有 `.gitkeep`）
-> 狀態：規劃中，尚未開始
+> 狀態：進行中（Step 0 完成）
 
 顧客用的商店前台：瀏覽商品、購物車、註冊登入、下單、付款（模擬金流）、查詢自己的訂單。後台是 [vue-management](../vue-management/README.md)。
 
@@ -11,7 +11,7 @@
 
 | Step | 內容                                                         | 狀態   |
 | ---- | ------------------------------------------------------------ | ------ |
-| 0    | 後端前置問題：公開商品 API 只回上架中、列表帶主圖、分類含子分類 | 未開始 |
+| [0](step-00-backend-prereqs.md) | 後端前置問題：公開商品 API 只回上架中、列表帶主圖、分類含子分類 | 完成   |
 | 1    | 建立專案、Vite proxy、版面骨架                               | 未開始 |
 | 2    | HTTP 層與登入狀態（沿用後台的做法）                          | 未開始 |
 | 3    | 註冊、登入、登出                                             | 未開始 |
@@ -33,9 +33,9 @@
 
 | 問題 | 現況 | 決定 |
 | ---- | ---- | ---- |
-| 公開商品 API 回傳所有狀態 | `GET /products`、`/products/{id}`、`/products/sku/{sku}`、`/products/{id}/images` 公開，草稿、已下架、已封存都看得到（vue-management Step 6 發現） | **Step 0 修正**：不是 ADMIN 的請求只回 `ACTIVE`（列表自動加上條件；單筆查非上架中的回 404 `PRODUCT_NOT_FOUND`）；ADMIN 照舊看全部，後台不用改 |
-| 商品列表沒有圖片 | `ProductListItem` 沒有圖片欄位，商品格狀列表要對每個商品再查一次圖片 | **Step 0 補上**：列表項目加 `primaryImageUrl`（沒有主圖為 `null`），一次查出這一頁商品的主圖 |
-| 分類篩選不含子分類 | `categoryId` 只比對同一個分類；點「鞋子」看不到「靴子」底下的商品 | **Step 0 補上**：加 `includeSubcategories=true`，由 product-service 用分類樹展開子孫 id |
+| 公開商品 API 回傳所有狀態 | `GET /products`、`/products/{id}`、`/products/sku/{sku}`、`/products/{id}/images` 公開，草稿、已下架、已封存都看得到（vue-management Step 6 發現） | **已修正（[Step 0](step-00-backend-prereqs.md)）**：不是 ADMIN 的請求只回 `ACTIVE`（列表自動加上條件；單筆查非上架中的回 404 `PRODUCT_NOT_FOUND`）；ADMIN 照舊看全部，後台不用改 |
+| 商品列表沒有圖片 | `ProductListItem` 沒有圖片欄位，商品格狀列表要對每個商品再查一次圖片 | **已補上（[Step 0](step-00-backend-prereqs.md)）**：列表項目加 `primaryImageUrl`（沒有主圖為 `null`），一次查出這一頁商品的主圖 |
+| 分類篩選不含子分類 | `categoryId` 只比對同一個分類；點「鞋子」看不到「靴子」底下的商品 | **已補上（[Step 0](step-00-backend-prereqs.md)）**：加 `includeSubcategories=true`，由 product-service 用分類樹展開子孫 id |
 | 購物車 | 沒有購物車服務 | 雛型存在瀏覽器（localStorage），只存 `productId`、`qty`；價格與狀態每次用 `GET /products/batch` 重新查 |
 | 重複下單 | `POST /orders` 沒有冪等 key，連點或網路重送會建立兩張訂單（各自預扣庫存） | 雛型由前端防止（送出中停用按鈕）；之後再考慮 `Idempotency-Key`，記在「之後再處理」 |
 | 個人資料修改、改密碼、忘記密碼 | user-service 沒有這些 API | 雛型不做；帳號頁只顯示資料與「登出所有裝置」 |
@@ -117,19 +117,6 @@ frontend/vue-customer/
 ---
 
 ## 還沒開始的 step
-
-### Step 0：後端前置問題
-
-- product-service：不是 ADMIN 的請求只看得到 `ACTIVE` 的商品
-  - `GET /products`：自動加上 `status = ACTIVE`，忽略傳入的 `status`
-  - `GET /products/{id}`、`/sku/{sku}`、`/{id}/images`：非上架中回 404 `PRODUCT_NOT_FOUND`
-  - `GET /products/batch`：照舊回傳（帶 `status`），購物車靠它知道哪些商品已下架；它只有 id、SKU、名稱、價格、狀態，沒有說明與圖片。要更嚴格的話，非上架中的商品只回 `id` 與 `status`
-  - 注意快取：商品詳情有 Redis 快取，判斷要在讀快取之後做，不能把「看不到」的結果快取起來
-- `ProductListItem` 加 `primaryImageUrl`：一頁的商品一次查主圖（`WHERE product_id IN (...) AND is_primary`），不要每個商品各查一次
-- `GET /products` 加 `includeSubcategories`：用分類樹展開子孫分類 id 再查
-- 每一項各自整合測試、單獨 commit；更新 [microservice-architecture.md](../../architecture/microservice-architecture.md)
-
-**測試**：未登入、CUSTOMER 看不到草稿與封存的商品（列表、單筆、圖片）；ADMIN 照舊看得到；列表的主圖網址正確、沒有主圖為 `null`；含子分類的篩選；vue-management 的測試仍然全部通過。
 
 ### Step 1：建立專案
 
