@@ -28,6 +28,15 @@ beforeEach(() => {
     http.get('*/products/:id/images', ({ params }) =>
       HttpResponse.json({ productId: params.id, images: [] }),
     ),
+    // 庫存另外在 ProductInventory.spec.ts 測
+    http.get('*/inventory/:sku', ({ params }) =>
+      HttpResponse.json({
+        sku: params.sku,
+        available: 0,
+        reserved: 0,
+        updatedAt: '2026-11-01T00:00:00Z',
+      }),
+    ),
   )
 })
 

@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/vue-management`
 > 位置：`frontend/vue-management`
-> 狀態：進行中（Step 7 完成）
+> 狀態：進行中（Step 8 完成）
 
 ## 進度
 
@@ -17,7 +17,7 @@
 | [5](step-05-categories.md) | 分類管理                                                   | 完成：後端補上含停用分類的列表 API                 |
 | [6](step-06-products.md) | 商品管理                                                   | 完成                                               |
 | [7](step-07-product-images.md) | 商品圖片                                                   | 完成                                               |
-| 8    | 庫存（放在商品編輯頁）                                     | 未開始                                             |
+| [8](step-08-inventory.md) | 庫存（放在商品編輯頁）                                     | 完成                                               |
 | 9    | 訂單管理                                                   | 未開始                                             |
 | 10   | 使用者列表                                                 | 未開始                                             |
 | 11   | 部署：Dockerfile、nginx、K8s                               | 未開始                                             |
@@ -105,12 +105,6 @@ frontend/vue-management/
 ---
 
 ## 還沒開始的 step
-
-### Step 8：庫存
-
-- 放在商品編輯頁：依商品 SKU 查詢與調整庫存
-
-**測試**：調整成功後重新讀取；SKU 尚未建立庫存時的顯示。
 
 ### Step 9：訂單管理
 

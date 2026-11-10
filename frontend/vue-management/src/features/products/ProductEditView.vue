@@ -9,6 +9,7 @@ import type { Category, CategoryNode } from '@/features/categories/types'
 import * as productApi from './api'
 import type { StatusAction } from './api'
 import ProductImages from './images/ProductImages.vue'
+import ProductInventory from './inventory/ProductInventory.vue'
 import { productErrorMessage } from './messages'
 import {
   canArchive,
@@ -360,6 +361,8 @@ const dirty = computed(() => {
     <template v-if="product">
       <el-divider />
       <ProductImages :product-id="product.id" :read-only="readOnly" />
+      <el-divider />
+      <ProductInventory :sku="product.sku" :read-only="readOnly" />
     </template>
   </el-card>
 </template>
