@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/vue-management`
 > 位置：`frontend/vue-management`
-> 狀態：進行中（Step 9 完成）
+> 狀態：進行中（Step 10 完成；剩下部署與 E2E）
 
 ## 進度
 
@@ -19,7 +19,7 @@
 | [7](step-07-product-images.md) | 商品圖片                                                   | 完成                                               |
 | [8](step-08-inventory.md) | 庫存（放在商品編輯頁）                                     | 完成                                               |
 | [9](step-09-orders.md) | 訂單管理                                                   | 完成                                               |
-| 10   | 使用者列表                                                 | 未開始                                             |
+| [10](step-10-users.md) | 使用者列表                                                 | 完成                                               |
 | 11   | 部署：Dockerfile、nginx、K8s                               | 未開始                                             |
 | 12   | Playwright E2E（之後再做）                                 | 未開始                                             |
 
@@ -106,10 +106,6 @@ frontend/vue-management/
 ---
 
 ## 還沒開始的 step
-
-### Step 10：使用者列表
-
-**測試**：分頁、篩選條件同步到 URL query。
 
 ### Step 11：部署
 

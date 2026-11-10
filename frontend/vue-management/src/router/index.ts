@@ -66,6 +66,12 @@ const adminChildren: RouteRecordRaw[] = [
       },
     ],
   },
+  {
+    path: 'users',
+    name: 'users',
+    component: () => import('@/features/users/UserListView.vue'),
+    meta: { title: '使用者', menu: true },
+  },
 ]
 
 // 路由表另外匯出：測試用 createMemoryHistory 建立自己的 router，不共用全域的 router 狀態
