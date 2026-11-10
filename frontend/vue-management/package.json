@@ -16,6 +16,7 @@
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
+    "axios": "^1.21.1",
     "element-plus": "^2.14.8",
     "pinia": "^4.0.3",
     "vue": "^3.5.42",
@@ -36,6 +37,7 @@
     "eslint-plugin-vue": "~10.11.0",
     "jiti": "^2.7.0",
     "jsdom": "^30.0.1",
+    "msw": "^2.15.0",
     "npm-run-all2": "^9.0.3",
     "oxlint": "~1.82.0",
     "prettier": "3.9.6",
