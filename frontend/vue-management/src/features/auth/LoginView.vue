@@ -2,6 +2,7 @@
 import type { FormInstance, FormRules } from 'element-plus'
 import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { APP_TITLE } from '@/router'
 import { loginErrorMessage, safeRedirect } from './messages'
 import { useAuthStore } from './store'
 
@@ -75,9 +76,9 @@ async function onSubmit(): Promise<void> {
               <path d="M4 28 C4 14 14 4 28 4 C28 18 18 28 4 28 Z" fill="#22d3ee" />
               <path d="M4 28 L20 12" stroke="#2f3145" stroke-width="2" stroke-linecap="round" />
             </svg>
-            <span class="brand-name">vue-management</span>
+            <span class="brand-name">{{ APP_TITLE }}</span>
           </div>
-          <p class="brand-tagline">商品、訂單與庫存的後台管理</p>
+          <p class="brand-tagline">商品、訂單與庫存管理</p>
         </header>
 
         <h1 class="login-title">歡迎回來</h1>

@@ -16,7 +16,8 @@ declare module 'vue-router' {
   }
 }
 
-export const APP_TITLE = 'vue-management'
+// 畫面上顯示的系統名稱（側邊欄、登入頁、瀏覽器分頁標題）；專案名稱 vue-management 只用在程式碼與 repo
+export const APP_TITLE = '商城管理後台'
 
 // 側邊選單的分組，依這個順序顯示
 export const MENU_SECTIONS = ['總覽', '商品', '營運'] as const
@@ -144,7 +145,7 @@ export function installAuthGuard(router: Router): void {
   })
 }
 
-// 瀏覽器分頁標題：「頁面標題 - vue-management」
+// 瀏覽器分頁標題：「頁面標題 - 商城管理後台」
 export function installTitleUpdater(router: Router): void {
   router.afterEach((to) => {
     document.title = to.meta.title ? `${to.meta.title} - ${APP_TITLE}` : APP_TITLE

@@ -104,14 +104,14 @@ describe('installAuthGuard', () => {
 })
 
 describe('installTitleUpdater', () => {
-  it('瀏覽器分頁標題：頁面標題 - vue-management', async () => {
+  it('瀏覽器分頁標題：頁面標題 - 商城管理後台', async () => {
     const router = createGuardedRouter()
     installTitleUpdater(router)
 
     await router.push('/login')
-    expect(document.title).toBe('登入 - vue-management')
+    expect(document.title).toBe('登入 - 商城管理後台')
 
     await router.push('/no-such-page')
-    expect(document.title).toBe('找不到頁面 - vue-management')
+    expect(document.title).toBe('找不到頁面 - 商城管理後台')
   })
 })

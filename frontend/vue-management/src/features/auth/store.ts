@@ -14,6 +14,7 @@ export const AuthErrorCode = {
 
 // refresh token 雛型階段放 localStorage（有 XSS 風險，之後考慮改成 httpOnly cookie）
 // access token 只放記憶體，重新整理頁面後用 refresh token 換新
+// key 是內部用的，不跟著顯示名稱改：改了會讓已登入的人都被登出
 export const REFRESH_TOKEN_KEY = 'vue-management.refreshToken'
 
 function readStoredRefreshToken(): string | null {

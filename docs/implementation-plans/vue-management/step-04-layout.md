@@ -22,7 +22,7 @@
 - **選單由路由產生**：`adminChildren` 裡設了 `meta.menu: true` 的路由會出現在側邊選單，標題用 `meta.title`。之後的功能（分類、商品、訂單…）只要在 `adminChildren` 加路由，不用另外改選單
 - **選單選中項目**：目前路徑等於選單路徑，或在它底下（`/products/1` 對應 `/products`）；`/products-x` 這種只是前綴相同的路徑不算
 - **麵包屑**：第一層固定是「首頁」，接著是 `route.matched` 裡有 `meta.title` 的層級；最後一層（目前頁面）不放連結
-- **瀏覽器分頁標題**：`installTitleUpdater` 在每次導覽後設成「頁面標題 - vue-management」
+- **瀏覽器分頁標題**：`installTitleUpdater` 在每次導覽後設成「頁面標題 - 商城管理後台」（原本是 vue-management，見下方「系統名稱」）
 - **403、404 不需要登入**（`meta.public`），也不在 AdminLayout 裡：
   - 未登入時打錯網址直接顯示 404，不先導到登入頁
   - 403 頁面目前沒有地方會導過去：前端的角色檢查只在登入時做（非 ADMIN 不能登入）。之後如果後端 API 回 403，可以導到這裡
@@ -82,3 +82,11 @@ Chrome 擴充功能沒有連上，改用本機 Chrome 的 headless 模式透過 
 **之後可以考慮**：需要趨勢圖（每日訂單數、營收）時，要先在 order-service 補統計 API，前端再加圖表套件。
 
 vitest 261 個通過、`npm run build`（含 `vue-tsc`）、eslint、oxlint、prettier 都沒有問題。
+
+## 系統名稱（2026-11-10）
+
+畫面上顯示的名稱從專案名稱 `vue-management` 改成「商城管理後台」：技術名稱（Vue）對使用者沒有意義，管理系統通常用「品牌或用途 + 後台」命名；之後有店名時把「商城」換成店名即可。
+
+- 名稱集中在 `src/router/index.ts` 的 `APP_TITLE`：側邊欄、瀏覽器分頁標題（「頁面標題 - 商城管理後台」）、登入頁都用它；`index.html` 的 `<title>` 也改了
+- 登入頁的說明改成「商品、訂單與庫存管理」，避免和名稱重複「後台管理」
+- **沒改的**：repo、資料夾、`package.json` 的名稱仍是 `vue-management`；localStorage 的 key `vue-management.refreshToken` 是內部用的，改了會讓已登入的人都被登出
