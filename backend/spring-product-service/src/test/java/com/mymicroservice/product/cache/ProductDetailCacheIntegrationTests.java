@@ -61,7 +61,7 @@ class ProductDetailCacheIntegrationTests {
     void getProductById_cacheMiss_loadsFromDbAndStoresInRedis() {
         AddOneNewProductRes product = addProduct("SKU-001", "球鞋");
 
-        assertThat(productService.getProductById(product.id()).name()).isEqualTo("球鞋");
+        assertThat(productService.getProductById(product.id(), true).name()).isEqualTo("球鞋");
 
         assertThat(redisTemplate.hasKey(detailKey(product.id()))).isTrue();
         // TTL 為 30 分鐘加上 0~5 分鐘的隨機值
@@ -71,19 +71,19 @@ class ProductDetailCacheIntegrationTests {
     @Test
     void getProductById_cacheHit_returnsCachedDetailWithoutQueryingDb() {
         AddOneNewProductRes product = addProduct("SKU-001", "球鞋");
-        productService.getProductById(product.id());
+        productService.getProductById(product.id(), true);
 
         // 繞過 Service 直接改 DB，快取不會失效；若仍回傳舊資料，代表這次沒有查 DB
         jdbcTemplate.update("UPDATE product_service.product SET name = ? WHERE id = ?", "改名", product.id());
 
-        assertThat(productService.getProductById(product.id()).name()).isEqualTo("球鞋");
+        assertThat(productService.getProductById(product.id(), true).name()).isEqualTo("球鞋");
     }
 
     @Test
     void getProductById_notFound_cachesNullWithShortTtl() {
         UUID missingId = UUID.randomUUID();
 
-        assertNotFound(() -> productService.getProductById(missingId));
+        assertNotFound(() -> productService.getProductById(missingId, true));
 
         assertThat(redisTemplate.hasKey(detailKey(missingId))).isTrue();
         assertThat(redisTemplate.getExpire(detailKey(missingId))).isBetween(1L, 90L);
@@ -94,7 +94,7 @@ class ProductDetailCacheIntegrationTests {
         AddOneNewProductRes product = addProduct("SKU-001", "球鞋");
         UUID id = product.id();
         jdbcTemplate.execute("TRUNCATE product_service.product CASCADE");
-        assertNotFound(() -> productService.getProductById(id));
+        assertNotFound(() -> productService.getProductById(id, true));
 
         // 繞過 Service 把資料放回 DB，快取的 null 還沒過期，仍應回 404
         jdbcTemplate.update("""
@@ -102,7 +102,7 @@ class ProductDetailCacheIntegrationTests {
                 VALUES (?, 'SKU-001', '球鞋', 100, ?, ?)
                 """, id, UUID.randomUUID(), UUID.randomUUID());
 
-        assertNotFound(() -> productService.getProductById(id));
+        assertNotFound(() -> productService.getProductById(id, true));
     }
 
     // ---------- getProductBySku ----------
@@ -111,7 +111,7 @@ class ProductDetailCacheIntegrationTests {
     void getProductBySku_cacheMiss_storesSkuMappingAndDetail() {
         AddOneNewProductRes product = addProduct("SKU-001", "球鞋");
 
-        assertThat(productService.getProductBySku("SKU-001").id()).isEqualTo(product.id());
+        assertThat(productService.getProductBySku("SKU-001", true).id()).isEqualTo(product.id());
 
         // sku 對照只存 id，詳情與 getProductById 共用同一份
         assertThat(redisTemplate.opsForValue().get(skuKey("SKU-001"))).contains(product.id().toString());
@@ -120,7 +120,7 @@ class ProductDetailCacheIntegrationTests {
 
     @Test
     void getProductBySku_notFound_cachesNull() {
-        assertNotFound(() -> productService.getProductBySku("NOPE"));
+        assertNotFound(() -> productService.getProductBySku("NOPE", true));
 
         assertThat(redisTemplate.hasKey(skuKey("NOPE"))).isTrue();
         assertThat(redisTemplate.getExpire(skuKey("NOPE"))).isBetween(1L, 90L);
@@ -129,27 +129,27 @@ class ProductDetailCacheIntegrationTests {
     @Test
     void addOneNewProduct_evictsCachedNotFoundSku() {
         // 建立前先查過，查不到的結果被快取
-        assertNotFound(() -> productService.getProductBySku("SKU-001"));
+        assertNotFound(() -> productService.getProductBySku("SKU-001", true));
 
         AddOneNewProductRes product = addProduct("SKU-001", "球鞋");
 
         assertThat(redisTemplate.hasKey(skuKey("SKU-001"))).isFalse();
-        assertThat(productService.getProductBySku("SKU-001").id()).isEqualTo(product.id());
+        assertThat(productService.getProductBySku("SKU-001", true).id()).isEqualTo(product.id());
     }
 
     @Test
     void getProductBySku_staleMapping_evictsAndReloadsFromDb() {
         AddOneNewProductRes product = addProduct("SKU-001", "球鞋");
-        productService.getProductBySku("SKU-001");
+        productService.getProductBySku("SKU-001", true);
 
         // 模擬對照過期：DB 的 sku 已改，詳情快取也已失效，但 SKU-001 的對照還在
         jdbcTemplate.update("UPDATE product_service.product SET sku = 'SKU-002' WHERE id = ?", product.id());
         redisTemplate.delete(detailKey(product.id()));
 
-        assertNotFound(() -> productService.getProductBySku("SKU-001"));
+        assertNotFound(() -> productService.getProductBySku("SKU-001", true));
         // 過期的對照被刪除後重查 DB，查不到的結果改存成 null
         assertThat(redisTemplate.opsForValue().get(skuKey("SKU-001"))).doesNotContain(product.id().toString());
-        assertThat(productService.getProductBySku("SKU-002").id()).isEqualTo(product.id());
+        assertThat(productService.getProductBySku("SKU-002", true).id()).isEqualTo(product.id());
     }
 
     // ---------- getProductsByIds ----------
@@ -173,7 +173,7 @@ class ProductDetailCacheIntegrationTests {
         AddOneNewProductRes a = addProduct("SKU-001", "球鞋");
         AddOneNewProductRes b = addProduct("SKU-002", "拖鞋");
         // 只有 a 先被單筆查詢暖過
-        productService.getProductById(a.id());
+        productService.getProductById(a.id(), true);
 
         jdbcTemplate.update("UPDATE product_service.product SET name = '改名'");
 
@@ -182,7 +182,7 @@ class ProductDetailCacheIntegrationTests {
                 .extracting(ProductBatchItem::id, ProductBatchItem::name)
                 .containsExactlyInAnyOrder(tuple(a.id(), "球鞋"), tuple(b.id(), "改名"));
         // 批次回填的 b，單筆查詢也能命中
-        assertThat(productService.getProductById(b.id()).name()).isEqualTo("改名");
+        assertThat(productService.getProductById(b.id(), true).name()).isEqualTo("改名");
     }
 
     @Test
@@ -196,7 +196,7 @@ class ProductDetailCacheIntegrationTests {
 
         assertThat(redisTemplate.getExpire(detailKey(missingId))).isBetween(1L, 90L);
         // 批次存的 null，單筆查詢也會判為不存在
-        assertNotFound(() -> productService.getProductById(missingId));
+        assertNotFound(() -> productService.getProductById(missingId, true));
     }
 
     @Test
@@ -222,7 +222,7 @@ class ProductDetailCacheIntegrationTests {
 
         assertThat(redisTemplate.hasKey(detailKey(product.id()))).isFalse();
         assertThat(redisTemplate.hasKey(skuKey("SKU-001"))).isFalse();
-        assertThat(productService.getProductById(product.id()).name()).isEqualTo("跑鞋");
+        assertThat(productService.getProductById(product.id(), true).name()).isEqualTo("跑鞋");
     }
 
     @Test
@@ -230,13 +230,13 @@ class ProductDetailCacheIntegrationTests {
         AddOneNewProductRes product = addProduct("SKU-001", "球鞋");
         warmUpCache(product);
         // 改之前先查過新 sku，查不到的結果被快取
-        assertNotFound(() -> productService.getProductBySku("SKU-002"));
+        assertNotFound(() -> productService.getProductBySku("SKU-002", true));
 
         productService.updateOneProduct(product.id(), updateReq(product, "SKU-002", "球鞋"));
 
         assertThat(redisTemplate.hasKey(skuKey("SKU-002"))).isFalse();
-        assertNotFound(() -> productService.getProductBySku("SKU-001"));
-        assertThat(productService.getProductBySku("SKU-002").id()).isEqualTo(product.id());
+        assertNotFound(() -> productService.getProductBySku("SKU-001", true));
+        assertThat(productService.getProductBySku("SKU-002", true).id()).isEqualTo(product.id());
     }
 
     @Test
@@ -280,7 +280,7 @@ class ProductDetailCacheIntegrationTests {
         });
 
         assertThat(redisTemplate.hasKey(detailKey(product.id()))).isTrue();
-        assertThat(productService.getProductById(product.id()).name()).isEqualTo("球鞋");
+        assertThat(productService.getProductById(product.id(), true).name()).isEqualTo("球鞋");
     }
 
     // ---------- 狀態變更 ----------
@@ -293,7 +293,7 @@ class ProductDetailCacheIntegrationTests {
         productService.archiveProduct(product.id(), new ChangeProductStatusReq(product.version()));
 
         assertThat(redisTemplate.hasKey(detailKey(product.id()))).isFalse();
-        assertThat(productService.getProductById(product.id()).status()).isEqualTo(ProductStatus.ARCHIVED);
+        assertThat(productService.getProductById(product.id(), true).status()).isEqualTo(ProductStatus.ARCHIVED);
     }
 
     // ---------- helpers ----------
@@ -309,7 +309,7 @@ class ProductDetailCacheIntegrationTests {
     }
 
     private void warmUpCache(AddOneNewProductRes product) {
-        productService.getProductBySku(product.sku());
+        productService.getProductBySku(product.sku(), true);
         assertThat(redisTemplate.hasKey(detailKey(product.id()))).isTrue();
         assertThat(redisTemplate.hasKey(skuKey(product.sku()))).isTrue();
     }

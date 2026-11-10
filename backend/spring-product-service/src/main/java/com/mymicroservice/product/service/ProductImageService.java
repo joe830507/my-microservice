@@ -14,7 +14,8 @@ import com.mymicroservice.product.dto.productImage.updateOneProductImage.UpdateO
 public interface ProductImageService {
     AddOneNewProductImageRes addOneNewProductImage(UUID productId, AddOneNewProductImageReq addOneNewProductImageReq);
 
-    GetProductImagesRes getProductImages(UUID productId);
+    // includeUnpublished：false 時，不是上架中的商品回 404（和商品詳情一致）
+    GetProductImagesRes getProductImages(UUID productId, boolean includeUnpublished);
 
     UpdateOneProductImageRes updateOneProductImage(UUID productId, UUID imageId,
             UpdateOneProductImageReq updateOneProductImageReq);

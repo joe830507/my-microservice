@@ -56,15 +56,17 @@ public class ProductServiceImpl implements ProductService {
     // 不開交易：快取命中時不需要拿 DB 連線；查 DB 時由 ProductDetailCache 自己開唯讀交易
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public GetProductByIdRes getProductById(UUID id) {
+    public GetProductByIdRes getProductById(UUID id, boolean includeUnpublished) {
+        // 可見性在讀快取之後判斷：快取存的是完整資料，不能把「這個人看不到」的結果快取起來
         return productDetailCache.findById(id)
+                .filter(detail -> includeUnpublished || detail.status() == ProductStatus.ACTIVE)
                 .orElseThrow(() -> new AppException(ProductErrorCode.PRODUCT_NOT_FOUND));
     }
 
     // 不開交易的原因同 getProductById
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public GetProductBySkuRes getProductBySku(String sku) {
+    public GetProductBySkuRes getProductBySku(String sku, boolean includeUnpublished) {
         // 對照本身查不到，代表 sku 不存在（查不到的結果也有快取），直接回 404，不重查 DB
         if (productDetailCache.findIdBySku(sku).isEmpty()) {
             throw new AppException(ProductErrorCode.PRODUCT_NOT_FOUND);
@@ -77,7 +79,8 @@ public class ProductServiceImpl implements ProductService {
             detail = findDetailBySku(sku);
         }
 
-        return detail.map(GetProductBySkuRes::from)
+        return detail.filter(found -> includeUnpublished || found.status() == ProductStatus.ACTIVE)
+                .map(GetProductBySkuRes::from)
                 .orElseThrow(() -> new AppException(ProductErrorCode.PRODUCT_NOT_FOUND));
     }
 
@@ -90,14 +93,16 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
-    public ProductQueryResponse getProductList(ProductQueryRequest productQueryRequest) {
-        Page<Product> productPage = productRepository.findAll(toSpecification(productQueryRequest),
+    public ProductQueryResponse getProductList(ProductQueryRequest productQueryRequest, boolean includeUnpublished) {
+        // 前台只看得到上架中的商品：忽略傳入的 status，固定查 ACTIVE
+        ProductStatus status = includeUnpublished ? productQueryRequest.status() : ProductStatus.ACTIVE;
+        Page<Product> productPage = productRepository.findAll(toSpecification(productQueryRequest, status),
                 productQueryRequest.toPageable());
         return ProductQueryResponse.from(productPage);
     }
 
     // 只組合有傳入的條件，全部未傳入時等同查詢全部
-    private Specification<Product> toSpecification(ProductQueryRequest productQueryRequest) {
+    private Specification<Product> toSpecification(ProductQueryRequest productQueryRequest, ProductStatus status) {
         Specification<Product> specification = Specification.unrestricted();
 
         if (productQueryRequest.keyword() != null && !productQueryRequest.keyword().isBlank()) {
@@ -108,9 +113,8 @@ public class ProductServiceImpl implements ProductService {
             specification = specification.and((root, query, cb) -> cb.equal(root.get("categoryId"),
                     productQueryRequest.categoryId()));
         }
-        if (productQueryRequest.status() != null) {
-            specification = specification.and((root, query, cb) -> cb.equal(root.get("status"),
-                    productQueryRequest.status()));
+        if (status != null) {
+            specification = specification.and((root, query, cb) -> cb.equal(root.get("status"), status));
         }
         if (productQueryRequest.minPrice() != null) {
             specification = specification.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("price"),

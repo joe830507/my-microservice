@@ -11,12 +11,15 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mymicroservice.common.web.RequireRoles;
+import com.mymicroservice.common.web.UserContext;
+import com.mymicroservice.common.web.UserContextHeaders;
 import com.mymicroservice.product.controller.api.ProductApi;
 import com.mymicroservice.product.dto.product.addOneNewProduct.AddOneNewProductReq;
 import com.mymicroservice.product.dto.product.addOneNewProduct.AddOneNewProductRes;
@@ -34,7 +37,7 @@ import com.mymicroservice.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
 
 // API 文件說明與參數驗證請見 ProductApi
-// 讀取公開（Gateway 對 GET 放行）；新增、修改、刪除限 ADMIN（@RequireRoles）
+// 讀取公開（Gateway 對 GET 放行），但只有 ADMIN 看得到非上架中的商品；新增、修改、刪除限 ADMIN（@RequireRoles）
 @RestController
 @RequestMapping(value = "/api/v1/products")
 @RequiredArgsConstructor
@@ -54,16 +57,18 @@ public class ProductController implements ProductApi {
     @GetMapping("/{id}")
     @ResponseStatus(value = HttpStatus.OK)
     public GetProductByIdRes getProductById(
+            @RequestHeader(value = UserContextHeaders.USER_ROLES, required = false) String roles,
             @PathVariable UUID id) {
-        return productService.getProductById(id);
+        return productService.getProductById(id, isAdmin(roles));
     }
 
     @Override
     @GetMapping("/sku/{sku}")
     @ResponseStatus(value = HttpStatus.OK)
     public GetProductBySkuRes getProductBySku(
+            @RequestHeader(value = UserContextHeaders.USER_ROLES, required = false) String roles,
             @PathVariable String sku) {
-        return productService.getProductBySku(sku);
+        return productService.getProductBySku(sku, isAdmin(roles));
     }
 
     // @ParameterObject 讓 springdoc 把 record 欄位展開成個別查詢參數，與綁定方式相關故留在 controller
@@ -71,8 +76,9 @@ public class ProductController implements ProductApi {
     @GetMapping
     @ResponseStatus(value = HttpStatus.OK)
     public ProductQueryResponse getProductList(
+            @RequestHeader(value = UserContextHeaders.USER_ROLES, required = false) String roles,
             @ParameterObject ProductQueryRequest productQueryRequest) {
-        return productService.getProductList(productQueryRequest);
+        return productService.getProductList(productQueryRequest, isAdmin(roles));
     }
 
     // @Size 寫在 ProductApi，controller 不可再加驗證註解
@@ -122,5 +128,10 @@ public class ProductController implements ProductApi {
             @PathVariable UUID id,
             @RequestBody ChangeProductStatusReq changeProductStatusReq) {
         return productService.archiveProduct(id, changeProductStatusReq);
+    }
+
+    // Gateway 驗簽後帶的角色；沒登入（沒有 header）就是一般訪客
+    private static boolean isAdmin(String roles) {
+        return UserContext.parseRoles(roles).contains("ADMIN");
     }
 }

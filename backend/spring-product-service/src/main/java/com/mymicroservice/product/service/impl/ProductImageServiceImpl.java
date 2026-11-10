@@ -117,9 +117,12 @@ public class ProductImageServiceImpl implements ProductImageService {
 
     @Override
     @Transactional(readOnly = true)
-    public GetProductImagesRes getProductImages(UUID productId) {
-        // 檢查產品存不存在
-        if (!productRepository.existsById(productId)) {
+    public GetProductImagesRes getProductImages(UUID productId, boolean includeUnpublished) {
+        // 檢查產品存不存在；前台看不到非上架中的商品，和商品詳情一樣回 404
+        boolean visible = includeUnpublished
+                ? productRepository.existsById(productId)
+                : productRepository.existsByIdAndStatus(productId, ProductStatus.ACTIVE);
+        if (!visible) {
             throw new AppException(ProductErrorCode.PRODUCT_NOT_FOUND);
         }
         List<ProductImage> productImages = productImageRepository.findAllByProductIdOrderBySortOrder(productId);

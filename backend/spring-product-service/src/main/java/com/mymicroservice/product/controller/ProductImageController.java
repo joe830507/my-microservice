@@ -10,11 +10,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mymicroservice.common.web.RequireRoles;
+import com.mymicroservice.common.web.UserContext;
+import com.mymicroservice.common.web.UserContextHeaders;
 import com.mymicroservice.product.controller.api.ProductImageApi;
 import com.mymicroservice.product.dto.productImage.addOneNewProductImage.AddOneNewProductImageReq;
 import com.mymicroservice.product.dto.productImage.addOneNewProductImage.AddOneNewProductImageRes;
@@ -50,8 +53,9 @@ public class ProductImageController implements ProductImageApi {
     @GetMapping
     @ResponseStatus(value = HttpStatus.OK)
     public GetProductImagesRes getProductImages(
+            @RequestHeader(value = UserContextHeaders.USER_ROLES, required = false) String roles,
             @PathVariable UUID productId) {
-        return productImageService.getProductImages(productId);
+        return productImageService.getProductImages(productId, UserContext.parseRoles(roles).contains("ADMIN"));
     }
 
     @Override
