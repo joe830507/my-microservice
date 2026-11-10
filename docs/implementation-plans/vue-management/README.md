@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/vue-management`
 > 位置：`frontend/vue-management`
-> 狀態：進行中（Step 2 完成）
+> 狀態：進行中（Step 3 完成）
 
 ## 進度
 
@@ -12,7 +12,7 @@
 | [0](step-00-backend-prereqs.md) | 後端前置問題：SeaweedFS CORS、決定要補哪些後台 API         | 完成：CORS 不用改；補上訂單 `ship`、`complete` |
 | [1](step-01-project-setup.md) | 建立專案、Element Plus、Vite proxy                         | 完成                                               |
 | [2](step-02-http-layer.md) | HTTP 層：axios 實例、`ApiError`                          | 完成                                               |
-| 3    | 登入：token store、refresh（同時只發一次）、登出、路由守衛 | 未開始                                             |
+| [3](step-03-login.md) | 登入：token store、refresh（同時只發一次）、登出、路由守衛 | 完成                                               |
 | 4    | AdminLayout、選單、403 / 404                               | 未開始                                             |
 | 5    | 分類管理                                                   | 未開始                                             |
 | 6    | 商品管理                                                   | 未開始                                             |
@@ -63,12 +63,12 @@ frontend/vue-management/
 ├── Dockerfile / nginx.conf 正式環境：靜態檔 + /api 轉發到 api-gateway
 └── src/
     ├── main.ts
-    ├── app/                router（含守衛）、全域 plugin 註冊
+    ├── router/             路由表、登入守衛
     ├── api/
     │   ├── http.ts         axios 實例、攔截器（帶 token、401 → refresh）
     │   └── errors.ts       ProblemDetail → ApiError { status, code, detail }
     ├── features/
-    │   ├── auth/           登入頁、token store、refresh
+    │   ├── auth/           登入頁、token store、refresh、axios 攔截器
     │   ├── categories/
     │   ├── products/       含 images/、庫存區塊
     │   ├── orders/
@@ -104,15 +104,6 @@ frontend/vue-management/
 ---
 
 ## 還沒開始的 step
-
-### Step 3：登入
-
-- 登入頁、`useAuthStore`（token、目前使用者）
-- request 攔截器帶 `Authorization: Bearer`；response 攔截器遇到 401 → refresh → 重送原請求
-- 登出：呼叫 `/auth/logout` 後清除狀態
-- 路由守衛：未登入 → 登入頁（帶 redirect）；非 ADMIN → 拒絕登入
-
-**測試**：同時兩個請求收到 401 只發一次 refresh，兩個都成功重送；refresh 失敗導回登入頁；非 ADMIN 登入被拒；登入限流（429）顯示提示。
 
 ### Step 4：Layout
 
