@@ -2,8 +2,10 @@ package com.mymicroservice.product.service.impl;
 
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.domain.Specification;
@@ -24,6 +26,7 @@ import com.mymicroservice.product.dto.product.getProductsByIds.GetProductsByIdsR
 import com.mymicroservice.product.dto.product.updateOneProduct.UpdateOneProductReq;
 import com.mymicroservice.product.dto.product.updateOneProduct.UpdateOneProductRes;
 import com.mymicroservice.product.entity.Product;
+import com.mymicroservice.product.entity.ProductImage;
 import com.mymicroservice.product.entity.ProductStatus;
 import com.mymicroservice.common.exception.AppException;
 import com.mymicroservice.common.exception.CommonErrorCode;
@@ -32,6 +35,7 @@ import com.mymicroservice.product.repository.CategoryRepository;
 import com.mymicroservice.product.repository.ProductImageRepository;
 import com.mymicroservice.product.repository.ProductRepository;
 import com.mymicroservice.product.service.ProductService;
+import com.mymicroservice.product.storage.ImageStorage;
 
 import lombok.RequiredArgsConstructor;
 
@@ -43,6 +47,7 @@ public class ProductServiceImpl implements ProductService {
     private final CategoryRepository categoryRepository;
     private final ProductImageRepository productImageRepository;
     private final ProductDetailCache productDetailCache;
+    private final ImageStorage imageStorage;
 
     @Override
     public AddOneNewProductRes addOneNewProduct(AddOneNewProductReq addOneNewProductReq) {
@@ -98,7 +103,19 @@ public class ProductServiceImpl implements ProductService {
         ProductStatus status = includeUnpublished ? productQueryRequest.status() : ProductStatus.ACTIVE;
         Page<Product> productPage = productRepository.findAll(toSpecification(productQueryRequest, status),
                 productQueryRequest.toPageable());
-        return ProductQueryResponse.from(productPage);
+        return ProductQueryResponse.from(productPage, primaryImageUrls(productPage.getContent()));
+    }
+
+    // 一次查出這一頁商品的主圖（每個商品最多一張主圖），轉成公開網址
+    private Map<UUID, String> primaryImageUrls(List<Product> products) {
+        if (products.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> ids = products.stream().map(Product::getId).toList();
+        return productImageRepository.findAllByProductIdInAndIsPrimaryTrue(ids).stream()
+                .collect(Collectors.toMap(ProductImage::getProductId,
+                        image -> imageStorage.publicUrl(image.getObjectKey()),
+                        (first, second) -> first));
     }
 
     // 只組合有傳入的條件，全部未傳入時等同查詢全部

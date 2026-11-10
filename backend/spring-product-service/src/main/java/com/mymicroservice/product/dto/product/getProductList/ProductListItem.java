@@ -25,8 +25,11 @@ public record ProductListItem(
 
         ProductStatus status,
 
-        Instant createdAt) {
-    public static ProductListItem from(Product product) {
+        Instant createdAt,
+
+        // 主圖的公開網址；沒有主圖為 null。前台商品卡片用，不必每個商品再查一次圖片
+        String primaryImageUrl) {
+    public static ProductListItem from(Product product, String primaryImageUrl) {
         return new ProductListItem(
                 product.getId(),
                 product.getSku(),
@@ -36,6 +39,7 @@ public record ProductListItem(
                 product.getPrice(),
                 product.getOriginalPrice(),
                 product.getStatus(),
-                product.getCreatedAt());
+                product.getCreatedAt(),
+                primaryImageUrl);
     }
 }
