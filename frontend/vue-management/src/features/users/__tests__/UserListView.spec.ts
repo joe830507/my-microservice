@@ -177,6 +177,24 @@ describe('UserListView', () => {
     expect(wrapper.find('.load-error').text()).toContain('無法讀取使用者：forbidden')
   })
 
+  it('只有顧客才有「查看訂單」：純管理員帳號沒有', async () => {
+    server.use(
+      http.get('*/users', () =>
+        HttpResponse.json({
+          items: [{ ...ADMIN, roles: ['ADMIN'] }, ADMIN, DISABLED],
+          page: 0,
+          size: 20,
+          totalElements: 3,
+          totalPages: 1,
+        }),
+      ),
+    )
+    const { wrapper } = await mountAt('/users')
+
+    const rows = wrapper.findAll('tr.el-table__row')
+    expect(rows.map((row) => row.find('.orders-button').exists())).toEqual([false, true, true])
+  })
+
   it('查看訂單：到訂單列表並篩選這個使用者', async () => {
     const { wrapper, router } = await mountAt('/users')
 

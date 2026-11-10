@@ -117,6 +117,11 @@ const defaultSort = computed(() => ({
   order: query.value.sortDirection === 'asc' ? ('ascending' as const) : ('descending' as const),
 }))
 
+// 註冊的帳號有 CUSTOMER；純 ADMIN 的帳號不是用來購物的
+function canHaveOrders(user: UserListItem): boolean {
+  return user.roles.includes('CUSTOMER')
+}
+
 // 這個使用者的訂單
 function openOrders(user: UserListItem): void {
   void router.push({ name: 'orders', query: { userId: user.id } })
@@ -204,7 +209,14 @@ function rowOf(row: unknown): UserListItem {
       </el-table-column>
       <el-table-column label="操作" width="110" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" class="orders-button" @click="openOrders(rowOf(row))">
+          <!-- 只有顧客會下單；純管理員帳號（例如 dev 建立的）不會有訂單 -->
+          <el-button
+            v-if="canHaveOrders(rowOf(row))"
+            link
+            type="primary"
+            class="orders-button"
+            @click="openOrders(rowOf(row))"
+          >
             查看訂單
           </el-button>
         </template>
