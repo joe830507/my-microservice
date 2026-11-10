@@ -75,3 +75,15 @@
 ## 最終檢查
 
 vitest 73 個通過（新增 46 個）、`npm run build`（含 `vue-tsc`）通過、eslint、oxlint、prettier 都沒有問題。
+
+## 登入頁改版（2026-11-10）
+
+參考 `docs/pictures/adminstration login page.webp` 的版面重新設計 `LoginView.vue`：
+
+- 深色背景、大圓角卡片，左上角兩片漸層葉片（自己畫的 inline SVG），中間是品牌名稱與說明、「歡迎回來」
+- 輸入框改成只有底線（`:deep()` 覆寫 `el-input__wrapper`），聚焦時底線變成強調色；Email 格式看起來正確時右邊顯示勾號；密碼沿用 `show-password` 的眼睛圖示
+- 全寬的青色登入按鈕
+- 登入頁固定深色，不跟隨系統主題；顏色集中在 `.login-page` 的 CSS 變數
+- 窄螢幕（600px 以下）縮小卡片圓角、葉片與內距
+- **沒有照搬的部分**：參考圖的品牌名稱換成 vue-management；「忘記密碼」「申請帳號」「需要協助」「使用條款、隱私權政策」沒有做，後端沒有對應的功能，放了也只是無效的連結
+- 登入邏輯、欄位驗證、`name` 屬性都沒變，原本的測試全部通過；用 headless Chrome 截圖確認桌面與窄螢幕的版面
