@@ -3,7 +3,7 @@
 > 建立日期：2026-11-10
 > 分支：之後另開 `feature/vue-customer`
 > 位置：`frontend/vue-customer`（目前只有 `.gitkeep`）
-> 狀態：進行中（Step 0 完成）
+> 狀態：進行中（Step 0–1 完成）
 
 顧客用的商店前台：瀏覽商品、購物車、註冊登入、下單、付款（模擬金流）、查詢自己的訂單。後台是 [vue-management](../vue-management/README.md)。
 
@@ -12,7 +12,7 @@
 | Step | 內容                                                         | 狀態   |
 | ---- | ------------------------------------------------------------ | ------ |
 | [0](step-00-backend-prereqs.md) | 後端前置問題：公開商品 API 只回上架中、列表帶主圖、分類含子分類 | 完成   |
-| 1    | 建立專案、Vite proxy、版面骨架                               | 未開始 |
+| [1](step-01-project-setup.md) | 建立專案、Vite proxy、版面骨架                               | 完成   |
 | 2    | HTTP 層與登入狀態（沿用後台的做法）                          | 未開始 |
 | 3    | 註冊、登入、登出                                             | 未開始 |
 | 4    | 商品列表：分類、搜尋、篩選、排序、分頁                       | 未開始 |
@@ -117,15 +117,6 @@ frontend/vue-customer/
 ---
 
 ## 還沒開始的 step
-
-### Step 1：建立專案
-
-- `npm create vue@latest`：TypeScript、Router、Pinia、Vitest、ESLint、Prettier（和後台相同的設定，包括 `tsconfig.vitest.json` include 自動產生的型別檔這類 Step 1–5 遇到的坑）
-- `vite.config.ts`：port 5174、proxy `/api` → `http://localhost:8080`
-- `styles/`：設計 token（顏色、字級、間距、圓角）、mobile-first 的基本樣式
-- StoreLayout 骨架：頂部列（Logo、搜尋框、購物車、帳號）、頁尾；先放假的內容
-
-**測試**：`npm run build`、`npm run test:unit` 通過；冒煙測試能掛載 App 與 StoreLayout。
 
 ### Step 2：HTTP 層與登入狀態
 

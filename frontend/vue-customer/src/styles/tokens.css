@@ -1,0 +1,36 @@
+/*
+ * 設計 token：顏色、字級、間距、圓角都從這裡取，元件不寫死數值
+ * 前台是淺色主題、mobile-first：基本樣式以手機為準，寬螢幕再用 @media (min-width: 768px) 加強
+ */
+:root {
+  --color-bg: #f7f7f5;
+  --color-surface: #ffffff;
+  --color-border: #e5e5e0;
+  --color-text: #1f2328;
+  --color-text-muted: #6b7280;
+  --color-primary: #e8590c;
+  --color-primary-hover: #d9480f;
+  --color-on-primary: #ffffff;
+  --color-danger: #d92d20;
+  --color-success: #12805c;
+
+  --font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.75rem;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+
+  --content-max-width: 1200px;
+  --header-height: 56px;
+}
