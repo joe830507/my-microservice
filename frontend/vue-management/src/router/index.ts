@@ -7,19 +7,54 @@ declare module 'vue-router' {
   interface RouteMeta {
     // 不需要登入就能進入的頁面
     public?: boolean
+    // 麵包屑、瀏覽器分頁標題
+    title?: string
+    // 出現在側邊選單（只看 AdminLayout 底下的路由）
+    menu?: boolean
   }
 }
 
+export const APP_TITLE = 'vue-management'
+
+// AdminLayout 底下的頁面；之後的功能（分類、商品、訂單…）加在這裡，設 menu: true 就會出現在側邊選單
+const adminChildren: RouteRecordRaw[] = [
+  { path: '', name: 'home', component: HomeView, meta: { title: '首頁', menu: true } },
+]
+
 // 路由表另外匯出：測試用 createMemoryHistory 建立自己的 router，不共用全域的 router 狀態
 export const routes: RouteRecordRaw[] = [
-  { path: '/', name: 'home', component: HomeView },
   {
     path: '/login',
     name: 'login',
     component: () => import('@/features/auth/LoginView.vue'),
-    meta: { public: true },
+    meta: { public: true, title: '登入' },
+  },
+  // AdminLayout 用動態 import：它會 import 這個檔案的 menuItems，靜態 import 會形成循環
+  { path: '/', component: () => import('@/layouts/AdminLayout.vue'), children: adminChildren },
+  // 403、404 不需要登入：未登入時打錯網址也直接顯示 404，不先導到登入頁
+  {
+    path: '/403',
+    name: 'forbidden',
+    component: () => import('@/views/ForbiddenView.vue'),
+    meta: { public: true, title: '沒有權限' },
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'not-found',
+    component: () => import('@/views/NotFoundView.vue'),
+    meta: { public: true, title: '找不到頁面' },
   },
 ]
+
+export interface MenuItem {
+  path: string
+  title: string
+}
+
+// 側邊選單：AdminLayout 底下設了 menu: true 的路由
+export const menuItems: MenuItem[] = adminChildren
+  .filter((route) => route.meta?.menu)
+  .map((route) => ({ path: `/${route.path}`, title: route.meta?.title ?? '' }))
 
 // 未登入 → 登入頁（帶 redirect）；重新整理頁面後先用 refresh token 恢復登入狀態
 // 這裡只影響畫面，真正的權限檢查由 Gateway 與後端的 @RequireRoles 負責
@@ -40,10 +75,18 @@ export function installAuthGuard(router: Router): void {
   })
 }
 
+// 瀏覽器分頁標題：「頁面標題 - vue-management」
+export function installTitleUpdater(router: Router): void {
+  router.afterEach((to) => {
+    document.title = to.meta.title ? `${to.meta.title} - ${APP_TITLE}` : APP_TITLE
+  })
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 })
 installAuthGuard(router)
+installTitleUpdater(router)
 
 export default router

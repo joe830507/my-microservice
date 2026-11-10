@@ -7,7 +7,7 @@ import apiClient from '@/api/http'
 import { installAuthInterceptors } from '@/features/auth/interceptors'
 import { REFRESH_TOKEN_KEY, useAuthStore } from '@/features/auth/store'
 import { me, problem, tokens } from '@/features/auth/__tests__/fixtures'
-import { installAuthGuard, routes } from '..'
+import { installAuthGuard, installTitleUpdater, routes } from '..'
 
 const server = setupServer()
 
@@ -83,5 +83,35 @@ describe('installAuthGuard', () => {
     await router.push('/login')
 
     expect(router.currentRoute.value.name).toBe('home')
+  })
+
+  it('不存在的路徑：未登入也直接顯示 404，不導到登入頁', async () => {
+    const router = createGuardedRouter()
+
+    await router.push('/no-such-page')
+
+    expect(router.currentRoute.value.name).toBe('not-found')
+    expect(router.currentRoute.value.fullPath).toBe('/no-such-page')
+  })
+
+  it('403 頁面不需要登入', async () => {
+    const router = createGuardedRouter()
+
+    await router.push('/403')
+
+    expect(router.currentRoute.value.name).toBe('forbidden')
+  })
+})
+
+describe('installTitleUpdater', () => {
+  it('瀏覽器分頁標題：頁面標題 - vue-management', async () => {
+    const router = createGuardedRouter()
+    installTitleUpdater(router)
+
+    await router.push('/login')
+    expect(document.title).toBe('登入 - vue-management')
+
+    await router.push('/no-such-page')
+    expect(document.title).toBe('找不到頁面 - vue-management')
   })
 })

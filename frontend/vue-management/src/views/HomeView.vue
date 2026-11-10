@@ -1,21 +1,19 @@
-<!-- 暫時的首頁：Step 4 做 AdminLayout 時換掉（登出按鈕移到頂部列） -->
+<!-- 後台首頁：目前只有歡迎訊息；之後可以放待出貨訂單數之類的摘要 -->
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/store'
 
 const auth = useAuthStore()
-const router = useRouter()
-
-async function onLogout(): Promise<void> {
-  await auth.logout()
-  await router.replace({ name: 'login' })
-}
 </script>
 
 <template>
-  <main>
-    <h1>vue-management</h1>
-    <p v-if="auth.user">{{ auth.user.displayName }}（{{ auth.user.email }}）</p>
-    <el-button type="primary" @click="onLogout">登出</el-button>
-  </main>
+  <el-card>
+    <h2 class="home-title">歡迎回來{{ auth.user ? `，${auth.user.displayName}` : '' }}</h2>
+    <p>從左側選單選擇要管理的項目。</p>
+  </el-card>
 </template>
+
+<style scoped>
+.home-title {
+  margin-top: 0;
+}
+</style>

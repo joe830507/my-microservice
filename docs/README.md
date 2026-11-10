@@ -29,7 +29,7 @@
 | [order-service-implementation-plan.md](implementation-plans/order-service-implementation-plan.md) | 完成：建單、查詢、取消、付款通知、付款逾時 |
 | [payment-service-implementation-plan.md](implementation-plans/payment-service-implementation-plan.md) | 完成：建立付款、模擬金流回呼、通知重試；含完整下單流程的實測 |
 | [product-image-upload-implementation-plan.md](implementation-plans/product-image-upload-implementation-plan.md) | 完成：商品圖片上傳（相容 S3 的物件儲存，本機用 SeaweedFS），商品能正常上架 |
-| [vue-management/](implementation-plans/vue-management/README.md) | 進行中（Step 3 完成）：後台前端（Vue 3 + TS + Element Plus），登入、商品、圖片、庫存、訂單、使用者 |
+| [vue-management/](implementation-plans/vue-management/README.md) | 進行中（Step 4 完成）：後台前端（Vue 3 + TS + Element Plus），登入、商品、圖片、庫存、訂單、使用者 |
 
 ## 設計與評估
 

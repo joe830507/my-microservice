@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/vue-management`
 > 位置：`frontend/vue-management`
-> 狀態：進行中（Step 3 完成）
+> 狀態：進行中（Step 4 完成）
 
 ## 進度
 
@@ -13,7 +13,7 @@
 | [1](step-01-project-setup.md) | 建立專案、Element Plus、Vite proxy                         | 完成                                               |
 | [2](step-02-http-layer.md) | HTTP 層：axios 實例、`ApiError`                          | 完成                                               |
 | [3](step-03-login.md) | 登入：token store、refresh（同時只發一次）、登出、路由守衛 | 完成                                               |
-| 4    | AdminLayout、選單、403 / 404                               | 未開始                                             |
+| [4](step-04-layout.md) | AdminLayout、選單、403 / 404                               | 完成                                               |
 | 5    | 分類管理                                                   | 未開始                                             |
 | 6    | 商品管理                                                   | 未開始                                             |
 | 7    | 商品圖片                                                   | 未開始                                             |
@@ -76,7 +76,7 @@ frontend/vue-management/
     ├── layouts/            AdminLayout（側邊欄、頂部列、麵包屑）
     ├── components/         跨功能共用：分頁表格、確認按鈕、狀態 Tag
     ├── composables/        usePagedQuery（列表條件同步到 URL query）、useConfirm
-    └── views/              403、404
+    └── views/              不屬於任何功能的頁面：首頁、403、404
 ```
 
 ## 關鍵設計
@@ -104,13 +104,6 @@ frontend/vue-management/
 ---
 
 ## 還沒開始的 step
-
-### Step 4：Layout
-
-- AdminLayout：側邊選單、頂部列（使用者名稱、登出）、麵包屑
-- 403、404 頁面
-
-**測試**：未登入進入後台頁被導到登入頁；不存在的路徑顯示 404。
 
 ### Step 5：分類管理
 
