@@ -3,7 +3,8 @@
 
   // Override to include only test files and clear exclusions.
   // Application code imported in tests is automatically included via module resolution.
-  "include": ["src/**/__tests__/*", "env.d.ts"],
+  // auto-imports.d.ts、components.d.ts：測試 import 的元件會用到 ElMessage 等自動引入的全域名稱
+  "include": ["src/**/__tests__/*", "env.d.ts", "src/auto-imports.d.ts", "src/components.d.ts"],
   "exclude": [],
 
   "compilerOptions": {

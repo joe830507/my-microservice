@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/vue-management`
 > 位置：`frontend/vue-management`
-> 狀態：進行中（Step 4 完成）
+> 狀態：進行中（Step 5 完成）
 
 ## 進度
 
@@ -14,7 +14,7 @@
 | [2](step-02-http-layer.md) | HTTP 層：axios 實例、`ApiError`                          | 完成                                               |
 | [3](step-03-login.md) | 登入：token store、refresh（同時只發一次）、登出、路由守衛 | 完成                                               |
 | [4](step-04-layout.md) | AdminLayout、選單、403 / 404                               | 完成                                               |
-| 5    | 分類管理                                                   | 未開始                                             |
+| [5](step-05-categories.md) | 分類管理                                                   | 完成：後端補上含停用分類的列表 API                 |
 | 6    | 商品管理                                                   | 未開始                                             |
 | 7    | 商品圖片                                                   | 未開始                                             |
 | 8    | 庫存（放在商品編輯頁）                                     | 未開始                                             |
@@ -37,6 +37,7 @@
 | 圖片直傳       | presigned URL 讓瀏覽器直接 PUT 到 SeaweedFS `:8333`，是跨網域請求 | 已實測：SeaweedFS 預設允許所有來源，不用改設定（見 [Step 0](step-00-backend-prereqs.md)）。簽章包含 Host，不能靠 proxy 改 Host 繞過                   |
 | 庫存列表       | 只有 `GET /api/v1/inventory/{sku}`                                | 雛型階段在商品編輯頁依 SKU 查詢；需要總覽頁時再補列表 API                                                               |
 | 訂單出貨、完成 | 沒有 API，`SHIPPED`、`COMPLETED` 無法到達                       | 已補：`POST /orders/{id}/ship`、`POST /orders/{id}/complete`（見 [Step 0](step-00-backend-prereqs.md)）                                           |
+| 停用的分類     | `GET /categories/tree` 只有啟用中的分類（給前台用）                | 已補：`GET /categories`（ADMIN），平面列表含停用的分類（見 [Step 5](step-05-categories.md)）                            |
 | 付款列表       | 沒有                                                                | 雛型階段不做                                                                                                            |
 | 使用者角色     | 無法修改                                                            | 雛型階段只做列表                                                                                                        |
 
@@ -94,7 +95,7 @@ frontend/vue-management/
 | 功能     | API                                                                                                                                                                                                          |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 登入     | `POST /auth/login`、`POST /auth/refresh`、`POST /auth/logout`、`GET /users/me`                                                                                                                       |
-| 分類     | `GET /categories/tree`、`GET /categories/{id}`、`POST /categories`、`PUT /categories/{id}`、`DELETE /categories/{id}`                                                                              |
+| 分類     | `GET /categories`（後台列表，含停用）、`GET /categories/tree`、`GET /categories/{id}`、`POST /categories`、`PUT /categories/{id}`、`DELETE /categories/{id}`                                                                              |
 | 商品     | `GET /products`、`GET /products/{id}`、`POST /products`、`PUT /products/{id}`、`POST /products/{id}/publish`、`/unpublish`、`/archive`                                                         |
 | 商品圖片 | `POST /products/{id}/images/upload-url`、`POST /products/{id}/images`、`GET /products/{id}/images`、`PUT .../{imageId}`、`DELETE .../{imageId}`、`POST .../{imageId}/primary`、`PUT .../order` |
 | 庫存     | `GET /inventory/{sku}`、`PUT /inventory/{sku}`                                                                                                                                                           |
@@ -104,12 +105,6 @@ frontend/vue-management/
 ---
 
 ## 還沒開始的 step
-
-### Step 5：分類管理
-
-- 樹狀顯示、新增（可選父分類）、修改、刪除
-
-**測試**：表單驗證；刪除失敗時依錯誤碼顯示訊息。
 
 ### Step 6：商品管理
 

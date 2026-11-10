@@ -19,6 +19,12 @@ export const APP_TITLE = 'vue-management'
 // AdminLayout 底下的頁面；之後的功能（分類、商品、訂單…）加在這裡，設 menu: true 就會出現在側邊選單
 const adminChildren: RouteRecordRaw[] = [
   { path: '', name: 'home', component: HomeView, meta: { title: '首頁', menu: true } },
+  {
+    path: 'categories',
+    name: 'categories',
+    component: () => import('@/features/categories/CategoriesView.vue'),
+    meta: { title: '分類管理', menu: true },
+  },
 ]
 
 // 路由表另外匯出：測試用 createMemoryHistory 建立自己的 router，不共用全域的 router 狀態
