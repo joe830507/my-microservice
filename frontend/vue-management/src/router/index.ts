@@ -49,6 +49,23 @@ const adminChildren: RouteRecordRaw[] = [
       },
     ],
   },
+  {
+    path: 'orders',
+    meta: { title: '訂單管理', menu: true },
+    children: [
+      {
+        path: '',
+        name: 'orders',
+        component: () => import('@/features/orders/OrderListView.vue'),
+      },
+      {
+        path: ':id',
+        name: 'order-detail',
+        component: () => import('@/features/orders/OrderDetailView.vue'),
+        meta: { title: '訂單詳情' },
+      },
+    ],
+  },
 ]
 
 // 路由表另外匯出：測試用 createMemoryHistory 建立自己的 router，不共用全域的 router 狀態

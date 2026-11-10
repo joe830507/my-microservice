@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/vue-management`
 > 位置：`frontend/vue-management`
-> 狀態：進行中（Step 8 完成）
+> 狀態：進行中（Step 9 完成）
 
 ## 進度
 
@@ -18,7 +18,7 @@
 | [6](step-06-products.md) | 商品管理                                                   | 完成                                               |
 | [7](step-07-product-images.md) | 商品圖片                                                   | 完成                                               |
 | [8](step-08-inventory.md) | 庫存（放在商品編輯頁）                                     | 完成                                               |
-| 9    | 訂單管理                                                   | 未開始                                             |
+| [9](step-09-orders.md) | 訂單管理                                                   | 完成                                               |
 | 10   | 使用者列表                                                 | 未開始                                             |
 | 11   | 部署：Dockerfile、nginx、K8s                               | 未開始                                             |
 | 12   | Playwright E2E（之後再做）                                 | 未開始                                             |
@@ -77,6 +77,7 @@ frontend/vue-management/
     ├── layouts/            AdminLayout（側邊欄、頂部列、麵包屑）
     ├── components/         跨功能共用：分頁表格、確認按鈕、狀態 Tag
     ├── composables/        useRouteQuery（列表條件同步到 URL query）、useConfirm
+    ├── utils/              跨功能的純函式：價格、時間格式化
     └── views/              不屬於任何功能的頁面：首頁、403、404
 ```
 
@@ -105,12 +106,6 @@ frontend/vue-management/
 ---
 
 ## 還沒開始的 step
-
-### Step 9：訂單管理
-
-- 列表（依狀態篩選、分頁）、詳情（商品快照、金額、狀態、各階段時間）、取消、出貨、完成
-
-**測試**：按鈕依狀態顯示（`PENDING_PAYMENT` 取消、`PAID` 出貨、`SHIPPED` 完成）；失敗時顯示錯誤碼。
 
 ### Step 10：使用者列表
 

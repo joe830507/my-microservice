@@ -6,8 +6,8 @@ import { useRouteQuery } from '@/composables/useRouteQuery'
 import { getAllCategories } from '@/features/categories/api'
 import { buildTree } from '@/features/categories/tree'
 import type { Category } from '@/features/categories/types'
+import { formatDateTime, formatPrice } from '@/utils/format'
 import * as productApi from './api'
-import { formatPrice } from './format'
 import {
   DEFAULT_PRODUCT_QUERY,
   PAGE_SIZES,
@@ -163,10 +163,6 @@ const defaultSort = computed(() => ({
 function openEdit(product: ProductListItem): void {
   void router.push({ name: 'product-edit', params: { id: product.id } })
 }
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleString('zh-TW', { hour12: false })
-}
 </script>
 
 <template>
@@ -277,7 +273,7 @@ function formatDate(value: string): string {
         </template>
       </el-table-column>
       <el-table-column prop="createdAt" label="建立時間" width="180" sortable="custom">
-        <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
+        <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
       </el-table-column>
       <el-table-column label="操作" width="90" fixed="right">
         <template #default="{ row }">

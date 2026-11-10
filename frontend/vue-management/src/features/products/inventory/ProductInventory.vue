@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { toApiError } from '@/api/errors'
+import { formatDateTime } from '@/utils/format'
 import * as inventoryApi from './api'
 import type { Stock } from './api'
 
@@ -56,10 +57,6 @@ async function onSave(): Promise<void> {
     saving.value = false
   }
 }
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleString('zh-TW', { hour12: false })
-}
 </script>
 
 <template>
@@ -84,7 +81,7 @@ function formatDate(value: string): string {
           <span class="stock-reserved">{{ stock.reserved }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="更新時間">
-          {{ formatDate(stock.updatedAt) }}
+          {{ formatDateTime(stock.updatedAt) }}
         </el-descriptions-item>
       </el-descriptions>
       <el-alert
