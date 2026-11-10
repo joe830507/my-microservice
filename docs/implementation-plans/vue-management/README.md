@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/vue-management`
 > 位置：`frontend/vue-management`
-> 狀態：進行中（Step 5 完成）
+> 狀態：進行中（Step 6 完成）
 
 ## 進度
 
@@ -15,7 +15,7 @@
 | [3](step-03-login.md) | 登入：token store、refresh（同時只發一次）、登出、路由守衛 | 完成                                               |
 | [4](step-04-layout.md) | AdminLayout、選單、403 / 404                               | 完成                                               |
 | [5](step-05-categories.md) | 分類管理                                                   | 完成：後端補上含停用分類的列表 API                 |
-| 6    | 商品管理                                                   | 未開始                                             |
+| [6](step-06-products.md) | 商品管理                                                   | 完成                                               |
 | 7    | 商品圖片                                                   | 未開始                                             |
 | 8    | 庫存（放在商品編輯頁）                                     | 未開始                                             |
 | 9    | 訂單管理                                                   | 未開始                                             |
@@ -76,7 +76,7 @@ frontend/vue-management/
     │   └── users/
     ├── layouts/            AdminLayout（側邊欄、頂部列、麵包屑）
     ├── components/         跨功能共用：分頁表格、確認按鈕、狀態 Tag
-    ├── composables/        usePagedQuery（列表條件同步到 URL query）、useConfirm
+    ├── composables/        useRouteQuery（列表條件同步到 URL query）、useConfirm
     └── views/              不屬於任何功能的頁面：首頁、403、404
 ```
 
@@ -105,13 +105,6 @@ frontend/vue-management/
 ---
 
 ## 還沒開始的 step
-
-### Step 6：商品管理
-
-- 列表：篩選、分頁，條件同步到 URL query
-- 新增、編輯表單；上架、下架、封存
-
-**測試**：狀態按鈕依目前狀態啟用或停用；封存後不能編輯；上架失敗（例如沒有主圖）顯示錯誤碼。
 
 ### Step 7：商品圖片
 

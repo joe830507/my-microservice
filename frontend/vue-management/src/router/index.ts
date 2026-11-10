@@ -25,6 +25,30 @@ const adminChildren: RouteRecordRaw[] = [
     component: () => import('@/features/categories/CategoriesView.vue'),
     meta: { title: '分類管理', menu: true },
   },
+  // 父路由只提供麵包屑與選單的「商品管理」，沒有自己的元件
+  {
+    path: 'products',
+    meta: { title: '商品管理', menu: true },
+    children: [
+      {
+        path: '',
+        name: 'products',
+        component: () => import('@/features/products/ProductListView.vue'),
+      },
+      {
+        path: 'new',
+        name: 'product-create',
+        component: () => import('@/features/products/ProductEditView.vue'),
+        meta: { title: '新增商品' },
+      },
+      {
+        path: ':id',
+        name: 'product-edit',
+        component: () => import('@/features/products/ProductEditView.vue'),
+        meta: { title: '編輯商品' },
+      },
+    ],
+  },
 ]
 
 // 路由表另外匯出：測試用 createMemoryHistory 建立自己的 router，不共用全域的 router 狀態

@@ -20,7 +20,8 @@ const crumbs = computed<Crumb[]>(() => {
   for (const record of titled) {
     items.push({
       title: record.meta.title ?? '',
-      to: record.name ? { name: record.name } : undefined,
+      // 沒有名稱的父路由（例如「商品管理」）用路徑連結；路徑有參數時無法直接連結
+      to: record.name ? { name: record.name } : record.path.includes(':') ? undefined : record.path,
     })
   }
   // 專案的 lib 是 ES2020，沒有 Array.prototype.at

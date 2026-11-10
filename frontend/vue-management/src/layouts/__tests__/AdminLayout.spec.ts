@@ -7,6 +7,7 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import App from '@/App.vue'
 import { REFRESH_TOKEN_KEY, useAuthStore } from '@/features/auth/store'
 import { me } from '@/features/auth/__tests__/fixtures'
+import { product } from '@/features/products/__tests__/fixtures'
 import { menuItems, routes } from '@/router'
 
 const server = setupServer()
@@ -55,6 +56,25 @@ describe('AdminLayout', () => {
 
     const crumbs = wrapper.findAll('.el-breadcrumb__item')
     expect(crumbs.map((crumb) => crumb.text().replace('/', '').trim())).toEqual(['首頁'])
+  })
+
+  it('巢狀頁面：麵包屑列出上層，沒有名稱的上層用路徑連結，選單選中上層', async () => {
+    server.use(
+      http.get('*/categories', () => HttpResponse.json({ categories: [] })),
+      http.get('*/products/p1', () => HttpResponse.json(product('DRAFT'))),
+    )
+    const { wrapper } = await mountAt('/products/p1')
+
+    const crumbs = wrapper.findAll('.el-breadcrumb__item')
+    expect(crumbs.map((crumb) => crumb.text().replace('/', '').trim())).toEqual([
+      '首頁',
+      '商品管理',
+      '編輯商品',
+    ])
+    // 有連結的麵包屑會加上 is-link
+    expect(crumbs[1]?.find('.is-link').exists()).toBe(true)
+    expect(crumbs[2]?.find('.is-link').exists()).toBe(false)
+    expect(wrapper.find('.el-menu-item.is-active').text()).toBe('商品管理')
   })
 
   it('登出：呼叫 /auth/logout，清除狀態並回到登入頁', async () => {
