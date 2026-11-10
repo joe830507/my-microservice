@@ -11,24 +11,35 @@ declare module 'vue-router' {
     title?: string
     // 出現在側邊選單（只看 AdminLayout 底下的路由）
     menu?: boolean
+    // 側邊選單的分組標題
+    section?: MenuSection
   }
 }
 
 export const APP_TITLE = 'vue-management'
 
+// 側邊選單的分組，依這個順序顯示
+export const MENU_SECTIONS = ['總覽', '商品', '營運'] as const
+export type MenuSection = (typeof MENU_SECTIONS)[number]
+
 // AdminLayout 底下的頁面；之後的功能（分類、商品、訂單…）加在這裡，設 menu: true 就會出現在側邊選單
 const adminChildren: RouteRecordRaw[] = [
-  { path: '', name: 'home', component: HomeView, meta: { title: '首頁', menu: true } },
+  {
+    path: '',
+    name: 'home',
+    component: HomeView,
+    meta: { title: '首頁', menu: true, section: '總覽' },
+  },
   {
     path: 'categories',
     name: 'categories',
     component: () => import('@/features/categories/CategoriesView.vue'),
-    meta: { title: '分類管理', menu: true },
+    meta: { title: '分類管理', menu: true, section: '商品' },
   },
   // 父路由只提供麵包屑與選單的「商品管理」，沒有自己的元件
   {
     path: 'products',
-    meta: { title: '商品管理', menu: true },
+    meta: { title: '商品管理', menu: true, section: '商品' },
     children: [
       {
         path: '',
@@ -51,7 +62,7 @@ const adminChildren: RouteRecordRaw[] = [
   },
   {
     path: 'orders',
-    meta: { title: '訂單管理', menu: true },
+    meta: { title: '訂單管理', menu: true, section: '營運' },
     children: [
       {
         path: '',
@@ -70,7 +81,7 @@ const adminChildren: RouteRecordRaw[] = [
     path: 'users',
     name: 'users',
     component: () => import('@/features/users/UserListView.vue'),
-    meta: { title: '使用者', menu: true },
+    meta: { title: '使用者', menu: true, section: '營運' },
   },
 ]
 
@@ -102,12 +113,17 @@ export const routes: RouteRecordRaw[] = [
 export interface MenuItem {
   path: string
   title: string
+  section: MenuSection
 }
 
 // 側邊選單：AdminLayout 底下設了 menu: true 的路由
 export const menuItems: MenuItem[] = adminChildren
   .filter((route) => route.meta?.menu)
-  .map((route) => ({ path: `/${route.path}`, title: route.meta?.title ?? '' }))
+  .map((route) => ({
+    path: `/${route.path}`,
+    title: route.meta?.title ?? '',
+    section: route.meta?.section ?? '總覽',
+  }))
 
 // 未登入 → 登入頁（帶 redirect）；重新整理頁面後先用 refresh token 恢復登入狀態
 // 這裡只影響畫面，真正的權限檢查由 Gateway 與後端的 @RequireRoles 負責

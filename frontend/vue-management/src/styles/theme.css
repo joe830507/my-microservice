@@ -1,0 +1,60 @@
+/*
+ * 後台固定使用深色主題（參考 docs/pictures/dashboard_01.png）
+ * 先載入 Element Plus 的深色變數（main.ts），這裡再覆寫成自己的配色；<html> 上有 class="dark"
+ * 主色的 light-N 是往卡片底色混色、dark-2 是往白色混色，和 Element Plus 深色模式的算法一致
+ */
+html.dark {
+  /* 自訂的強調色：選單分類標題、漸層卡片 */
+  --app-accent-magenta: #e052d6;
+  --app-accent-violet: #9b5cf6;
+  --app-accent-cyan: #22d3ee;
+  --app-accent-blue: #3b82f6;
+  --app-gradient-violet: linear-gradient(135deg, #c86dd7 0%, #8b5cf6 100%);
+  --app-gradient-cyan: linear-gradient(135deg, #22d3ee 0%, #3b82f6 100%);
+  --app-gradient-pink: linear-gradient(135deg, #f472b6 0%, #c026d3 100%);
+  --app-gradient-teal: linear-gradient(135deg, #2dd4bf 0%, #0ea5e9 100%);
+
+  /* 底色：頁面最深，卡片、側邊欄次之 */
+  --el-bg-color-page: #0f1220;
+  --el-bg-color: #171b2e;
+  --el-bg-color-overlay: #1d2238;
+  --el-fill-color-blank: #171b2e;
+  --el-fill-color: #20253d;
+  --el-fill-color-light: #1c2136;
+  --el-fill-color-lighter: #1a1f33;
+  --el-fill-color-dark: #262c47;
+
+  --el-border-color: #2a3050;
+  --el-border-color-light: #252a45;
+  --el-border-color-lighter: #20253d;
+  --el-border-color-dark: #343b60;
+
+  --el-text-color-primary: #e6e8f2;
+  --el-text-color-regular: #b4b9cf;
+  --el-text-color-secondary: #8a90ab;
+  --el-text-color-placeholder: #6b718c;
+
+  --el-color-primary: #9b5cf6;
+  --el-color-primary-light-3: #7348ba;
+  --el-color-primary-light-5: #593c92;
+  --el-color-primary-light-7: #3f2e6a;
+  --el-color-primary-light-8: #312856;
+  --el-color-primary-light-9: #242242;
+  --el-color-primary-dark-2: #af7df8;
+
+  --el-border-radius-base: 8px;
+}
+
+/* 卡片：沒有邊框、大圓角，和參考圖一致 */
+html.dark .el-card {
+  --el-card-border-color: transparent;
+  --el-card-border-radius: 16px;
+  --el-card-padding: 24px;
+}
+
+/* 表格表頭用卡片底色，不另外加灰底 */
+html.dark .el-table {
+  --el-table-header-bg-color: var(--el-bg-color);
+  --el-table-tr-bg-color: var(--el-bg-color);
+  --el-table-row-hover-bg-color: var(--el-fill-color);
+}

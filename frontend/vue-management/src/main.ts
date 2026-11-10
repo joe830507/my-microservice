@@ -1,4 +1,7 @@
 import { createApp } from 'vue'
+// Element Plus 的深色變數（元件樣式是按需引入，變數要另外載入），再用自己的配色覆寫
+import 'element-plus/theme-chalk/dark/css-vars.css'
+import './styles/theme.css'
 import { createPinia } from 'pinia'
 
 import App from './App.vue'

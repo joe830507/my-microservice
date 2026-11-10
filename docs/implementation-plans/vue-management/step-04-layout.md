@@ -47,3 +47,38 @@
 ## 最終檢查
 
 vitest 82 個通過（新增 9 個）、`npm run build`（含 `vue-tsc`）通過、eslint、oxlint、prettier 都沒有問題。
+
+## 管理頁面改版（2026-11-10）
+
+參考 `docs/pictures/dashboard_01.png`（只留在本機，不放進 repo）重新設計後台。使用者選擇：固定深色主題；首頁做 KPI 卡片與待辦清單，不加統計圖表（後端沒有統計 API）。
+
+**深色主題**
+
+- `index.html` 的 `<html>` 加上 `class="dark"`；`main.ts` 載入 Element Plus 的 `theme-chalk/dark/css-vars.css`（元件樣式是按需引入，深色變數要另外載入），再載入 `src/styles/theme.css` 覆寫配色
+- `theme.css`：頁面、卡片、浮層的底色（深藍）、文字與邊框顏色；主色改成紫色 `#9b5cf6`，`light-N`、`dark-2` 依 Element Plus 深色模式的算法（往卡片底色、往白色混色）算好寫死；另外定義洋紅、青色與四組漸層給選單與首頁用
+- `el-card` 沒有邊框、16px 圓角；表格表頭和卡片同色
+- 登入頁本來就是自己的深色配色，不受影響
+
+**AdminLayout**
+
+- 側邊欄依 `meta.section` 分組（總覽：首頁；商品：分類管理、商品管理；營運：訂單管理、使用者），分組標題是洋紅色；`menuItems` 多了 `section`，分組順序在 `MENU_SECTIONS`
+- 選中的項目是紫色漸層底加左邊一條強調色
+- 頂部列：麵包屑、使用者名稱、頭像（顯示名稱的第一個字）、圓角的登出按鈕；窄螢幕隱藏名稱、縮小側邊欄
+
+**首頁（`views/HomeView.vue`）**
+
+- 數字都來自列表 API 的 `totalElements`（每個只查 1 筆）：
+  - 漸層卡片：待出貨訂單（`PAID`）、待付款訂單（`PENDING_PAYMENT`）、上架中商品（`ACTIVE`）、使用者總數
+  - 小卡片：草稿商品、已下架商品、已出貨待完成（`SHIPPED`）
+- 點卡片進入對應的列表並帶上篩選條件（例如 `/orders?status=PAID`）
+- 待辦清單：最新 5 筆待出貨訂單、草稿商品，點了進入詳情或編輯頁
+- 每一塊各自讀取，一塊失敗只顯示「—」或錯誤文字，不影響其他塊
+- 測試：`views/__tests__/HomeView.spec.ts`（6 個）：打招呼、各數字、點卡片帶篩選條件、待辦清單與進入詳情、一塊失敗不影響其他、空狀態
+
+**確認畫面**
+
+Chrome 擴充功能沒有連上，改用本機 Chrome 的 headless 模式透過 DevTools protocol 截圖：先用 API 登入，把 refresh token 寫進 localStorage，頁面載入時路由守衛就會恢復登入（和重新整理頁面走同一條路）。確認了首頁、商品列表、訂單列表的版面。
+
+**之後可以考慮**：需要趨勢圖（每日訂單數、營收）時，要先在 order-service 補統計 API，前端再加圖表套件。
+
+vitest 261 個通過、`npm run build`（含 `vue-tsc`）、eslint、oxlint、prettier 都沒有問題。
