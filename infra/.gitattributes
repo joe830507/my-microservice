@@ -1,0 +1,2 @@
+# shell 腳本在 Linux／Git Bash 執行：CRLF 會讓 #!/usr/bin/env bash 找不到直譯器
+*.sh text eol=lf
