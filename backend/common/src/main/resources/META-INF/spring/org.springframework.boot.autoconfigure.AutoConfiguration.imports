@@ -1,1 +1,2 @@
 com.mymicroservice.common.CommonAutoConfiguration
+com.mymicroservice.common.resilience.ResilienceAutoConfiguration
