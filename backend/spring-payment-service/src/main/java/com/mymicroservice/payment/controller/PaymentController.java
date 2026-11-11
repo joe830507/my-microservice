@@ -20,7 +20,6 @@ import com.mymicroservice.common.web.UserContext;
 import com.mymicroservice.common.web.UserContextHeaders;
 import com.mymicroservice.payment.dtos.CreatePaymentReqDto;
 import com.mymicroservice.payment.dtos.CreatePaymentResult;
-import com.mymicroservice.payment.dtos.MockCallbackReqDto;
 import com.mymicroservice.payment.dtos.PaymentResDto;
 import com.mymicroservice.payment.service.PaymentService;
 
@@ -53,17 +52,6 @@ public class PaymentController {
             @RequestHeader(value = UserContextHeaders.USER_ROLES, required = false) String roles,
             @PathVariable UUID id) {
         return paymentService.getPayment(id, userId, isAdmin(roles));
-    }
-
-    // 模擬第三方金流回呼：雛型階段由本人（或 ADMIN）呼叫，指定付款成功或失敗
-    // 真實金流的回呼由第三方伺服器呼叫並驗證簽章，之後會移除這支 API
-    @PostMapping(value = "/{id}/mock-callback", consumes = MediaType.APPLICATION_JSON_VALUE,
-            produces = MediaType.APPLICATION_JSON_VALUE)
-    @ResponseStatus(HttpStatus.OK)
-    public PaymentResDto mockCallback(@CurrentUserId UUID userId,
-            @RequestHeader(value = UserContextHeaders.USER_ROLES, required = false) String roles,
-            @PathVariable UUID id, @RequestBody @Valid MockCallbackReqDto mockCallbackReqDto) {
-        return paymentService.mockCallback(id, userId, isAdmin(roles), mockCallbackReqDto);
     }
 
     private static boolean isAdmin(String roles) {

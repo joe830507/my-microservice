@@ -3,6 +3,10 @@ server:
 
 # 下游服務的位置：本機預設 localhost:{port}；K8s 部署時用環境變數改成 Service 名稱
 payment:
+  # 模擬金流回呼（POST /payments/{id}/mock-callback）：預設關閉。開了之後顧客可以自己把付款標成成功，等於不用付錢
+  # 只在本機開發、E2E、示範環境用環境變數 PAYMENT_MOCK_CALLBACK_ENABLED=true 開啟（SEC-01）
+  mock-callback:
+    enabled: ${PAYMENT_MOCK_CALLBACK_ENABLED:false}
   services:
     order-uri: ${ORDER_SERVICE_URI:http://localhost:8082}
     connect-timeout: 2s
