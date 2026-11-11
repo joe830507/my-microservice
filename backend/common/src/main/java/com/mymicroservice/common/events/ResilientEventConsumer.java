@@ -15,9 +15,11 @@ public class ResilientEventConsumer {
     public void consume(ConsumerRecord<String, String> record,
             EventWork work) throws Exception {
         EventTrace.consume(openTelemetry, record,
-                () -> consume(record.topic(), record.key(), record.value(), work));
+                () -> classifyFailure(work));
     }
-    public void consume(String topic, String key, String payload, EventWork work) throws Exception {
+
+    /** 暫時性錯誤原樣拋出（重試）；資料與業務規則錯誤轉成 EventRejectedException（直接進 DLT）。 */
+    public void classifyFailure(EventWork work) throws Exception {
         try {
             work.run();
         } catch (AppException failure) {

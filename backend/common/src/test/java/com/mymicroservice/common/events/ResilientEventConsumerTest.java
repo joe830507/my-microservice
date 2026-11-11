@@ -14,11 +14,11 @@ class ResilientEventConsumerTest {
     @Test
     void classifiesByHttpStatusRegardlessOfBusinessCode() {
         AppException conflict = new AppException(new TestError(HttpStatus.CONFLICT));
-        assertThatThrownBy(() -> consumer.consume("test", "key", "{}", () -> { throw conflict; }))
+        assertThatThrownBy(() -> consumer.classifyFailure(() -> { throw conflict; }))
                 .isInstanceOf(ResilientEventConsumer.EventRejectedException.class).hasCause(conflict);
 
         AppException unavailable = new AppException(new TestError(HttpStatus.SERVICE_UNAVAILABLE));
-        assertThatThrownBy(() -> consumer.consume("test", "key", "{}", () -> { throw unavailable; }))
+        assertThatThrownBy(() -> consumer.classifyFailure(() -> { throw unavailable; }))
                 .isSameAs(unavailable);
     }
 

@@ -18,13 +18,16 @@
 
 2026-11-11 19:21，完整 backend reactor 執行離線 mvn test，全九模組 SUCCESS（5 分 58 秒）；含 Kafka、PostgreSQL Testcontainers。商品契約擴充涵蓋更新與封存後，另行定向測試也通過。
 
-測試過程修復舊資料表列表斷言、Kafka starter 缺漏、metrics bean 重名，以及舊同步回退的重送補償行為。這些結果不代表部署驗收通過。
+測試過程修復舊資料表列表斷言、Kafka starter 缺漏、metrics bean 重名，以及舊同步回退的重送補償行為。（此為第一次實作時的紀錄；部署驗收見下方 R1–R3、R4 章節。）
 
-已取得本機 kind-my-microservice context 狀態；目前運行舊版服務，尚未將此次程式部署供驗收。
+## 結案狀態
 
-## 結案條件
+部署驗收（R3）、過渡路徑移除（R4）、commit 拆分（R5）皆已完成。原有 `.vscode/launch.json` 不屬本階段，未提交。
 
-完成待驗證項目並移除過渡路徑，再依 C1 至 C7 拆分提交。原有 .vscode/launch.json 不屬本階段，排除於提交之外。
+## 已知限制
+
+- `payment` V6、`order` V8 migration 使用 PostgreSQL 18 才有的 `uuidv7()`，並直接寫死 schema 名稱（`payment_service`、`order_service`）。這兩份已部署過，為保留 Flyway checksum 不修改；本專案固定使用 `postgres:18.6`，更換 PostgreSQL 版本前需先確認。
+- 證據檔 `evidence/phase-c/*.log` 已由 PowerShell 的 UTF-16 輸出轉成 UTF-8，方便在 diff 中閱讀。
 
 ## 2026-11-11 R1–R3 重新驗證
 
@@ -45,7 +48,7 @@
 
 驗收修復：lag 指標及 service_name 標籤、DLT 第一筆計數零值基線、Kafka trace（Spring SDK、明確 W3C consumer scope、避免 template observation 覆寫 header）。告警產生器同步修正。common、inventory、order 回歸19:53:12全數成功，1:39；[結果](evidence/phase-c/trace-regression-summary.log)。
 
-R3 五項通過後開始 R4，結果另記。R5 拆分不在此次 R1–R4 範圍。
+R3 五項通過後開始 R4，結果見下一節。
 
 ## 2026-11-11 R4 移除結果
 
