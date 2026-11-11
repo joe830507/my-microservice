@@ -43,3 +43,11 @@ app:
     cron: "30 * * * * *"
     min-age: 1m
     batch-size: 100
+
+# API 文件（springdoc）：預設關閉（SEC-09）。Swagger UI 與 /v3/api-docs 會公開所有 API 的細節，只在本機開發用環境變數
+# SPRINGDOC_ENABLED=true 開啟；Gateway 本來就不轉發這些路徑，所以對外也看不到
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:false}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:false}
