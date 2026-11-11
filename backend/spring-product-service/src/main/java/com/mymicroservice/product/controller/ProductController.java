@@ -86,8 +86,9 @@ public class ProductController implements ProductApi {
     @GetMapping("/batch")
     @ResponseStatus(value = HttpStatus.OK)
     public GetProductsByIdsRes getProductsByIds(
+            @RequestHeader(value = UserContextHeaders.USER_ROLES, required = false) String roles,
             @RequestParam List<UUID> ids) {
-        return productService.getProductsByIds(ids);
+        return productService.getProductsByIds(ids, isAdmin(roles));
     }
 
     @Override

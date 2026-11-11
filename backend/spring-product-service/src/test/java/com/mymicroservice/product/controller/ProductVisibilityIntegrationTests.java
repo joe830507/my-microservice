@@ -1,5 +1,6 @@
 package com.mymicroservice.product.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -7,7 +8,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -150,12 +154,75 @@ class ProductVisibilityIntegrationTests {
                 .andExpect(status().isOk());
     }
 
+    // 批次查詢供 order-service 與前台購物車使用：購物車只需要知道「不能買」，
+    // 所以不是上架中的商品對一般使用者只回 id 與 status，內容（sku、名稱、價格）不外流
     @Test
-    void batch_unchanged_returnsStatusSoCartCanTellUnavailable() throws Exception {
-        // 購物車用批次查詢判斷商品是否還能買，所以草稿也照樣回傳（只有 id、sku、名稱、價格、狀態）
-        mockMvc.perform(get("/api/v1/products/batch").param("ids", activeId, draftId))
+    void batch_anonymous_activeFull_othersOnlyIdAndStatus() throws Exception {
+        Map<String, Map<String, Object>> items = batch(get("/api/v1/products/batch"));
+
+        assertThat(items).containsOnlyKeys(activeId, draftId, inactiveId, archivedId);
+        assertThat(items.get(activeId)).containsEntry("status", "ACTIVE")
+                .containsEntry("name", "Active")
+                .containsEntry("sku", skuOf(activeId))
+                .containsKey("price");
+        assertThat(items.get(activeId).get("price")).isNotNull();
+        assertStatusOnly(items.get(draftId), "DRAFT");
+        assertStatusOnly(items.get(inactiveId), "INACTIVE");
+        assertStatusOnly(items.get(archivedId), "ARCHIVED");
+    }
+
+    @Test
+    void batch_customer_sameAsAnonymous() throws Exception {
+        Map<String, Map<String, Object>> items = batch(asCustomer(get("/api/v1/products/batch")));
+
+        assertThat(items.get(activeId)).containsEntry("name", "Active");
+        assertStatusOnly(items.get(draftId), "DRAFT");
+    }
+
+    @Test
+    void batch_admin_allStatusesFull() throws Exception {
+        Map<String, Map<String, Object>> items = batch(asAdmin(get("/api/v1/products/batch")));
+
+        assertThat(items.get(draftId)).containsEntry("status", "DRAFT").containsEntry("name", "Draft")
+                .containsEntry("sku", skuOf(draftId));
+        assertThat(items.get(archivedId)).containsEntry("name", "Archived");
+    }
+
+    @Test
+    void batch_adminReadCachesDraft_anonymousStillOnlyIdAndStatus() throws Exception {
+        // ADMIN 先讀，草稿的完整內容進了詳情快取；內容是否外流在讀快取之後判斷
+        batch(asAdmin(get("/api/v1/products/batch")));
+
+        assertStatusOnly(batch(get("/api/v1/products/batch")).get(draftId), "DRAFT");
+    }
+
+    @Test
+    void batch_missingIdsOmitted() throws Exception {
+        String missing = UUID.randomUUID().toString();
+
+        String response = mockMvc.perform(get("/api/v1/products/batch").param("ids", activeId, missing))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.products[*].status", containsInAnyOrder("ACTIVE", "DRAFT")));
+                .andExpect(jsonPath("$.products", hasSize(1)))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat((List<String>) JsonPath.read(response, "$.products[*].id")).containsExactly(activeId);
+    }
+
+    // 帶上四個商品的 id 查詢，回傳 id → 該筆的欄位
+    private Map<String, Map<String, Object>> batch(MockHttpServletRequestBuilder request) throws Exception {
+        String response = mockMvc
+                .perform(request.param("ids", activeId, draftId, inactiveId, archivedId))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        List<Map<String, Object>> products = JsonPath.read(response, "$.products");
+        return products.stream().collect(Collectors.toMap(item -> (String) item.get("id"), item -> item));
+    }
+
+    private static void assertStatusOnly(Map<String, Object> item, String expectedStatus) {
+        assertThat(item).containsEntry("status", expectedStatus);
+        assertThat(item.get("sku")).isNull();
+        assertThat(item.get("name")).isNull();
+        assertThat(item.get("price")).isNull();
     }
 
     // 用 API 建立（DRAFT），再直接改狀態：上架要分類與主圖，這裡只關心可見性

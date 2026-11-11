@@ -12,7 +12,8 @@ public record GetProductsByIdsRes(
         return new GetProductsByIdsRes(products.stream().map(ProductBatchItem::from).toList());
     }
 
-    public static GetProductsByIdsRes fromDetails(List<GetProductByIdRes> details) {
-        return new GetProductsByIdsRes(details.stream().map(ProductBatchItem::from).toList());
+    public static GetProductsByIdsRes fromDetails(List<GetProductByIdRes> details, boolean includeUnpublished) {
+        return new GetProductsByIdsRes(
+                details.stream().map(detail -> ProductBatchItem.forVisibility(detail, includeUnpublished)).toList());
     }
 }

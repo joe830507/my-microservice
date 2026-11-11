@@ -74,11 +74,11 @@ public interface ProductApi {
     ProductQueryResponse getProductList(@Parameter(hidden = true) String roles,
             @Valid ProductQueryRequest productQueryRequest);
 
-    @Operation(summary = "依多個 id 批次查詢商品（供 order-service 使用）", description = "不存在的 id 直接略過，不回 404。")
+    @Operation(summary = "依多個 id 批次查詢商品（供 order-service 與前台購物車使用）", description = "不存在的 id 直接略過，不回 404。不是 ADMIN 時，非上架中（ACTIVE）的商品只回 id 與 status，sku、name、price 為 null，呼叫端只需要知道不能買。")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "查詢成功")
     })
-    GetProductsByIdsRes getProductsByIds(
+    GetProductsByIdsRes getProductsByIds(@Parameter(hidden = true) String roles,
             @Parameter(description = "商品 id 清單，以逗號分隔") @Size(max = 100, message = "list length should not greater than 100") List<UUID> ids);
 
     @Operation(summary = "修改商品", description = "整筆取代基本資料，不可修改狀態（請使用 publish / unpublish / archive）；version 須與目前版本一致。")

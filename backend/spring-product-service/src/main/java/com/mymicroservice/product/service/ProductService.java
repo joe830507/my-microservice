@@ -25,7 +25,8 @@ public interface ProductService {
 
     ProductQueryResponse getProductList(ProductQueryRequest productQueryRequest, boolean includeUnpublished);
 
-    GetProductsByIdsRes getProductsByIds(List<UUID> ids);
+    // includeUnpublished：false 時，不是上架中的商品只回 id 與 status（不回 sku、name、price）
+    GetProductsByIdsRes getProductsByIds(List<UUID> ids, boolean includeUnpublished);
 
     UpdateOneProductRes updateOneProduct(UUID id, UpdateOneProductReq updateOneProductReq);
 

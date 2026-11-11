@@ -180,8 +180,8 @@ public class ProductServiceImpl implements ProductService {
     // 不開交易的原因同 getProductById
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public GetProductsByIdsRes getProductsByIds(List<UUID> ids) {
-        return GetProductsByIdsRes.fromDetails(productDetailCache.findAllByIds(ids));
+    public GetProductsByIdsRes getProductsByIds(List<UUID> ids, boolean includeUnpublished) {
+        return GetProductsByIdsRes.fromDetails(productDetailCache.findAllByIds(ids), includeUnpublished);
     }
 
     @Override

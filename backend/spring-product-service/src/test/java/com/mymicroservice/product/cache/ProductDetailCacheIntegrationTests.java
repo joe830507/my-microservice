@@ -159,7 +159,7 @@ class ProductDetailCacheIntegrationTests {
         AddOneNewProductRes a = addProduct("SKU-001", "球鞋");
         AddOneNewProductRes b = addProduct("SKU-002", "拖鞋");
 
-        assertThat(productService.getProductsByIds(List.of(a.id(), b.id())).products())
+        assertThat(productService.getProductsByIds(List.of(a.id(), b.id()), true).products())
                 .extracting(ProductBatchItem::id)
                 .containsExactlyInAnyOrder(a.id(), b.id());
 
@@ -178,7 +178,7 @@ class ProductDetailCacheIntegrationTests {
         jdbcTemplate.update("UPDATE product_service.product SET name = '改名'");
 
         // a 命中快取回舊名稱；b 未命中查 DB 拿到新名稱
-        assertThat(productService.getProductsByIds(List.of(a.id(), b.id())).products())
+        assertThat(productService.getProductsByIds(List.of(a.id(), b.id()), true).products())
                 .extracting(ProductBatchItem::id, ProductBatchItem::name)
                 .containsExactlyInAnyOrder(tuple(a.id(), "球鞋"), tuple(b.id(), "改名"));
         // 批次回填的 b，單筆查詢也能命中
@@ -190,7 +190,7 @@ class ProductDetailCacheIntegrationTests {
         AddOneNewProductRes a = addProduct("SKU-001", "球鞋");
         UUID missingId = UUID.randomUUID();
 
-        assertThat(productService.getProductsByIds(List.of(a.id(), missingId, a.id())).products())
+        assertThat(productService.getProductsByIds(List.of(a.id(), missingId, a.id()), true).products())
                 .extracting(ProductBatchItem::id)
                 .containsExactly(a.id());
 
@@ -202,11 +202,11 @@ class ProductDetailCacheIntegrationTests {
     @Test
     void getProductsByIds_afterUpdate_returnsFreshData() {
         AddOneNewProductRes a = addProduct("SKU-001", "球鞋");
-        productService.getProductsByIds(List.of(a.id()));
+        productService.getProductsByIds(List.of(a.id()), true);
 
         productService.updateOneProduct(a.id(), updateReq(a, "SKU-001", "跑鞋"));
 
-        assertThat(productService.getProductsByIds(List.of(a.id())).products())
+        assertThat(productService.getProductsByIds(List.of(a.id()), true).products())
                 .extracting(ProductBatchItem::name)
                 .containsExactly("跑鞋");
     }
