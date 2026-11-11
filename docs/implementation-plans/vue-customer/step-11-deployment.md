@@ -87,7 +87,7 @@
 
 - **沒有在瀏覽器裡驗證過 CSP**：Chrome 擴充功能沒有連上，沒辦法開瀏覽器確認頁面在嚴格 CSP 下能正常載入、圖片能顯示。依據是打包後沒有 inline script／style、沒有 `eval`（已檢查 `dist`），理論上沒有問題，但需要實際看一次（開 http://localhost:8091，看瀏覽器主控台有沒有 CSP 違規）
 - 上面的流程是用 HTTP 呼叫走的，不是在瀏覽器點擊，所以前端畫面本身（版面、圖片、倒數）在 K8s 版本上沒有被驗證
-- 後端 6 個服務與資料庫都還沒有 Dockerfile／K8s 設定，整個系統放進 K8s（含 `NetworkPolicy`，見 [SEC-02](../../security/known-issues.md#sec-02-繞過-gateway-直連服務可以偽造任何人的身分)）是另一件事
+- 後端的 Dockerfile／K8s 設定、`NetworkPolicy` 見 [後端部署](../backend-deployment-implementation-plan.md)（兩個前端與後端已經一起在 kind 上部署並驗證）
 - Ingress、TLS、HSTS；映像檔倉庫與 CI；`securityContext.readOnlyRootFilesystem`
 - 和後台一起規劃網域（例如 `shop.example.com`、`admin.example.com`）
 

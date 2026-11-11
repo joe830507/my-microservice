@@ -1,0 +1,2 @@
+# Maven wrapper 要在 Linux 容器裡執行：Windows 的 checkout 如果轉成 CRLF，#!/bin/sh\r 會找不到直譯器
+mvnw text eol=lf

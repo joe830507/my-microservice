@@ -1,0 +1,18 @@
+# 本機 kind 叢集：用 infra/k8s/scripts/kind-up.sh 建立（它會建叢集並安裝 Calico）
+#
+# 為什麼不用 kind 內建的 kindnet：kindnet 用 nftables 實作 NetworkPolicy，而 Windows / WSL2 的核心不支援
+# （kindnet 日誌：netlink receive: operation not supported）。結果是 NetworkPolicy 建立成功、卻完全沒有作用——
+# 沒有授權的 Pod 照樣連得到所有服務與資料庫。所以關掉內建的 CNI，改裝 Calico（iptables 實作）。
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  disableDefaultCNI: true
+  podSubnet: 192.168.0.0/16
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      # 這台機器的 Docker 用 cgroup v1；kubelet 1.35 起預設拒絕在 cgroup v1 上執行，暫時允許。
+      # 長期要把 Docker / WSL 切到 cgroup v2（cgroup v1 之後會被移除）
+      - |
+        kind: KubeletConfiguration
+        failCgroupV1: false

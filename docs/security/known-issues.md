@@ -11,8 +11,8 @@
 | 編號 | 問題 | 嚴重度 | 狀態 | 預計處理 |
 | ---- | ---- | ------ | ---- | -------- |
 | [SEC-01](#sec-01-顧客可以自己把訂單標成付款成功) | 顧客可以自己把訂單標成付款成功 | 高 | 未處理 | 接真的金流前 |
-| [SEC-02](#sec-02-繞過-gateway-直連服務可以偽造任何人的身分) | 繞過 Gateway 直連服務可以偽造任何人的身分 | 高 | 未處理（前端 Service 已是 ClusterIP） | 後端上 K8s 時（NetworkPolicy） |
-| [SEC-03](#sec-03-開發環境的預設設定不能帶上線) | 開發環境的預設設定不能帶上線 | 高 | 未處理 | Step 11 |
+| [SEC-02](#sec-02-繞過-gateway-直連服務可以偽造任何人的身分) | 繞過 Gateway 直連服務可以偽造任何人的身分 | 高 | **K8s 上已處理並實測**（NetworkPolicy）；本機開發環境仍然如此 | — |
+| [SEC-03](#sec-03-開發環境的預設設定不能帶上線) | 開發環境的預設設定不能帶上線 | 高 | **K8s 上已處理**（隨機 Secret、Redis 密碼）；compose 與 repo 裡的開發用設定未改 | compose 的埠綁定 |
 | [SEC-04](#sec-04-註冊沒有頻率限制) | 註冊沒有頻率限制，且可列舉 Email | 中 | 未處理 | 待排 |
 | [SEC-05](#sec-05-登入鎖定依-email可被用來鎖住別人) | 登入鎖定依 Email，可被用來鎖住別人 | 中 | 未處理 | 待評估 |
 | [SEC-06](#sec-06-前端缺少瀏覽器端防護) | 前端缺少瀏覽器端防護（CSP、標頭；refresh token 在 localStorage） | 中 | **部分處理**：標頭已加；CSP 未在瀏覽器驗證；token 仍在 localStorage | Step 11 |
@@ -21,6 +21,7 @@
 | [SEC-09](#sec-09-服務直連的-actuator-與-swagger) | 服務直連的 actuator 公開、Swagger 預設開啟 | 低 | 未處理 | Step 11 |
 | [SEC-10](#sec-10-建單沒有冪等-key) | 建單沒有冪等 key | 低 | 未處理 | 見 vue-customer「之後再處理」 |
 | [SEC-11](#sec-11-productsbatch-洩漏非上架商品的內容) | `/products/batch` 洩漏非上架商品的內容 | 中 | **已修正** | `0139c00` |
+| [SEC-12](#sec-12-非-dev-環境沒有建立管理員的方式) | 非 dev 環境沒有建立管理員的方式 | 中 | 未處理（K8s 上暫用 dev profile） | 待排 |
 
 ---
 
@@ -37,7 +38,9 @@
 - **驗證**：對 `http://localhost:8082/api/v1/orders` 帶隨機的 `X-User-Id`，回 200。
 - **不受影響的路徑**：經過 Gateway 時這些 header 會被清掉再重新帶上；探測過「顧客帶偽造 `X-User-Roles: ADMIN`」、「匿名帶偽造 `X-User-Id` 建單」、「匿名帶偽造 `X-User-Roles` 讀草稿」都被擋下。
 - **風險**：安全完全取決於「服務的埠不能被外部連到」。
-- **進度（2026-11-11）**：vue-customer 的 K8s Service 已是 `ClusterIP`（不曝露）；後端服務還沒有 K8s 設定，`NetworkPolicy` 尚未做。
+- **進度（2026-11-11）**：[後端部署](../implementation-plans/backend-deployment-implementation-plan.md) 已完成。所有服務都是 `ClusterIP`，並加上 `default-deny-ingress` 與逐一開放的 `NetworkPolicy`。**實際測過攔截**：從沒有授權的 Pod 連不到任何後端服務、資料庫、Redis、物件儲存，只連得到前端；前端只連得到 Gateway；各服務只連得到被允許的對象（完整矩陣見該文件）。
+  - 重要：**kind 預設的 kindnet 在 Windows／WSL2 上完全不執行 NetworkPolicy**（policy 建立成功卻沒有作用），要用 Calico（`infra/k8s/scripts/kind-up.sh`）。換任何叢集都要用同樣的對照組實測，不能只看 `kubectl apply` 成功
+  - 還沒做：出去（Egress）的限制；本機直接啟動（非 K8s）的開發環境仍然沒有隔離
 - **處理方向**：
   - K8s 上所有後端服務只用 `ClusterIP`，不可用 `NodePort`、`LoadBalancer`，對外只開 api-gateway（或 Ingress）
   - 加 `NetworkPolicy`：只允許 api-gateway 連進各服務，服務之間只開需要的方向（order → product / inventory、payment → order）
@@ -50,6 +53,7 @@
 - `infra/docker-compose.yml` 的埠寫成 `5432:5432` 這種形式，會綁在所有網卡上，同一個網路的人可以直接連資料庫與 Redis
 - `infra/seaweedfs/s3.json` 有 commit 一組開發用的物件儲存密鑰；`backend/spring-product-service/src/test/resources/seaweedfs/s3.json` 與 `backend/spring-user-service/src/test/resources/jwt/*.pem`（測試用 JWT 金鑰）也在 git 裡
 - 沒有問題的部分：user-service 的 `secrets/`（JWT 私鑰、管理員密碼）已被 `.gitignore`，沒有進 git
+- **進度（2026-11-11）**：K8s 部署不使用這些預設值：資料庫與 Redis 密碼、JWT 金鑰、物件儲存金鑰、管理員密碼都由 `infra/k8s/scripts/create-secrets.sh` 隨機產生、只存在叢集的 Secret 裡；Redis 有設密碼（沒帶密碼回 `NOAUTH`）；repo 的 `infra/k8s` 沒有任何 Secret 的值。**還沒處理**：`infra/docker-compose.yml` 的埠綁定與預設密碼（本機開發用）、repo 裡 commit 的測試用金鑰與 `s3.json`。
 - **處理方向**：
   - compose 的埠改成 `127.0.0.1:5432:5432`
   - 正式環境的資料庫密碼、物件儲存密鑰、JWT 金鑰都用 K8s `Secret`，不寫進 repo
@@ -104,6 +108,12 @@
 - **現象**：匿名者用草稿商品的 id 查 `GET /products/batch`，拿到完整的 SKU、名稱、價格。
 - **修正**：非 ADMIN 時，非 `ACTIVE` 的商品只回 `id` 與 `status`；commit `0139c00`（後端與整合測試）、`12aead5`（前端）。細節見 [vue-customer Step 0 的後續補強](../implementation-plans/vue-customer/step-00-backend-prereqs.md)。
 - **已用真的服務驗證**：匿名只拿到 `id`、`status`；ADMIN 照舊完整；order-service 建單不受影響。
+
+## SEC-12 非 dev 環境沒有建立管理員的方式
+
+- **現象**：`BootstrapAdminInitializer`（啟動時建立第一個管理員）標了 `@Profile("dev")`，只在 `dev` profile 啟用。其他 profile 沒有任何方式建立 ADMIN：註冊只能建立 `CUSTOMER`。
+- **現況**：K8s 上 user-service 暫時用 `SPRING_PROFILES_ACTIVE=dev`，管理員的帳密來自 Secret `bootstrap-admin`（隨機密碼）。`application-dev.yml` 目前只有管理員相關設定，所以實際影響只是名稱誤導，但之後 dev profile 加了別的開發用設定就會一起帶進叢集。
+- **處理方向**：把建立管理員改成由設定開關控制（例如 `app.bootstrap-admin.enabled`）而不是綁在 `dev` profile；建立後要有輪替或停用的作法（第一個管理員建好之後關掉開關、改密碼）。這是後端程式碼的修改，要補整合測試。
 
 ---
 

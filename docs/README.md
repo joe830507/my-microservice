@@ -32,6 +32,7 @@
 | [product-image-upload-implementation-plan.md](implementation-plans/product-image-upload-implementation-plan.md) | 完成：商品圖片上傳（相容 S3 的物件儲存，本機用 SeaweedFS），商品能正常上架 |
 | [vue-management/](implementation-plans/vue-management/README.md) | 進行中（Step 11 完成，剩下 E2E）：後台前端（Vue 3 + TS + Element Plus），登入、商品、圖片、庫存、訂單、使用者 |
 | [vue-customer/](implementation-plans/vue-customer/README.md) | 進行中（Step 0–11 完成：後端前置問題、專案骨架、HTTP 層與登入狀態、註冊登入、商品列表、商品詳情、購物車、結帳、付款、我的訂單、帳號頁、部署）：顧客用的商店前台（Vue 3 + TS），瀏覽、購物車、下單、模擬付款、我的訂單 |
+| [backend-deployment-implementation-plan.md](implementation-plans/backend-deployment-implementation-plan.md) | 完成：後端 6 個服務與資料庫、Redis、物件儲存、兩個前端放進 K8s（kind 驗證）；NetworkPolicy、Secret；含實際攔截測試 |
 
 ## 設計與評估
 

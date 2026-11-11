@@ -1,0 +1,2 @@
+# shell 腳本要在 Git Bash / Linux 執行：Windows 的 checkout 轉成 CRLF 會出現「$'\r': command not found」
+*.sh text eol=lf
