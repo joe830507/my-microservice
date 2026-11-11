@@ -1,43 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { toApiError } from '@/api/errors'
 import QuantityInput from '@/components/QuantityInput.vue'
 import { formatPrice } from '@/utils/format'
-import { getProductsByIds } from './api'
-import { buildLines, cartTotal, lineSubtotal } from './lines'
+import { lineSubtotal } from './lines'
 import { useCartStore } from './store'
-import type { BatchProduct } from './api'
+import { useCartLines } from './useCartLines'
 
 const cart = useCartStore()
 const router = useRouter()
 
 // 價格、名稱、狀態每次進來都重新查，不用存在瀏覽器的舊資料
-const products = ref<BatchProduct[]>([])
-const loading = ref(false)
-const loaded = ref(false)
-const errorMessage = ref('')
-
-async function load(): Promise<void> {
-  loading.value = true
-  errorMessage.value = ''
-  try {
-    products.value = await getProductsByIds(cart.items.map((item) => item.productId))
-    loaded.value = true
-  } catch (error) {
-    errorMessage.value = toApiError(error).detail
-  } finally {
-    loading.value = false
-  }
-}
+const { loaded, errorMessage, load, lines, purchasableLines, unavailableLines, total } =
+  useCartLines()
 
 onMounted(load)
-
-// 購物車的增減（數量、移除）會立刻反映在列表與總計；商品資料只在載入時查一次
-const lines = computed(() => buildLines(cart.items, products.value))
-const purchasableLines = computed(() => lines.value.filter((line) => line.purchasable))
-const unavailableLines = computed(() => lines.value.filter((line) => !line.purchasable))
-const total = computed(() => cartTotal(lines.value))
 
 function removeUnavailable(): void {
   cart.removeMany(unavailableLines.value.map((line) => line.productId))

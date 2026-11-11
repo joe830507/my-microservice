@@ -3,7 +3,7 @@
 > 建立日期：2026-11-10
 > 分支：之後另開 `feature/vue-customer`
 > 位置：`frontend/vue-customer`（目前只有 `.gitkeep`）
-> 狀態：進行中（Step 0–6 完成）
+> 狀態：進行中（Step 0–7 完成）
 
 顧客用的商店前台：瀏覽商品、購物車、註冊登入、下單、付款（模擬金流）、查詢自己的訂單。後台是 [vue-management](../vue-management/README.md)。
 
@@ -18,7 +18,7 @@
 | [4](step-04-product-list.md) | 商品列表：分類、搜尋、篩選、排序、分頁                       | 完成   |
 | [5](step-05-product-detail.md) | 商品詳情：圖片、價格、庫存、加入購物車                       | 完成   |
 | [6](step-06-cart.md) | 購物車（存在瀏覽器）                                         | 完成   |
-| 7    | 結帳、建立訂單                                               | 未開始 |
+| [7](step-07-checkout.md) | 結帳、建立訂單                                               | 完成   |
 | 8    | 付款（模擬金流）                                             | 未開始 |
 | 9    | 我的訂單：列表、詳情、取消、繼續付款                         | 未開始 |
 | 10   | 帳號頁：個人資料、登出所有裝置                               | 未開始 |
@@ -117,14 +117,6 @@ frontend/vue-customer/
 ---
 
 ## 還沒開始的 step
-
-### Step 7：結帳、建立訂單
-
-- 需要登入；顯示要購買的商品（重新查價格）與總計
-- `POST /orders`：送出中停用按鈕；成功後從購物車移除這些商品，`replace` 到付款頁
-- 失敗依代碼顯示：`OUT_OF_STOCK`、`PRODUCT_NOT_AVAILABLE`、`PRODUCT_SERVICE_UNAVAILABLE`、`INVENTORY_SERVICE_UNAVAILABLE`、`VALIDATION_FAILED`；購物車不變
-
-**測試**：未登入導到登入頁，登入後回到結帳頁；送出的 body 正確；連點只送出一次；庫存不足的訊息；成功後購物車只剩沒結帳的商品。
 
 ### Step 8：付款（模擬金流）
 
