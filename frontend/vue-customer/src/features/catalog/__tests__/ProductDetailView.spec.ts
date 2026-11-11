@@ -246,6 +246,21 @@ describe('商品詳情', () => {
       expect(wrapper.find('[aria-label="增加數量"]').attributes('disabled')).toBeDefined()
     })
 
+    it('購物車已有 50 種商品：新的商品不能加，顯示提示；不影響已有的', async () => {
+      localStorage.setItem(
+        CART_KEY,
+        JSON.stringify(Array.from({ length: 50 }, (_, i) => ({ productId: `p${i}`, qty: 1 }))),
+      )
+      serve()
+      const wrapper = await mountAt()
+
+      await wrapper.find('.detail__add').trigger('click')
+
+      expect(useCartStore().items).toHaveLength(50)
+      expect(wrapper.find('[role="alert"]').text()).toContain('最多放 50 種商品')
+      expect(wrapper.find('[role="status"]').exists()).toBe(false)
+    })
+
     it('可賣數量超過 99：上限仍是 99', async () => {
       serve({
         stock: () =>

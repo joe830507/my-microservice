@@ -42,12 +42,18 @@ export const routes: RouteRecordRaw[] = [
         props: true,
         meta: { title: '商品詳情' },
       },
-      // 內容在 Step 6 完成；先有路由，「前往購物車」與頂部列才有地方可以連
       {
         path: 'cart',
         name: 'cart',
         component: () => import('@/features/cart/CartView.vue'),
         meta: { title: '購物車' },
+      },
+      // 內容在 Step 7 完成；需要登入，未登入會導到登入頁、登入後回到結帳頁
+      {
+        path: 'checkout',
+        name: 'checkout',
+        component: () => import('@/features/checkout/CheckoutView.vue'),
+        meta: { title: '結帳', requiresAuth: true },
       },
       {
         path: 'login',

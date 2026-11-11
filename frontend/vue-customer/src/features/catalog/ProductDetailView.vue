@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { toApiError } from '@/api/errors'
 import PriceTag from '@/components/PriceTag.vue'
 import QuantityInput from '@/components/QuantityInput.vue'
-import { MAX_QTY, useCartStore } from '@/features/cart/store'
+import { MAX_ITEMS, MAX_QTY, useCartStore } from '@/features/cart/store'
 import NotFoundView from '@/views/NotFoundView.vue'
 import { getProduct, getProductImages, getStock } from './api'
 import ImageGallery from './ImageGallery.vue'
@@ -26,6 +26,7 @@ const loading = ref(false)
 
 const quantity = ref(1)
 const addedQty = ref(0)
+const cartFull = ref(false)
 
 // 快速在商品間切換時，舊請求晚回來不能蓋掉新的商品
 let latestRequest = 0
@@ -54,6 +55,7 @@ async function load(): Promise<void> {
   stockError.value = false
   quantity.value = 1
   addedQty.value = 0
+  cartFull.value = false
   try {
     const found = await getProduct(props.id)
     if (requestId !== latestRequest) return
@@ -94,8 +96,10 @@ watch(maxQty, (max) => {
 
 function addToCart(): void {
   if (!product.value || !inStock.value) return
-  cart.add(product.value.id, quantity.value)
-  addedQty.value = quantity.value
+  // 購物車已滿（種類上限，和建單 API 一致）時不能再加新的商品
+  const added = cart.add(product.value.id, quantity.value)
+  cartFull.value = !added
+  addedQty.value = added ? quantity.value : 0
 }
 
 function retryStock(): void {
@@ -132,6 +136,9 @@ function retryStock(): void {
           加入購物車
         </button>
       </div>
+      <p v-if="cartFull" class="form-error" role="alert">
+        購物車最多放 {{ MAX_ITEMS }} 種商品，請先結帳或移除部分商品
+      </p>
       <p v-if="addedQty > 0" class="detail__added" role="status">
         已加入 {{ addedQty }} 件到購物車，
         <RouterLink :to="{ name: 'cart' }" class="detail__link">前往購物車</RouterLink>
