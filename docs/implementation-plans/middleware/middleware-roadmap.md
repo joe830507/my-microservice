@@ -1,9 +1,9 @@
 # 中介軟體導入計畫
 
 > 建立日期：2026-11-11
-> 分支：`feature/middleware-roadmap`（只有這份計畫；每個階段實作時再各自開分支）
+> 分支：計畫在 `feature/middleware-roadmap`；每個階段實作時各自開分支（階段 C：`feature/event-driven-phase-c`）
 > 對應：[product-service-middleware-evaluation.md](../../design/product-service-middleware-evaluation.md)「建議導入順序」、[microservice-architecture.md](../../architecture/microservice-architecture.md)「之後：事件驅動」
-> 狀態：階段 A（[observability-implementation-plan.md](observability-implementation-plan.md)）、B（[resilience-implementation-plan.md](resilience-implementation-plan.md)）完成；C 正在接手實作與驗證，D–F 尚未開始
+> 狀態：階段 A（[observability-implementation-plan.md](observability-implementation-plan.md)）、B（[resilience-implementation-plan.md](resilience-implementation-plan.md)）、C（[event-implementation-plan.md](event-implementation-plan.md)）完成；D–F 尚未開始
 
 從雛型的「同步 REST + 排程補償」走向「事件驅動 + 可觀測 + 可水平擴充」。每個階段都要能在本機 compose 與 kind 上跑起來並驗證，做法和之前一樣：每一步附測試，測試通過後單獨 commit。
 
@@ -94,7 +94,7 @@
 - 熔斷、重試的狀態要出現在 A 的指標裡，否則調參數只能用猜的
 - 重試要有上限與退避，避免下游恢復時被重試流量打掛
 
-## 階段 C：Kafka + Outbox（事件機制）
+## 階段 C：Kafka + Outbox（事件機制）（已完成，紀錄見 [event-implementation-plan.md](event-implementation-plan.md)）
 
 目標：服務之間「通知對方發生了什麼」改成事件；**需要立即知道結果的仍然同步**（建單時查商品與預扣，因為要當場告訴使用者成功或失敗）。
 
@@ -113,22 +113,25 @@
 
 ### 步驟
 
-| Step | 內容                                                                                                                                                                                                                                     | 驗收                                                                                                      |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| C1（部署驗收通過） | infra：compose 與 K8s 加 Kafka（KRaft，單一節點，StatefulSet）；NetworkPolicy 只允許有用到的服務連 9092；topic 由設定檔建立                                                                                                              | kind 上沒有授權的 Pod 連不到 Kafka                                                                        |
-| C2（整合測試通過） | common：outbox 共用元件。各服務 DB 加 `outbox_event` 表（Flyway）；業務程式在同一個交易內寫入事件；發送器用 `SELECT ... FOR UPDATE SKIP LOCKED` 輪詢未發送的事件送到 Kafka，成功後標記（多副本不會重複搶同一筆）；清除已發送的舊資料 | 單元＋整合測試（Testcontainers 的 Kafka）：交易 rollback 時事件不會送出；Kafka 停掉時事件保留、恢復後送出 |
-| C3（去重與 DLT 測試通過） | common：消費端共用元件。`processed_event` 表（`eventId` 主鍵）與業務更新在同一個交易內寫入，重複的事件直接略過；失敗有限次重試後送到 dead letter topic（`<topic>.DLT`）                                                            | 同一個事件送兩次只處理一次；處理失敗的事件進 DLT，不會卡住整個 partition                                  |
-| C4（部署驗收通過） | **付款成功改成事件**：payment 寫 `PaymentSucceeded` 到 outbox；order 消費後改為 PAID。移除 payment → order 的同步通知與 `OrderNotificationRetryJob`                                                                           | 停掉 order 時付款仍然成功；order 恢復後自動變成 PAID；E2E 通過                                            |
-| C5（部署驗收通過） | **庫存確認、釋放改成事件**：order 在 PAID、CANCELLED 時寫 `OrderPaid`、`OrderCancelled`；inventory 消費後確認或釋放。移除 order 的 `ReservationSyncJob` 與 `reservation_synced` 欄位的補做邏輯                             | 停掉 inventory 時取消與付款仍然成功；恢復後預扣正確確認或釋放                                             |
-| C6（部署驗收通過） | `product.events`、`user.events` 先開始發送（還沒有消費者），給 D、E 使用                                                                                                                                                             | 事件出現在 topic 裡，格式符合規格                                                                         |
-| C7（部署驗收通過） | 可觀測：Outbox relay 與 listener 明確傳遞 W3C context，trace 跨過 Kafka 不斷；指標加 consumer lag、outbox 待發送數量、DLT 數量                                                                                                              | 一張訂單的 trace 包含非同步的部分；lag 有告警                                                             |
+| Step | 內容 | 驗收 | 結果（2026-11-11） |
+| ---- | ---- | ---- | ---- |
+| C1 | infra：compose 與 K8s 加 Kafka（KRaft，單一節點，StatefulSet）；NetworkPolicy 只允許有用到的服務連 9092；topic 由設定檔建立 | kind 上沒有授權的 Pod 連不到 Kafka | 完成：kind 實測 |
+| C2 | common：outbox 共用元件。各服務 DB 加 `outbox_event` 表（Flyway）；業務程式在同一個交易內寫入事件；發送器用 `SELECT ... FOR UPDATE SKIP LOCKED` 輪詢未發送的事件送到 Kafka，成功後標記（多副本不會重複搶同一筆）；清除已發送的舊資料 | 單元＋整合測試（Testcontainers 的 Kafka）：交易 rollback 時事件不會送出；Kafka 停掉時事件保留、恢復後送出 | 完成：整合測試。排序改用 DB 的 `sequence_id`，不依賴應用端時鐘 |
+| C3 | common：消費端共用元件。`processed_event` 表（`eventId` 主鍵）與業務更新在同一個交易內寫入，重複的事件直接略過；失敗有限次重試後送到 dead letter topic（`<topic>.DLT`） | 同一個事件送兩次只處理一次；處理失敗的事件進 DLT，不會卡住整個 partition | 完成：真實 PostgreSQL 與 Kafka 測試。重試與 DLT 由 `DefaultErrorHandler` 處理，格式與業務規則錯誤不重試 |
+| C4 | **付款成功改成事件**：payment 寫 `PaymentSucceeded` 到 outbox；order 消費後改為 PAID。移除 payment → order 的同步通知與 `OrderNotificationRetryJob` | 停掉 order 時付款仍然成功；order 恢復後自動變成 PAID；E2E 通過 | 完成：kind 停機恢復；舊路徑已移除（payment V6 migration 把未完成的舊通知轉成事件） |
+| C5 | **庫存確認、釋放改成事件**：order 在 PAID、CANCELLED 時寫 `OrderPaid`、`OrderCancelled`；inventory 消費後確認或釋放。移除 order 的 `ReservationSyncJob` 與 `reservation_synced` 欄位的補做邏輯 | 停掉 inventory 時取消與付款仍然成功；恢復後預扣正確確認或釋放 | 完成：kind 停機恢復與庫存數量；舊路徑已移除（order V8 migration） |
+| C6 | `product.events`、`user.events` 先開始發送（還沒有消費者），給 D、E 使用 | 事件出現在 topic 裡，格式符合規格 | 完成：契約整合測試與實際 topic 檢查 |
+| C7 | 可觀測：Outbox relay 與 listener 明確傳遞 W3C context，trace 跨過 Kafka 不斷；指標加 consumer lag、outbox 待發送數量、DLT 數量 | 一張訂單的 trace 包含非同步的部分；lag 有告警 | 完成：Tempo 看到跨 Kafka 的 trace；lag 與 DLT 告警實測 firing |
+
+驗收證據在 [evidence/phase-c/](evidence/phase-c/)。
 
 注意：
 
 - **保留的同步呼叫**：建單時的查商品與預扣、payment 建立付款時查訂單金額。這些需要當下的答案
 - inventory 的「預扣逾時釋放」排程保留：它是最後的安全網（訂單服務整個不見時，庫存也不會永遠被扣住）
 - 事件規格寫進 `docs/architecture/`，消費者以它為準，不直接依賴發送方的 Java 類別
-- Kafka 的認證（SASL/SCRAM）與 ACL：先靠 NetworkPolicy 隔離，記到 known-issues，對外環境前要補
+- Kafka 的認證（SASL/SCRAM）與 ACL：先靠 NetworkPolicy 隔離，已記到 known-issues 的 SEC-13，對外環境前要補
+- 實作時的決定：新舊路徑曾以 `app.events.enabled` 旗標過渡，驗收通過後已全部移除；事件 payload 與版本規則見 [event-contracts.md](../../architecture/event-contracts.md)
 
 ## 階段 D：搜尋（Elasticsearch）
 
@@ -175,11 +178,6 @@
 ## 待決事項（實作各階段前確認）
 
 - A：K8s 上的監控要自己放 `otel-lgtm`，還是用 Helm 的 kube-prometheus-stack（較貼近正式環境，但較重）
-- C：事件格式用 JSON 加文件規格，或導入 Schema Registry（Avro／Protobuf）。建議先用 JSON
+- C：（已決定）事件格式用 JSON 加文件規格；Schema Registry（Avro／Protobuf）有需要再評估
 - D：Elasticsearch 或 OpenSearch（授權條款不同）
 - F：金流商的選擇
-
-
-## 階段 C 驗收追蹤
-
-C1–C7 的逐項進度、審查修正、過渡路徑移除條件與尚未完成的驗收，見[事件實作計畫](event-implementation-plan.md)。階段 C 仍為進行中。
