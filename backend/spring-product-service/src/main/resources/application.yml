@@ -30,6 +30,9 @@ spring:
 # 帳密只用在本機，和 infra/seaweedfs/s3.json 一致；正式環境用環境變數覆蓋
 storage:
   endpoint: ${STORAGE_ENDPOINT:http://localhost:8333}
+  # 給瀏覽器直接上傳用的位址（只用在簽章網址）：沒設定就沿用 endpoint。
+  # 部署到 K8s 時 endpoint 是叢集內部的 Service 名稱，瀏覽器連不到，用環境變數 STORAGE_UPLOAD_ENDPOINT 設成對外位址
+  # （不在這裡寫 upload-endpoint: ${...:}，空字串會被綁成空的 URI）
   # 之後掛 CDN 只要換成 CDN 網域
   public-base-url: ${STORAGE_PUBLIC_BASE_URL:http://localhost:8333/product-images}
   bucket: product-images
