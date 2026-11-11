@@ -427,6 +427,36 @@
               }
             }
           ]
+        },
+        {
+          "uid": "mm-kafka-consumer-lag",
+          "title": "Kafka consumer lag 偏高",
+          "condition": "C",
+          "for": "5m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "annotations": { "summary": "{{ $labels.service }} 的 Kafka consumer lag 持續超過 1000 筆" },
+          "labels": { "severity": "warning" },
+          "data": [
+            { "refId": "A", "relativeTimeRange": { "from": 900, "to": 0 }, "datasourceUid": "prometheus", "model": { "refId": "A", "expr": "max by (service) (kafka_consumer_records_lag_max)", "instant": true, "intervalMs": 1000, "maxDataPoints": 43200 } },
+            { "refId": "B", "datasourceUid": "__expr__", "model": { "refId": "B", "type": "reduce", "expression": "A", "reducer": "last" } },
+            { "refId": "C", "datasourceUid": "__expr__", "model": { "refId": "C", "type": "threshold", "expression": "B", "conditions": [{ "evaluator": { "type": "gt", "params": [1000] } }] } }
+          ]
+        },
+        {
+          "uid": "mm-kafka-dlt",
+          "title": "Kafka 事件進入 DLT",
+          "condition": "C",
+          "for": "0s",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "annotations": { "summary": "事件進入 dead-letter topic；請檢查消費端錯誤" },
+          "labels": { "severity": "critical" },
+          "data": [
+            { "refId": "A", "relativeTimeRange": { "from": 900, "to": 0 }, "datasourceUid": "prometheus", "model": { "refId": "A", "expr": "sum(increase(events_dlt_published_total[5m]))", "instant": true, "intervalMs": 1000, "maxDataPoints": 43200 } },
+            { "refId": "B", "datasourceUid": "__expr__", "model": { "refId": "B", "type": "reduce", "expression": "A", "reducer": "last" } },
+            { "refId": "C", "datasourceUid": "__expr__", "model": { "refId": "C", "type": "threshold", "expression": "B", "conditions": [{ "evaluator": { "type": "gt", "params": [0] } }] } }
+          ]
         }
       ]
     }
