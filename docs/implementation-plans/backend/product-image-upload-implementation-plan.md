@@ -2,7 +2,7 @@
 
 > 建立日期：2026-11-09
 > 分支：`feature/product-image-upload`
-> 設計：[product-image-upload-design.md](../design/product-image-upload-design.md)（流程、關鍵決定、API、錯誤碼都以設計文件為準，這裡只列步驟與實作細節）
+> 設計：[product-image-upload-design.md](../../design/product-image-upload-design.md)（流程、關鍵決定、API、錯誤碼都以設計文件為準，這裡只列步驟與實作細節）
 > 狀態：Step 1–5 全部完成，並實際啟動驗證（2026-11-09）
 
 ## 進度
