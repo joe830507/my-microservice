@@ -19,8 +19,23 @@ onMounted(load)
 const submitting = ref(false)
 const failure = ref<CreateOrderFailure | null>(null)
 
+// 同一次結帳的冪等 key：沒收到回應而重送時沿用，後端回原本那張訂單，不會變成兩張；
+// 成功、確定失敗、或商品內容改變就換新的（同一個 key 搭配不同內容會被後端拒絕）
+let attempt: { key: string; signature: string } | null = null
+
+function keyFor(items: { productId: string; qty: number }[]): string {
+  const signature = items
+    .map((item) => `${item.productId}:${item.qty}`)
+    .sort()
+    .join(';')
+  if (attempt?.signature !== signature) {
+    attempt = { key: crypto.randomUUID(), signature }
+  }
+  return attempt.key
+}
+
 async function submit(): Promise<void> {
-  // 送出中不再送第二次：沒有冪等 key，重送會建立兩張訂單、各自預扣庫存
+  // 送出中不再送第二次
   if (submitting.value || purchasableLines.value.length === 0) {
     return
   }
@@ -29,15 +44,19 @@ async function submit(): Promise<void> {
   // 送出當下的商品清單：失敗訊息要用它把 SKU、id 換成名稱，成功後只移除這些
   const ordered = purchasableLines.value
   try {
-    const order = await createOrder({
-      items: ordered.map((line) => ({ productId: line.productId, qty: line.qty })),
-    })
+    const items = ordered.map((line) => ({ productId: line.productId, qty: line.qty }))
+    const order = await createOrder({ items }, keyFor(items))
+    attempt = null
     // 只移除這次下單的商品，無法購買而沒有送出的留在購物車
     cart.removeMany(ordered.map((line) => line.productId))
     // replace：按上一頁不會回到可以再送出的結帳頁
     await router.replace({ name: 'order-pay', params: { id: order.id } })
   } catch (error) {
     failure.value = createOrderFailure(error, ordered)
+    // 沒收到回應時訂單可能已建立：保留 key，再按一次送出就是安全的重送；其他失敗都是確定沒建立
+    if (!failure.value.uncertain) {
+      attempt = null
+    }
     // 購物車不變；商品狀態可能已經變了，重新查
     if (failure.value.refresh) {
       void load()

@@ -280,6 +280,58 @@ describe('結帳頁', () => {
       expect(useCartStore().items).toHaveLength(1)
     })
 
+    it('每次送出都帶 Idempotency-Key；沒收到回應後重送沿用同一個 key（不會變成兩張訂單）', async () => {
+      serveBatch([batch('a', 100)])
+      const keys: (string | null)[] = []
+      let calls = 0
+      server.use(
+        http.post('*/orders', ({ request }) => {
+          keys.push(request.headers.get('Idempotency-Key'))
+          calls++
+          return calls === 1
+            ? HttpResponse.error()
+            : HttpResponse.json(order({ id: 'order-7' }), { status: 200 })
+        }),
+      )
+      const { wrapper, router } = await mountCheckout([{ productId: 'a', qty: 1 }])
+
+      await submitButton(wrapper).trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[role="alert"]').text()).toContain('無法確認訂單是否已建立')
+      await submitButton(wrapper).trigger('click')
+      await flushPromises()
+
+      expect(keys).toHaveLength(2)
+      expect(keys[0]).toBeTruthy()
+      expect(keys[1]).toBe(keys[0])
+      // 重送拿到原本那張訂單（後端回 200）也照樣導到付款頁
+      expect(router.currentRoute.value.params.id).toBe('order-7')
+    })
+
+    it('確定沒建立的失敗之後，重送換新的 key', async () => {
+      serveBatch([batch('a', 100)])
+      const keys: (string | null)[] = []
+      let calls = 0
+      server.use(
+        http.post('*/orders', ({ request }) => {
+          keys.push(request.headers.get('Idempotency-Key'))
+          calls++
+          return calls === 1
+            ? problem(409, 'OUT_OF_STOCK', 'out of stock: SKU-a.')
+            : HttpResponse.json(order(), { status: 201 })
+        }),
+      )
+      const { wrapper } = await mountCheckout([{ productId: 'a', qty: 1 }])
+
+      await submitButton(wrapper).trigger('click')
+      await flushPromises()
+      await submitButton(wrapper).trigger('click')
+      await flushPromises()
+
+      expect(keys).toHaveLength(2)
+      expect(keys[1]).not.toBe(keys[0])
+    })
+
     it('其他錯誤（VALIDATION_FAILED）：顯示後端的訊息', async () => {
       serveBatch([batch('a', 100)])
       server.use(
