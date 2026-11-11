@@ -111,6 +111,8 @@ frontend/vue-management/
 
 ### Step 11：部署
 
+> vue-customer 已經做了第一套（Dockerfile、nginx、安全標頭、K8s），見 [vue-customer Step 11](../vue-customer/step-11-deployment.md)，這裡照著改：後台要加 `.env.production`、不需要商品圖片的 CSP 來源。
+
 - 多階段 Dockerfile：node build → nginx
 - nginx：SPA fallback（`try_files ... /index.html`），`/api` 轉發到 `http://api-gateway:8080`
 - K8s Deployment、Service

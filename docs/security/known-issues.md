@@ -11,11 +11,11 @@
 | 編號 | 問題 | 嚴重度 | 狀態 | 預計處理 |
 | ---- | ---- | ------ | ---- | -------- |
 | [SEC-01](#sec-01-顧客可以自己把訂單標成付款成功) | 顧客可以自己把訂單標成付款成功 | 高 | 未處理 | 接真的金流前 |
-| [SEC-02](#sec-02-繞過-gateway-直連服務可以偽造任何人的身分) | 繞過 Gateway 直連服務可以偽造任何人的身分 | 高 | 未處理 | Step 11（K8s 網路隔離） |
+| [SEC-02](#sec-02-繞過-gateway-直連服務可以偽造任何人的身分) | 繞過 Gateway 直連服務可以偽造任何人的身分 | 高 | 未處理（前端 Service 已是 ClusterIP） | 後端上 K8s 時（NetworkPolicy） |
 | [SEC-03](#sec-03-開發環境的預設設定不能帶上線) | 開發環境的預設設定不能帶上線 | 高 | 未處理 | Step 11 |
 | [SEC-04](#sec-04-註冊沒有頻率限制) | 註冊沒有頻率限制，且可列舉 Email | 中 | 未處理 | 待排 |
 | [SEC-05](#sec-05-登入鎖定依-email可被用來鎖住別人) | 登入鎖定依 Email，可被用來鎖住別人 | 中 | 未處理 | 待評估 |
-| [SEC-06](#sec-06-前端缺少瀏覽器端防護) | 前端缺少瀏覽器端防護（CSP、標頭；refresh token 在 localStorage） | 中 | 未處理 | Step 11 |
+| [SEC-06](#sec-06-前端缺少瀏覽器端防護) | 前端缺少瀏覽器端防護（CSP、標頭；refresh token 在 localStorage） | 中 | **部分處理**：標頭已加；CSP 未在瀏覽器驗證；token 仍在 localStorage | Step 11 |
 | [SEC-07](#sec-07-登出所有裝置後已發出的-access-token-仍然有效) | 登出所有裝置後已發出的 access token 仍然有效 | 中（設計限制） | 已在畫面說明 | — |
 | [SEC-08](#sec-08-錯誤訊息洩漏內部資訊) | 錯誤訊息洩漏內部類別名稱等資訊 | 低 | 未處理 | 待排 |
 | [SEC-09](#sec-09-服務直連的-actuator-與-swagger) | 服務直連的 actuator 公開、Swagger 預設開啟 | 低 | 未處理 | Step 11 |
@@ -37,6 +37,7 @@
 - **驗證**：對 `http://localhost:8082/api/v1/orders` 帶隨機的 `X-User-Id`，回 200。
 - **不受影響的路徑**：經過 Gateway 時這些 header 會被清掉再重新帶上；探測過「顧客帶偽造 `X-User-Roles: ADMIN`」、「匿名帶偽造 `X-User-Id` 建單」、「匿名帶偽造 `X-User-Roles` 讀草稿」都被擋下。
 - **風險**：安全完全取決於「服務的埠不能被外部連到」。
+- **進度（2026-11-11）**：vue-customer 的 K8s Service 已是 `ClusterIP`（不曝露）；後端服務還沒有 K8s 設定，`NetworkPolicy` 尚未做。
 - **處理方向**：
   - K8s 上所有後端服務只用 `ClusterIP`，不可用 `NodePort`、`LoadBalancer`，對外只開 api-gateway（或 Ingress）
   - 加 `NetworkPolicy`：只允許 api-gateway 連進各服務，服務之間只開需要的方向（order → product / inventory、payment → order）
@@ -71,6 +72,7 @@
 - refresh token 存在 localStorage：一旦出現 XSS 就會被竊取。目前前端沒有 `v-html`、`innerHTML`、`eval`，商品說明等外部內容都用文字插值輸出，`npm audit --omit=dev` 為 0 個漏洞，所以現況風險低，但沒有第二道防線
 - 還沒有 `Content-Security-Policy`、`X-Frame-Options`（或 `frame-ancestors`）、`X-Content-Type-Options: nosniff`、`Referrer-Policy`
 - **處理方向**：Step 11 的 nginx 設定加上這些標頭；之後考慮把 refresh token 改成 `HttpOnly` cookie（會牽涉 CSRF 與後端改動）。
+- **進度（2026-11-11）**：[vue-customer Step 11](../implementation-plans/vue-customer/step-11-deployment.md) 的 nginx 已加上 CSP（嚴格：只允許同源，圖片另外允許物件儲存）、`nosniff`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`，並用 Docker 與 kind 驗證每個回應都帶標頭。**還沒有在瀏覽器裡驗證 CSP 不會擋掉頁面或圖片**；HSTS 要在 TLS 終結處（Ingress）加；後台（vue-management）還沒有部署設定；refresh token 還在 localStorage。
 
 ## SEC-07 登出所有裝置後已發出的 access token 仍然有效
 

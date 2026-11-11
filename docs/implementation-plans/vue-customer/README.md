@@ -3,7 +3,7 @@
 > 建立日期：2026-11-10
 > 分支：之後另開 `feature/vue-customer`
 > 位置：`frontend/vue-customer`（目前只有 `.gitkeep`）
-> 狀態：進行中（Step 0–10 完成）
+> 狀態：進行中（Step 0–11 完成）
 
 顧客用的商店前台：瀏覽商品、購物車、註冊登入、下單、付款（模擬金流）、查詢自己的訂單。後台是 [vue-management](../vue-management/README.md)。
 
@@ -22,7 +22,7 @@
 | [8](step-08-payment.md) | 付款（模擬金流）                                             | 完成   |
 | [9](step-09-my-orders.md) | 我的訂單：列表、詳情、取消、繼續付款                         | 完成   |
 | [10](step-10-account.md) | 帳號頁：個人資料、登出所有裝置                               | 完成   |
-| 11   | 部署：Dockerfile、nginx、K8s                                 | 未開始 |
+| [11](step-11-deployment.md) | 部署：Dockerfile、nginx、K8s                                 | 完成（kind 上驗證；CSP 還沒在瀏覽器驗證） |
 | 12   | Playwright E2E（之後再做）                                   | 未開始 |
 
 每一步都附測試，測試通過後單獨 commit。文件的組織方式和 vue-management 一樣：開始一個 step 時，把它的段落搬到 `step-NN-<名稱>.md`，結果與遇到的問題記在那個檔案。
@@ -117,13 +117,6 @@ frontend/vue-customer/
 ---
 
 ## 還沒開始的 step
-
-### Step 11：部署
-
-- 和後台相同的做法：多階段 Dockerfile（node build → nginx）、SPA fallback、`/api` 轉發到 `http://api-gateway:8080`、K8s Deployment 與 Service
-- 和後台一起規劃網域（例如 `shop.example.com`、`admin.example.com`）
-
-**驗證**：在 kind 上實際從瀏覽商品走到付款成功，並在後台看到這張訂單。
 
 ### Step 12：E2E（之後再做）
 
