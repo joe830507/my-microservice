@@ -31,6 +31,7 @@ import tools.jackson.databind.ObjectMapper;
 @Testcontainers
 @SpringBootTest(properties = {
         "spring.kafka.listener.auto-startup=true",
+        "search.rebuild.on-startup=false",
         "app.events.outbox-poll-interval=3600000"
 })
 @Import(TestcontainersConfiguration.class)
@@ -65,6 +66,9 @@ class ProductIndexEventListenerIntegrationTests {
 
     @Autowired
     ProductIndexManager indexManager;
+
+    @Autowired
+    ProductIndexRebuildService rebuildService;
 
     @Autowired
     MeterRegistry metrics;
@@ -134,6 +138,28 @@ class ProductIndexEventListenerIntegrationTests {
         var document = elasticsearch.get(g -> g.index(ProductIndexManager.ALIAS).id(productId), ProductDocument.class)
                 .source();
         assertThat(document.name()).isEqualTo("recovered");
+    }
+
+    @Test
+    void missingAliasDuringInitialRebuildRetriesUntilIndexIsReady() throws Exception {
+        String productId = UUID.randomUUID().toString();
+        double indexedBefore = counter("indexed");
+        double dltBefore = metrics.counter("events.dlt.published").count();
+        for (String index : indexManager.indicesForAlias(ProductIndexManager.ALIAS)) {
+            indexManager.deleteIndex(index);
+        }
+
+        send(event(productId, 1, "initial-index-ready"));
+        boolean reachedDltWhileAliasMissing = awaitUntil(() ->
+                metrics.counter("events.dlt.published").count() > dltBefore, Duration.ofSeconds(3));
+        assertThat(reachedDltWhileAliasMissing).isFalse();
+
+        rebuildService.rebuild(false);
+        await(() -> counter("indexed") > indexedBefore, Duration.ofSeconds(20), "event indexing after initial rebuild");
+        assertThat(metrics.counter("events.dlt.published").count()).isEqualTo(dltBefore);
+        var document = elasticsearch.get(g -> g.index(ProductIndexManager.ALIAS).id(productId), ProductDocument.class)
+                .source();
+        assertThat(document.name()).isEqualTo("initial-index-ready");
     }
 
     private void send(String event) throws Exception {

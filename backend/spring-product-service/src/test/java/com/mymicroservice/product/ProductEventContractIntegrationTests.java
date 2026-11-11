@@ -19,6 +19,7 @@ import com.mymicroservice.product.service.ProductService;
 import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(properties = {"spring.kafka.listener.auto-startup=false",
+        "search.rebuild.on-startup=false",
         "app.events.outbox-poll-interval=3600000"})
 @Import(TestcontainersConfiguration.class)
 class ProductEventContractIntegrationTests {

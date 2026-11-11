@@ -90,13 +90,27 @@ public class ProductIndexEventListener {
             String result = indexedVersion < 0 ? "stale_skipped" : "indexed";
             meterRegistry.counter("search.index.events", "result", result).increment();
         } catch (ElasticsearchException failure) {
-            if (failure.status() == 429 || failure.status() >= 500) {
+            if (failure.status() == 429 || failure.status() >= 500 || isMissingIndex(failure.error())) {
                 throw new ProductIndexingTransientException(failure);
             }
             throw new IllegalArgumentException("Elasticsearch rejected product event document", failure);
         } catch (IOException failure) {
             throw new ProductIndexingTransientException(failure);
         }
+    }
+
+    private static boolean isMissingIndex(co.elastic.clients.elasticsearch._types.ErrorCause cause) {
+        if (cause == null) {
+            return false;
+        }
+        if ("index_not_found_exception".equals(cause.type()) || "alias_not_found_exception".equals(cause.type())
+                || "alias_missing_exception".equals(cause.type())) {
+            return true;
+        }
+        if (isMissingIndex(cause.causedBy())) {
+            return true;
+        }
+        return cause.rootCause().stream().anyMatch(ProductIndexEventListener::isMissingIndex);
     }
 
     private static String requiredText(JsonNode object, String field) {

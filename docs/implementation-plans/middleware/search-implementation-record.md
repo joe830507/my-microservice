@@ -3,7 +3,7 @@
 > 日期：2026-11-11
 > 分支：`feature/search-phase-d`（從階段 C 後續計畫分支切出）
 > 對應：[實作計畫](search-implementation-plan.md)、[roadmap](middleware-roadmap.md)
-> 狀態：D1–D3 完成；D4–D7 尚未開始
+> 狀態：D1–D4 完成；D5–D7 尚未開始
 
 ## 內容
 
@@ -12,7 +12,8 @@
 | D1 | 單節點 Elasticsearch／SmartCN 映像、Compose、kind、NetworkPolicy、中文分詞與召回實驗已完成；完整 reactor 通過 |
 | D2 | ES Java client、商品索引 mapping、索引與別名管理、`_meta` 更新、商品快照轉換及 `external_gte` 寫入已完成；真實 ES Testcontainers 驗收通過 |
 | D3 | 商品事件契約與 Elasticsearch listener 已完成；真實 Kafka＋ES 測試涵蓋亂序版本、DLT 與暫時故障恢復 |
-| D4–D7 | 待實作；目前商店搜尋仍使用既有 SQL |
+| D4 | 全量重建、補灌、原子 alias 切換、跨副本鎖、背景啟動修復及內部 API 已完成；真實 PostgreSQL＋ES 驗收通過 |
+| D5–D7 | 待實作；目前商店搜尋仍使用既有 SQL |
 
 ## 規則與版本
 
@@ -76,6 +77,26 @@ powershell -NoProfile -File infra/k8s/scripts/verify-phase-d.ps1
 - 2026-11-11 21:30:52：共用 outbox 回歸 4 項通過（`OutboxRelayIntegrationTests` 3 項、`ResilientEventConsumerTest` 1 項），common SUCCESS。
 - wrapper 腳本在目前 shell 啟動時有 `icm` 錯誤；命令改用 wrapper 已下載的 Maven 3.10.0 執行檔。首次在未提升權限的 shell 執行時 Maven 無法存取 `%USERPROFILE%\.m2` 本機快取，提升後使用相同離線命令成功；不需要網路下載。
 
+## D4 全量重建
+
+- `ProductIndexRebuildService` 在 JDBC session connection 上取得固定 key 的 PostgreSQL `pg_try_advisory_lock`，整個流程持鎖到結束；取得失敗時立即回報略過，不排隊。重建開始時間在取得鎖後記錄，新增 `products-<UTC 時間>-<隨機尾碼>` 索引，初始 `_meta.built=false`。
+- 全量讀取採 UUIDv7 `id > lastId order by id limit 500` keyset 分頁。Bulk request 每筆帶商品 `@Version` 與 `external_gte`；逐項檢查錯誤，僅把 409 視為舊版略過，其他失敗直接中止。失敗時刪除尚未掛 alias 的新索引，原 alias 保持不變。
+- 全量寫完後將 `built=true`，用單一 `_aliases` 請求移除所有舊 alias 並掛上新索引，再以 `updatedAt >= T - 5 分鐘` 的 bounded keyset 分頁補灌。補灌若失敗，將新索引標回 `built=false`，讓未來啟動修復可再建；alias 舊索引預設保留，`deleteOld=true` 才刪除。
+- 搜尋 alias 尚不存在時，事件索引寫入會帶 ES `require_alias=true`，避免 ES 把 `products` 意外自動建成具名索引；這個初始化窗口視為暫時性狀態持續重試。索引建立與切換仍由 listener 的 external version 保護事件亂序。
+- `ProductIndexStartupRebuilder` 在 `ApplicationReadyEvent` 後使用單執行緒背景 executor；alias 不存在、schema version 不符或尚未 built 時自動呼叫重建，不阻塞服務啟動。內部入口為 `POST /internal/v1/products/search-index/rebuild?deleteOld=false`，沒有新增 Gateway 路由。新增 `search.rebuild.duration` timer、`search.rebuild.documents` counter 與 `search.rebuild.failures` counter，並記錄每批進度與結果。
+- 未新增資料庫 migration。D3 Kafka listener 測試另外加上首建期間 alias 缺失的重試案例，防止初始化事件被 DLT。
+
+驗證命令（在 `backend` 執行）：
+
+```powershell
+& "$env:USERPROFILE\.m2\wrapper\dists\apache-maven-3.10.0\2aaba761688b1a6ea5a46e7e5f4d5406ed7a75ee8da95e5e3079863a23461c9b\bin\mvn.cmd" -o -pl spring-product-service -am "-Dtest=ProductIndexRebuildIntegrationTests" "-Dsurefire.failIfNoSpecifiedTests=false" test
+& "$env:USERPROFILE\.m2\wrapper\dists\apache-maven-3.10.0\2aaba761688b1a6ea5a46e7e5f4d5406ed7a75ee8da95e5e3079863a23461c9b\bin\mvn.cmd" -o -pl spring-product-service -am "-Dtest=ProductIndexEventListenerIntegrationTests,ProductEventContractIntegrationTests" "-Dsurefire.failIfNoSpecifiedTests=false" test
+```
+
+- 2026-11-11 21:52:38：D4 PostgreSQL＋Elasticsearch 整合測試 7 項通過，reactor common、observability、product-service SUCCESS。覆蓋空資料庫與內部 API、501 筆跨批索引、重建期間 DB 更新補灌、bulk 失敗不切換、advisory lock 不等待、舊索引選擇性刪除、schemaVersion 不符時背景修復。
+- 2026-11-11 21:51:23：D3 事件契約與 Kafka＋ES listener 測試共 5 項通過，包含首建 alias 未存在時事件不進 DLT，alias 建立後成功索引。
+- 驗收使用真實 PostgreSQL Testcontainers 與從 `infra/elasticsearch/Dockerfile` 建置的 SmartCN Elasticsearch Testcontainer；無資料庫 schema 變更。
+
 | 範例 | smartcn | standard |
 |---|---|---|
 | 無線藍牙耳機 | 無、線、藍、牙、耳、機 | 無、線、藍、牙、耳、機 |
@@ -92,9 +113,9 @@ powershell -NoProfile -File infra/k8s/scripts/verify-phase-d.ps1
 ## 已知限制
 
 - SmartCN 對部分繁體中文仍逐字分詞；`name.char` 能補召回，但目前 OR 子句可能過度召回。D5 相關性測試要覆蓋長句與共字負例，若要改變計畫中的查詢語意，應先記錄計畫變更並討論。
-- 尚未實作全量重建或搜尋 API；D3 完成不代表 D4–D7 完成。
+- 尚未實作搜尋 API；D4 完成不代表 D5–D7 完成。
 - 未實際啟動 Kibana，僅確認 profile 與映像版本設定；D1 的分詞驗證直接使用 ES HTTP API。
 
 ## 最不確定、希望審查者重點看的地方
 
-繁體中文逐字分詞與 OR 查詢的誤召回；512Mi heap 在後續重建與雙副本索引器的負載下是否足夠；D3 對 retained 舊事件允許新增的 `brand`、`createdAt` 缺省並轉為空品牌／null 時間，需留意後續消費舊資料時建立完整搜尋快照的效果。前兩項目前只有小型實驗，容量尚未實測。
+繁體中文逐字分詞與 OR 查詢的誤召回；512Mi heap 在完整目錄重建的實際速度與高更新量補灌期間是否足夠；D3 對 retained 舊事件允許新增的 `brand`、`createdAt` 缺省並轉為空品牌／null 時間，需留意後續消費舊資料時建立完整搜尋快照的效果。前兩項尚未進行正式容量測試。
