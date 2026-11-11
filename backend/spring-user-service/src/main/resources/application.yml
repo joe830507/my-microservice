@@ -29,7 +29,9 @@ jwt:
   public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:./secrets/jwt-public.pem}
   key-id: user-service-2026-11
   issuer: user-service
-  access-token-ttl: 15m
+  # access token 無法撤銷（無狀態 JWT）：登出所有裝置、停用帳號後，已發出的 token 在到期前仍然有效。
+  # 時效越短風險越小；前端本來就會用 refresh token 自動換新，縮短對使用者沒有感覺。5 分鐘（SEC-07，原本 15 分鐘）
+  access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:5m}
   refresh-token-ttl: 14d
   refresh-token-reuse-grace: 10s
 app:

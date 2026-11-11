@@ -33,7 +33,7 @@ export async function getMe(): Promise<Me> {
 }
 
 // 撤銷這個帳號所有裝置的 refresh token（包含目前這台）；回 204。要帶 access token，所以不是 skipAuth
-// 已經發出去的 access token 仍會在到期前（約 15 分鐘）有效，這是無狀態 JWT 的限制
+// 已經發出去的 access token 仍會在到期前（約 5 分鐘）有效，這是無狀態 JWT 的限制
 export async function revokeAllSessions(): Promise<void> {
   await apiClient.delete('/users/me/sessions')
 }
