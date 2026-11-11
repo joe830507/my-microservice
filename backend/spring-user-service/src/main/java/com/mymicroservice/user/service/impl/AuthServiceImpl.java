@@ -83,12 +83,12 @@ public class AuthServiceImpl implements AuthService {
 
     // 會寫入 refresh token，不能是 readOnly
     @Override
-    public TokenResDto login(LoginReqDto loginReqDto) {
+    public TokenResDto login(LoginReqDto loginReqDto, String clientIp) {
         String email = loginReqDto.email();
 
         // 1. 失敗次數已達上限就直接擋下，不比對密碼：鎖住期間就算猜中密碼也拿不到 token
         // 帳號不存在的 email 一樣會被計數、鎖住，回應和存在的帳號相同
-        if (loginAttemptService.isBlocked(email)) {
+        if (loginAttemptService.isBlocked(email, clientIp)) {
             throw new AppException(UserErrorCode.TOO_MANY_LOGIN_ATTEMPTS);
         }
 
@@ -96,16 +96,16 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(email).orElse(null);
         if (user == null) {
             passwordEncoder.matches(loginReqDto.password(), dummyPasswordHash);
-            loginAttemptService.recordFailure(email);
+            loginAttemptService.recordFailure(email, clientIp);
             throw new AppException(UserErrorCode.INVALID_CREDENTIALS);
         }
         if (!passwordEncoder.matches(loginReqDto.password(), user.getPasswordHash())) {
-            loginAttemptService.recordFailure(email);
+            loginAttemptService.recordFailure(email, clientIp);
             throw new AppException(UserErrorCode.INVALID_CREDENTIALS);
         }
 
         // 3. 密碼正確：清除失敗次數（停用的帳號也是密碼正確，不算猜錯）
-        loginAttemptService.reset(email);
+        loginAttemptService.reset(email, clientIp);
 
         // 4. 密碼正確後才檢查狀態，否則從 403 就能得知帳號存在
         if (user.getStatus() != UserStatus.ACTIVE) {

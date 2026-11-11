@@ -46,9 +46,14 @@ app:
   refresh-token-cleanup:
     cron: "0 30 3 * * *"
     retention: 7d
-  # 同一個 email 在 window 內失敗 max-failures 次後，到 window 結束前一律回 429（LoginAttemptService）
+  # 兩層鎖定（LoginAttemptService，SEC-05）：
+  # 1. 同一個（email + 來源 IP）在 window 內失敗 max-failures 次後，那一組到 window 結束前一律回 429；
+  #    單一攻擊者來源只鎖得到自己，鎖不到本人從別處登入
+  # 2. 同一個 email 不分來源的失敗總次數達 max-failures-per-email 次，所有來源都鎖住：擋分散式暴力猜密碼
+  # 來源 IP 由 Gateway 用 X-Client-Ip 帶過來（沒有時視為同一個來源 unknown，行為等於只依 email）
   login-attempt:
     max-failures: 5
+    max-failures-per-email: 30
     window: 15m
 
 # API 文件（springdoc）：預設關閉（SEC-09）。Swagger UI 與 /v3/api-docs 會公開所有 API 的細節，只在本機開發用環境變數

@@ -4,10 +4,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.mymicroservice.common.web.UserContextHeaders;
 import com.mymicroservice.user.dtos.login.LoginReqDto;
 import com.mymicroservice.user.dtos.register.RegisterReqDto;
 import com.mymicroservice.user.dtos.register.RegisterResDto;
@@ -32,8 +34,9 @@ public class AuthController {
 
     @PostMapping(value = "/login", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.OK)
-    public TokenResDto login(@RequestBody @Valid LoginReqDto loginReqDto) {
-        return authService.login(loginReqDto);
+    public TokenResDto login(@RequestBody @Valid LoginReqDto loginReqDto,
+            @RequestHeader(value = UserContextHeaders.CLIENT_IP, required = false) String clientIp) {
+        return authService.login(loginReqDto, clientIp);
     }
 
     // 不需要 access token（呼叫時 access token 通常已過期），Gateway 要放行；身分由 refresh token 本身證明

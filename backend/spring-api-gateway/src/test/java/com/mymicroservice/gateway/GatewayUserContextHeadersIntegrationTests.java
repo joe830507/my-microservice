@@ -76,6 +76,36 @@ class GatewayUserContextHeadersIntegrationTests {
         return requests.getFirst();
     }
 
+    // ---------- X-Client-Ip（SEC-05）----------
+    // user-service 的登入失敗鎖定需要真實的用戶端 IP；Gateway 一定先清掉用戶端自己送的值，再填入解析出的來源 IP
+
+    @Test
+    void clientIp_forgedHeaderIsReplacedWithTheRealSourceIp_forPublicRoutes() {
+        webTestClient.get().uri("/api/v1/products")
+                .header("X-Client-Ip", "203.0.113.200")
+                .exchange()
+                .expectStatus().isOk();
+
+        LoggedRequest request = singleRequest(PRODUCT_SERVICE);
+        assertThat(request.getHeaders().getHeader("X-Client-Ip").values()).hasSize(1);
+        // 測試用戶端是本機：不是偽造的 203.0.113.200
+        assertThat(request.getHeaders().getHeader("X-Client-Ip").firstValue()).isNotEqualTo("203.0.113.200");
+        assertThat(request.getHeaders().getHeader("X-Client-Ip").firstValue()).isIn("127.0.0.1", "0:0:0:0:0:0:0:1");
+    }
+
+    @Test
+    void clientIp_isAlsoSetForAuthenticatedRequests_andForgedValueIsDropped() {
+        webTestClient.get().uri("/api/v1/users/me")
+                .headers(headers -> headers.setBearerAuth(TestJwts.validToken()))
+                .header("X-Client-Ip", "203.0.113.200")
+                .exchange()
+                .expectStatus().isOk();
+
+        LoggedRequest request = singleRequest(USER_SERVICE);
+        assertThat(request.getHeaders().getHeader("X-Client-Ip").values()).hasSize(1);
+        assertThat(request.getHeaders().getHeader("X-Client-Ip").firstValue()).isIn("127.0.0.1", "0:0:0:0:0:0:0:1");
+    }
+
     // ---------- 有有效的 JWT ----------
 
     @Test
