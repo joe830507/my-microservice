@@ -159,7 +159,30 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+  # 可觀測性（階段 A）：OpenTelemetry Collector + Prometheus + Tempo + Loki + Grafana 在同一個容器（本機開發用）
+  # 服務用 OTLP 送資料：OBSERVABILITY_EXPORT_ENABLED=true OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 再啟動服務
+  # Grafana：http://localhost:3000（匿名可看；本機專用，因為埠只綁 127.0.0.1）
+  observability:
+    image: grafana/otel-lgtm:0.40.0
+    container_name: my-microservice-observability
+    ports:
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+    volumes:
+      - observability-data:/data
+      # 儀表板：放進這個資料夾的 JSON 會自動載入（見 observability/dashboards/）
+      - ./observability/dashboards:/otel-lgtm/dashboards:ro
+      - ./observability/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/my-microservice.yaml:ro
+      # 告警規則（5xx、延遲、排程失敗、服務沒有回報、預扣被拒）
+      - ./observability/alerting.yaml:/otel-lgtm/grafana/conf/provisioning/alerting/my-microservice.yaml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
 volumes:
+  observability-data:
   product-db-data:
   user-db-data:
   object-storage-data:
