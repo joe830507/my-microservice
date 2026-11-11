@@ -15,8 +15,12 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import com.mymicroservice.common.exception.AppException;
+import com.mymicroservice.common.resilience.DownstreamCaller;
+import com.mymicroservice.common.resilience.DownstreamCallers;
 import com.mymicroservice.payment.exception.PaymentErrorCode;
+import com.mymicroservice.payment.properties.DownstreamServicesProperties;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.extern.slf4j.Slf4j;
 
 // 呼叫 order-service 的內部 API；回應類別由這邊自己定義，不依賴 order-service 的程式碼
@@ -24,18 +28,25 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class OrderClient {
     private final RestClient restClient;
+    private final DownstreamCaller caller;
 
-    public OrderClient(@Qualifier("orderRestClient") RestClient restClient) {
+    public OrderClient(@Qualifier("orderRestClient") RestClient restClient, DownstreamCallers callers,
+            DownstreamServicesProperties properties) {
         this.restClient = restClient;
+        this.caller = callers.create("order-service", properties.resilience());
     }
 
-    // 訂單不存在回 empty；連不上、逾時、5xx → 503 ORDER_SERVICE_UNAVAILABLE
+    // 訂單不存在回 empty；連不上、逾時、5xx、熔斷打開 → 503 ORDER_SERVICE_UNAVAILABLE
+    // 查詢是冪等的：連線失敗與 502／503／504 會重試
     public Optional<Order> findOrder(UUID orderId) {
         try {
-            return Optional.ofNullable(restClient.get()
+            return Optional.ofNullable(caller.callIdempotent(() -> restClient.get()
                     .uri("/internal/v1/orders/{id}", orderId)
                     .retrieve()
-                    .body(Order.class));
+                    .body(Order.class)));
+        } catch (CallNotPermittedException exception) {
+            log.warn("order-service circuit breaker is open, request not sent");
+            throw new AppException(PaymentErrorCode.ORDER_SERVICE_UNAVAILABLE);
         } catch (HttpClientErrorException exception) {
             if (exception.getStatusCode() == HttpStatus.NOT_FOUND) {
                 return Optional.empty();
@@ -50,11 +61,16 @@ public class OrderClient {
     // 通知付款成功（order-service 那邊是冪等的，重複呼叫沒關係）
     //   NOTIFIED  order-service 已改成 PAID（或本來就是）
     //   REJECTED  訂單已取消（409 ORDER_ALREADY_CANCELLED）或不存在：錢收了但訂單不成立，要退款
-    //   FAILED    連不上、逾時、5xx 或其他非預期回應：之後重試
+    //   FAILED    連不上、逾時、5xx、熔斷打開或其他非預期回應：之後由排程重試
+    // order-service 那邊是冪等的，所以連線失敗與 502／503／504 在這裡就先重試
     public NotifyResult notifyPaid(UUID orderId) {
         try {
-            restClient.post().uri("/internal/v1/orders/{id}/paid", orderId).retrieve().toBodilessEntity();
+            caller.callIdempotent(() -> restClient.post().uri("/internal/v1/orders/{id}/paid", orderId).retrieve()
+                    .toBodilessEntity());
             return NotifyResult.NOTIFIED;
+        } catch (CallNotPermittedException exception) {
+            log.warn("order-service circuit breaker is open, payment notification of order {} not sent", orderId);
+            return NotifyResult.FAILED;
         } catch (HttpClientErrorException exception) {
             String code = errorCode(exception);
             if ("ORDER_ALREADY_CANCELLED".equals(code) || exception.getStatusCode() == HttpStatus.NOT_FOUND) {
