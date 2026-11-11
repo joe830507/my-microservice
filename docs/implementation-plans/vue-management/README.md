@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/vue-management`
 > 位置：`frontend/vue-management`
-> 狀態：進行中（Step 11 完成；剩下 E2E）
+> 狀態：完成（Step 0–12）
 
 ## 進度
 
@@ -20,8 +20,8 @@
 | [8](step-08-inventory.md) | 庫存（放在商品編輯頁）                                     | 完成                                               |
 | [9](step-09-orders.md) | 訂單管理                                                   | 完成                                               |
 | [10](step-10-users.md) | 使用者列表                                                 | 完成                                               |
-| [11](step-11-deployment.md) | 部署：Dockerfile、nginx、K8s                               | 完成：kind 上驗證；CSP 還沒在瀏覽器驗證            |
-| 12   | Playwright E2E（之後再做）                                 | 未開始                                             |
+| [11](step-11-deployment.md) | 部署：Dockerfile、nginx、K8s                               | 完成：kind 上驗證；CSP 已在 Step 12 於瀏覽器驗證            |
+| [12](step-12-e2e.md) | Playwright E2E                                             | 完成：登入、建立商品、上傳主圖、上架；含對著 nginx（CSP）的驗證 |
 
 每一步都附測試，測試通過後單獨 commit。
 
@@ -105,10 +105,3 @@ frontend/vue-management/
 | 訂單     | `GET /orders`（ADMIN 可查全部）、`GET /orders/{id}`、`POST /orders/{id}/cancel`、`/ship`、`/complete`                                                                                              |
 | 使用者   | `GET /users`                                                                                                                                                                                               |
 
----
-
-## 還沒開始的 step
-
-### Step 12：E2E（之後再做）
-
-Playwright 搭配 compose：登入 → 建立商品 → 上傳主圖 → 上架。
