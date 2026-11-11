@@ -7,6 +7,7 @@
 | `architecture/` | 整體架構：服務切分、API、全域慣例、服務之間的互動 |
 | `implementation-plans/` | 每個服務（或共用模組）的實作步驟、進度與實際驗證結果 |
 | `design/` | 單一功能或技術選型的設計、評估，還沒排進實作計畫的也放這裡 |
+| `security/` | 已知的安全問題：現象、驗證方式、處理方向與處理狀態 |
 
 新增文件時依上表放進對應的資料夾；文件之間用相對路徑連結。
 
@@ -38,3 +39,9 @@
 |---|---|
 | [product-service-middleware-evaluation.md](design/product-service-middleware-evaluation.md) | product-service 的中介軟體評估；Redis 已導入，其餘評估中 |
 | [product-image-upload-design.md](design/product-image-upload-design.md) | 商品圖片上傳（MinIO / S3，本機改用 SeaweedFS）；已實作 |
+
+## 安全
+
+| 文件 | 內容 |
+|---|---|
+| [known-issues.md](security/known-issues.md) | 已知的安全問題（11 項，高風險 3 項）、驗證過沒有問題的項目、還沒檢查的範圍；**上線前必讀** |
