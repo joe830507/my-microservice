@@ -4,6 +4,39 @@
 // PENDING_PAYMENT → CANCELLED（顧客取消、付款逾時）
 export type OrderStatus = 'PENDING_PAYMENT' | 'PAID' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED'
 
+export const ORDER_STATUSES: OrderStatus[] = [
+  'PENDING_PAYMENT',
+  'PAID',
+  'SHIPPED',
+  'COMPLETED',
+  'CANCELLED',
+]
+
+// 列表只有摘要，沒有明細
+export interface OrderListItem {
+  id: string
+  userId: string
+  status: OrderStatus
+  totalAmount: number
+  createdAt: string
+}
+
+export interface OrderPage {
+  items: OrderListItem[]
+  // 從 0 開始
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+}
+
+// GET /orders 的查詢參數（page 從 0 開始）；一般使用者只會拿到自己的訂單，固定最新的在前
+export interface OrderQueryParams {
+  status?: OrderStatus
+  page: number
+  size: number
+}
+
 // 下單當下的商品快照：之後商品改名、改價都不影響這張訂單
 export interface OrderItem {
   productId: string

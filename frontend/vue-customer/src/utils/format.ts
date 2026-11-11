@@ -21,3 +21,8 @@ export function formatCountdown(ms: number): string {
   const seconds = totalSeconds % 60
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
+
+// 時間：本地時區、24 小時制；沒有值顯示「—」
+export function formatDateTime(value: string | null | undefined): string {
+  return value ? new Date(value).toLocaleString('zh-TW', { hour12: false }) : '—'
+}

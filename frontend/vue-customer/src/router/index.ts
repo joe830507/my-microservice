@@ -55,7 +55,6 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/features/checkout/CheckoutView.vue'),
         meta: { title: '結帳', requiresAuth: true },
       },
-      // 付款頁（Step 8）與我的訂單（Step 9）先放佔位頁，建單成功才有地方可以導
       {
         path: 'orders/:id/pay',
         name: 'order-pay',
@@ -68,6 +67,13 @@ export const routes: RouteRecordRaw[] = [
         name: 'orders',
         component: () => import('@/features/orders/OrderListView.vue'),
         meta: { title: '我的訂單', requiresAuth: true },
+      },
+      {
+        path: 'orders/:id',
+        name: 'order-detail',
+        component: () => import('@/features/orders/OrderDetailView.vue'),
+        props: true,
+        meta: { title: '訂單詳情', requiresAuth: true },
       },
       {
         path: 'login',
