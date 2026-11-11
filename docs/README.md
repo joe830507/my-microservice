@@ -34,6 +34,7 @@
 | [vue-customer/](implementation-plans/vue-customer/README.md) | 完成（Step 0–12）：顧客用的商店前台（Vue 3 + TS），瀏覽、購物車、下單、模擬付款、我的訂單 |
 | [backend-deployment-implementation-plan.md](implementation-plans/backend-deployment-implementation-plan.md) | 完成：後端 6 個服務與資料庫、Redis、物件儲存、兩個前端放進 K8s（kind 驗證）；NetworkPolicy、Secret；含實際攔截測試 |
 | [middleware-roadmap.md](implementation-plans/middleware-roadmap.md) | 規劃中：中介軟體導入計畫（可觀測性 → 韌性 → Kafka + Outbox → Elasticsearch → 通知 → 真的金流） |
+| [observability-implementation-plan.md](implementation-plans/observability-implementation-plan.md) | 完成（中介軟體階段 A）：指標、追蹤、log 用 OTLP 送到 Grafana LGTM；儀表板、告警規則；本機與 kind 都驗證 |
 
 ## 設計與評估
 

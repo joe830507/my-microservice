@@ -45,6 +45,16 @@ spec:
             - name: http
               containerPort: 8082
           env:
+            # 可觀測性（階段 A）：指標、追蹤、log 用 OTLP 送到 observability
+            - name: OBSERVABILITY_EXPORT_ENABLED
+              value: "true"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://observability:4318
+            - name: DEPLOYMENT_ENVIRONMENT
+              value: kind
+            # log 用結構化 JSON（observability 模組的 logback-spring.xml 裡的 json-logs profile）
+            - name: SPRING_PROFILES_INCLUDE
+              value: json-logs
             - name: SPRING_DATASOURCE_URL
               value: jdbc:postgresql://order-db:5432/order_db
             - name: DB_USERNAME

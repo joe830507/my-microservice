@@ -98,9 +98,19 @@ else
   echo "  建立 bootstrap-admin"
 fi
 
+# Grafana 的 admin 密碼（可觀測性）；匿名只能看，要改儀表板或告警規則才需要登入
+if kc get secret observability >/dev/null 2>&1; then
+  echo "  跳過 observability（已存在）"
+else
+  kc create secret generic observability --from-literal=grafana-admin-password="$(rand)" >/dev/null
+  echo "  建立 observability"
+fi
+
 cat <<MSG
 
 完成。管理員帳密不會印出來，需要時用：
   kubectl -n $NS get secret bootstrap-admin -o jsonpath='{.data.email}' | base64 -d; echo
   kubectl -n $NS get secret bootstrap-admin -o jsonpath='{.data.password}' | base64 -d; echo
+Grafana 的 admin 密碼：
+  kubectl -n $NS get secret observability -o jsonpath='{.data.grafana-admin-password}' | base64 -d; echo
 MSG

@@ -57,6 +57,7 @@
 | inventory-service | 8083 | 5434 | — |
 | user-service | 8084 | 5435 | 6380（登入失敗計數） |
 | payment-service | 8085 | 5436 | — |
+| observability（Grafana LGTM，compose） | Grafana 3000、OTLP 4317／4318 | — | — |
 
 > 現有的 `GET /api/v1/products/batch` 給 order-service（建單檢查與快照）和前台購物車（購物車不需登入，訪客也會呼叫）使用。不是 ADMIN 時，非上架中（ACTIVE）的商品只回 `id` 與 `status`，`sku`、`name`、`price` 為 `null`，呼叫端只需要知道「不能買」。之後可以搬到 `/internal/v1/products/batch`，或是對內、對外各留一支；雛型階段先不動。
 
@@ -68,6 +69,7 @@
 backend/
 ├── pom.xml                    聚合 pom（packaging pom，只有 <modules>）
 ├── common/                    共用模組（Spring Boot auto-configuration）
+├── observability/             可觀測性的共用設定與依賴（指標、追蹤、log），6 個服務都依賴，包含 Gateway
 ├── spring-product-service/    parent：spring-boot-starter-parent，依賴 common
 ├── spring-user-service/       同上
 ├── ...

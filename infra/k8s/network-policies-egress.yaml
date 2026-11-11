@@ -291,4 +291,27 @@ spec:
         - podSelector:
             matchLabels:
               app: object-storage
+---
+# 六個後端服務都要把指標、追蹤、log 送到 observability
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-observability-egress
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: ["api-gateway", "user-service", "product-service", "inventory-service", "order-service", "payment-service"]
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: observability
+      ports:
+        - protocol: TCP
+          port: 4317
+        - protocol: TCP
+          port: 4318
 # 資料庫與 Redis 不需要連任何地方：只有 default-deny-egress 與 DNS

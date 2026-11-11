@@ -5,6 +5,10 @@
 # 匯出（OTLP，送到 OpenTelemetry Collector）預設關閉：沒有 collector 的環境（單元測試、單獨啟動服務）不會一直重試與報錯。
 # 追蹤本身永遠開著（log 裡的 traceId、服務之間的 traceparent 傳遞都不需要 collector）。
 # 在 compose、K8s 設 OBSERVABILITY_EXPORT_ENABLED=true 與 OTEL_EXPORTER_OTLP_ENDPOINT 開啟匯出。
+spring:
+  main:
+    # Banner 走 logger：json-logs（結構化 JSON）時才不會有一段非 JSON 的行混在 log 裡
+    banner-mode: log
 management:
   endpoints:
     web:

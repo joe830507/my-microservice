@@ -353,3 +353,26 @@ spec:
           port: 8888
         - protocol: TCP
           port: 18888
+---
+# observability：只有後端服務送 OTLP 進來（4317 gRPC、4318 HTTP）。Grafana（3000）不開放給其他 Pod，只用 port-forward 連
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-observability
+spec:
+  podSelector:
+    matchLabels:
+      app: observability
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: ["api-gateway", "user-service", "product-service", "inventory-service", "order-service", "payment-service"]
+      ports:
+        - protocol: TCP
+          port: 4317
+        - protocol: TCP
+          port: 4318
