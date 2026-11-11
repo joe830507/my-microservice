@@ -1,5 +1,6 @@
 package com.mymicroservice.product.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,6 +17,9 @@ public interface ProductImageRepository extends JpaRepository<ProductImage, UUID
     Optional<ProductImage> findByIdAndProductId(UUID id, UUID productId);
 
     Optional<ProductImage> findByProductIdAndIsPrimaryTrue(UUID productId);
+
+    // 商品列表一次查出這一頁所有商品的主圖，不必每個商品各查一次
+    List<ProductImage> findAllByProductIdInAndIsPrimaryTrue(Collection<UUID> productIds);
 
     int countByProductId(UUID productId);
 }

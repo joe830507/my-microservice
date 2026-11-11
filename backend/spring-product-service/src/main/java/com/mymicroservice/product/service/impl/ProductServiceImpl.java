@@ -1,9 +1,15 @@
 package com.mymicroservice.product.service.impl;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.domain.Specification;
@@ -23,7 +29,9 @@ import com.mymicroservice.product.dto.product.getProductList.ProductQueryRespons
 import com.mymicroservice.product.dto.product.getProductsByIds.GetProductsByIdsRes;
 import com.mymicroservice.product.dto.product.updateOneProduct.UpdateOneProductReq;
 import com.mymicroservice.product.dto.product.updateOneProduct.UpdateOneProductRes;
+import com.mymicroservice.product.entity.Category;
 import com.mymicroservice.product.entity.Product;
+import com.mymicroservice.product.entity.ProductImage;
 import com.mymicroservice.product.entity.ProductStatus;
 import com.mymicroservice.common.exception.AppException;
 import com.mymicroservice.common.exception.CommonErrorCode;
@@ -32,6 +40,7 @@ import com.mymicroservice.product.repository.CategoryRepository;
 import com.mymicroservice.product.repository.ProductImageRepository;
 import com.mymicroservice.product.repository.ProductRepository;
 import com.mymicroservice.product.service.ProductService;
+import com.mymicroservice.product.storage.ImageStorage;
 
 import lombok.RequiredArgsConstructor;
 
@@ -43,6 +52,7 @@ public class ProductServiceImpl implements ProductService {
     private final CategoryRepository categoryRepository;
     private final ProductImageRepository productImageRepository;
     private final ProductDetailCache productDetailCache;
+    private final ImageStorage imageStorage;
 
     @Override
     public AddOneNewProductRes addOneNewProduct(AddOneNewProductReq addOneNewProductReq) {
@@ -56,15 +66,17 @@ public class ProductServiceImpl implements ProductService {
     // 不開交易：快取命中時不需要拿 DB 連線；查 DB 時由 ProductDetailCache 自己開唯讀交易
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public GetProductByIdRes getProductById(UUID id) {
+    public GetProductByIdRes getProductById(UUID id, boolean includeUnpublished) {
+        // 可見性在讀快取之後判斷：快取存的是完整資料，不能把「這個人看不到」的結果快取起來
         return productDetailCache.findById(id)
+                .filter(detail -> includeUnpublished || detail.status() == ProductStatus.ACTIVE)
                 .orElseThrow(() -> new AppException(ProductErrorCode.PRODUCT_NOT_FOUND));
     }
 
     // 不開交易的原因同 getProductById
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public GetProductBySkuRes getProductBySku(String sku) {
+    public GetProductBySkuRes getProductBySku(String sku, boolean includeUnpublished) {
         // 對照本身查不到，代表 sku 不存在（查不到的結果也有快取），直接回 404，不重查 DB
         if (productDetailCache.findIdBySku(sku).isEmpty()) {
             throw new AppException(ProductErrorCode.PRODUCT_NOT_FOUND);
@@ -77,7 +89,8 @@ public class ProductServiceImpl implements ProductService {
             detail = findDetailBySku(sku);
         }
 
-        return detail.map(GetProductBySkuRes::from)
+        return detail.filter(found -> includeUnpublished || found.status() == ProductStatus.ACTIVE)
+                .map(GetProductBySkuRes::from)
                 .orElseThrow(() -> new AppException(ProductErrorCode.PRODUCT_NOT_FOUND));
     }
 
@@ -90,14 +103,46 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
-    public ProductQueryResponse getProductList(ProductQueryRequest productQueryRequest) {
-        Page<Product> productPage = productRepository.findAll(toSpecification(productQueryRequest),
+    public ProductQueryResponse getProductList(ProductQueryRequest productQueryRequest, boolean includeUnpublished) {
+        // 前台只看得到上架中的商品：忽略傳入的 status，固定查 ACTIVE
+        ProductStatus status = includeUnpublished ? productQueryRequest.status() : ProductStatus.ACTIVE;
+        Page<Product> productPage = productRepository.findAll(toSpecification(productQueryRequest, status),
                 productQueryRequest.toPageable());
-        return ProductQueryResponse.from(productPage);
+        return ProductQueryResponse.from(productPage, primaryImageUrls(productPage.getContent()));
+    }
+
+    // 分類自己加上所有子孫分類的 id（含停用的，商品的可見性另外由狀態決定）
+    // 分類數量有限，一次讀出全部再往下展開；用 result 記錄看過的 id，資料有循環也不會無限迴圈
+    private Set<UUID> withDescendants(UUID rootId) {
+        Map<UUID, List<UUID>> childrenByParentId = categoryRepository.findAll().stream()
+                .filter(category -> category.getParentId() != null)
+                .collect(Collectors.groupingBy(Category::getParentId,
+                        Collectors.mapping(Category::getId, Collectors.toList())));
+        Set<UUID> result = new HashSet<>();
+        Deque<UUID> pending = new ArrayDeque<>(List.of(rootId));
+        while (!pending.isEmpty()) {
+            UUID current = pending.pop();
+            if (result.add(current)) {
+                pending.addAll(childrenByParentId.getOrDefault(current, List.of()));
+            }
+        }
+        return result;
+    }
+
+    // 一次查出這一頁商品的主圖（每個商品最多一張主圖），轉成公開網址
+    private Map<UUID, String> primaryImageUrls(List<Product> products) {
+        if (products.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> ids = products.stream().map(Product::getId).toList();
+        return productImageRepository.findAllByProductIdInAndIsPrimaryTrue(ids).stream()
+                .collect(Collectors.toMap(ProductImage::getProductId,
+                        image -> imageStorage.publicUrl(image.getObjectKey()),
+                        (first, second) -> first));
     }
 
     // 只組合有傳入的條件，全部未傳入時等同查詢全部
-    private Specification<Product> toSpecification(ProductQueryRequest productQueryRequest) {
+    private Specification<Product> toSpecification(ProductQueryRequest productQueryRequest, ProductStatus status) {
         Specification<Product> specification = Specification.unrestricted();
 
         if (productQueryRequest.keyword() != null && !productQueryRequest.keyword().isBlank()) {
@@ -105,12 +150,16 @@ public class ProductServiceImpl implements ProductService {
             specification = specification.and((root, query, cb) -> cb.like(cb.lower(root.get("name")), pattern, '\\'));
         }
         if (productQueryRequest.categoryId() != null) {
-            specification = specification.and((root, query, cb) -> cb.equal(root.get("categoryId"),
-                    productQueryRequest.categoryId()));
+            if (Boolean.TRUE.equals(productQueryRequest.includeSubcategories())) {
+                Set<UUID> categoryIds = withDescendants(productQueryRequest.categoryId());
+                specification = specification.and((root, query, cb) -> root.get("categoryId").in(categoryIds));
+            } else {
+                specification = specification.and((root, query, cb) -> cb.equal(root.get("categoryId"),
+                        productQueryRequest.categoryId()));
+            }
         }
-        if (productQueryRequest.status() != null) {
-            specification = specification.and((root, query, cb) -> cb.equal(root.get("status"),
-                    productQueryRequest.status()));
+        if (status != null) {
+            specification = specification.and((root, query, cb) -> cb.equal(root.get("status"), status));
         }
         if (productQueryRequest.minPrice() != null) {
             specification = specification.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("price"),
@@ -131,8 +180,8 @@ public class ProductServiceImpl implements ProductService {
     // 不開交易的原因同 getProductById
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public GetProductsByIdsRes getProductsByIds(List<UUID> ids) {
-        return GetProductsByIdsRes.fromDetails(productDetailCache.findAllByIds(ids));
+    public GetProductsByIdsRes getProductsByIds(List<UUID> ids, boolean includeUnpublished) {
+        return GetProductsByIdsRes.fromDetails(productDetailCache.findAllByIds(ids), includeUnpublished);
     }
 
     @Override

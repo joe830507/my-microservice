@@ -41,12 +41,13 @@ public interface ProductImageApi {
                         @Parameter(description = "商品 id（UUIDv7）", example = "01a17c88-9d2b-7788-a9e8-b7530ab28287") UUID productId,
                         @Valid AddOneNewProductImageReq addOneNewProductImageReq);
 
-        @Operation(summary = "查詢商品圖片列表", description = "依 sortOrder 排序。")
+        @Operation(summary = "查詢商品圖片列表", description = "依 sortOrder 排序。不是 ADMIN 時，非上架中的商品回 404。")
         @ApiResponses({
                         @ApiResponse(responseCode = "200", description = "查詢成功"),
                         @ApiResponse(responseCode = "404", description = "商品不存在", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ProblemDetail.class)))
         })
         GetProductImagesRes getProductImages(
+                        @Parameter(hidden = true) String roles,
                         @Parameter(description = "商品 id（UUIDv7）", example = "01a17c88-9d2b-7788-a9e8-b7530ab28287") UUID productId);
 
         @Operation(summary = "修改商品圖片資訊", description = "只可修改描述類欄位（如 altText），主圖與排序請使用專用端點；version 須與目前版本一致。")

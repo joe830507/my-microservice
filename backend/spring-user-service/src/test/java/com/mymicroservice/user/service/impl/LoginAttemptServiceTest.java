@@ -25,7 +25,7 @@ class LoginAttemptServiceTest {
 
     private final StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
     private final LoginAttemptService service = new LoginAttemptService(redisTemplate,
-            new LoginAttemptProperties(5, Duration.ofMinutes(15)));
+            new LoginAttemptProperties(5, 30, Duration.ofMinutes(15)));
 
     @Test
     @SuppressWarnings("unchecked")
@@ -34,7 +34,7 @@ class LoginAttemptServiceTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(anyString())).thenThrow(REDIS_DOWN);
 
-        assertThat(service.isBlocked("alice@example.com")).isFalse();
+        assertThat(service.isBlocked("alice@example.com", "203.0.113.1")).isFalse();
     }
 
     @Test
@@ -42,14 +42,14 @@ class LoginAttemptServiceTest {
     void recordFailure_redisDown_doesNotThrow() {
         when(redisTemplate.execute(any(RedisScript.class), anyList(), any(Object[].class))).thenThrow(REDIS_DOWN);
 
-        assertThatCode(() -> service.recordFailure("alice@example.com")).doesNotThrowAnyException();
+        assertThatCode(() -> service.recordFailure("alice@example.com", "203.0.113.1")).doesNotThrowAnyException();
     }
 
     @Test
     void reset_redisDown_doesNotThrow() {
         when(redisTemplate.delete(anyString())).thenThrow(REDIS_DOWN);
 
-        assertThatCode(() -> service.reset("alice@example.com")).doesNotThrowAnyException();
+        assertThatCode(() -> service.reset("alice@example.com", "203.0.113.1")).doesNotThrowAnyException();
     }
 
     @Test

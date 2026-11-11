@@ -1,0 +1,16 @@
+# 安全標頭（SEC-06）。nginx 的 add_header 有個陷阱：location 裡只要有自己的 add_header，
+# 就不會繼承 server 層的，所以每個會輸出內容的 location 都要 include 這個檔案。
+# 副檔名不是 .conf，所以不會被 conf.d/*.conf 自動載入；由 default.conf 明確 include。
+
+# 前端打包後沒有 inline script / style，可以用嚴格的 CSP：
+# - 腳本、樣式、字型只允許同源；API 經 nginx 轉發，同源
+# - 商品圖片：顯示（img-src）與上傳（connect-src）都在物件儲存的來源。後台的圖片是瀏覽器用 presigned URL
+#   直接 PUT 到物件儲存，不經過 nginx，所以 connect-src 也要允許它（vue-customer 不上傳，不需要）
+# - 如果 Element Plus 的某個元件在執行期注入 <style> 而被擋，才考慮放寬 style-src，先在瀏覽器確認
+# - 不允許被嵌進 iframe、不允許 <object>、<base>、跨站表單送出
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: ${STORAGE_PUBLIC_ORIGIN}; font-src 'self'; connect-src 'self' ${STORAGE_PUBLIC_ORIGIN}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "DENY" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
+# HSTS 只能在 HTTPS 上設：TLS 在 Ingress / 負載平衡器終結，之後在那裡加 Strict-Transport-Security

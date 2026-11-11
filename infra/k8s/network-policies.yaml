@@ -1,0 +1,355 @@
+# 網路隔離（SEC-02）：後端服務信任 Gateway 帶來的 X-User-Id、X-User-Roles，不驗 JWT，
+# 所以「只有 Gateway 連得到服務」必須由網路強制。這份檔案先全部拒絕進入，再逐一開放需要的連線。
+#
+# 注意：NetworkPolicy 要 CNI 外掛實際執行才有效（kind 的 kindnet 在新版有支援；用 kubectl 的 dry-run 不會驗出來），
+# 部署後要實際驗證：從沒有權限的 Pod 連服務應該逾時（見 docs/implementation-plans/backend-deployment/）。
+# 這份只限制「進入」（Ingress）；出去（Egress）在 network-policies-egress.yaml。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress"]
+---
+# 前端（商店、後台）是對外入口：任何來源都可以連它的 8080。之後前面加 Ingress 時，可以改成只允許 Ingress 所在的 namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontends
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: ["vue-customer", "vue-management"]
+  policyTypes: ["Ingress"]
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8080
+---
+# Gateway 只接受前端 nginx 轉發過來的請求（nginx 會清掉用戶端自己帶的 X-User-* 並覆蓋 X-Forwarded-For）
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-from-frontends
+spec:
+  podSelector:
+    matchLabels:
+      app: api-gateway
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: vue-customer
+        - podSelector:
+            matchLabels:
+              app: vue-management
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+# user-service：Gateway 轉發登入、註冊，並抓 JWKS 驗證 JWT
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-user-service
+spec:
+  podSelector:
+    matchLabels:
+      app: user-service
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 8084
+---
+# product-service：Gateway 轉發；order-service 建單時查商品
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-product-service
+spec:
+  podSelector:
+    matchLabels:
+      app: product-service
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+        - podSelector:
+            matchLabels:
+              app: order-service
+      ports:
+        - protocol: TCP
+          port: 8081
+---
+# inventory-service：Gateway 轉發；order-service 預扣、確認、釋放庫存
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-inventory-service
+spec:
+  podSelector:
+    matchLabels:
+      app: inventory-service
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+        - podSelector:
+            matchLabels:
+              app: order-service
+      ports:
+        - protocol: TCP
+          port: 8083
+---
+# order-service：Gateway 轉發；payment-service 查訂單、通知已付款
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-order-service
+spec:
+  podSelector:
+    matchLabels:
+      app: order-service
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+        - podSelector:
+            matchLabels:
+              app: payment-service
+      ports:
+        - protocol: TCP
+          port: 8082
+---
+# payment-service：只有 Gateway
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-payment-service
+spec:
+  podSelector:
+    matchLabels:
+      app: payment-service
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 8085
+---
+# user-db：只有 user-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-user-db
+spec:
+  podSelector:
+    matchLabels:
+      app: user-db
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: user-service
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# product-db：只有 product-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-product-db
+spec:
+  podSelector:
+    matchLabels:
+      app: product-db
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: product-service
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# inventory-db：只有 inventory-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-inventory-db
+spec:
+  podSelector:
+    matchLabels:
+      app: inventory-db
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: inventory-service
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# order-db：只有 order-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-order-db
+spec:
+  podSelector:
+    matchLabels:
+      app: order-db
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: order-service
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# payment-db：只有 payment-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-payment-db
+spec:
+  podSelector:
+    matchLabels:
+      app: payment-db
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: payment-service
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# user-redis：只有 user-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-user-redis
+spec:
+  podSelector:
+    matchLabels:
+      app: user-redis
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: user-service
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+# product-redis：只有 product-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-product-redis
+spec:
+  podSelector:
+    matchLabels:
+      app: product-redis
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: product-service
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+# gateway-redis：只有 api-gateway
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-redis
+spec:
+  podSelector:
+    matchLabels:
+      app: gateway-redis
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+# object-storage 的 S3：只有 product-service（瀏覽器直傳與讀圖走對外的位址，不經過這裡）
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-object-storage
+spec:
+  podSelector:
+    matchLabels:
+      app: object-storage
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: product-service
+        - podSelector:
+            matchLabels:
+              app: object-storage-init
+      ports:
+        - protocol: TCP
+          port: 8333
+---
+# object-storage 的 master、master gRPC、filer、filer gRPC：只有建立 bucket 的初始化 Job
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-object-storage-admin
+spec:
+  podSelector:
+    matchLabels:
+      app: object-storage
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: object-storage-init
+      ports:
+        - protocol: TCP
+          port: 9333
+        - protocol: TCP
+          port: 19333
+        - protocol: TCP
+          port: 8888
+        - protocol: TCP
+          port: 18888

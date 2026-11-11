@@ -23,6 +23,10 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
     @EntityGraph(attributePaths = "items")
     Optional<Order> findWithItemsById(UUID id);
 
+    // 建單的冪等重送：同一個使用者、同一個 key 的訂單
+    @EntityGraph(attributePaths = "items")
+    Optional<Order> findWithItemsByUserIdAndIdempotencyKey(UUID userId, String idempotencyKey);
+
     // 取消：只有 PENDING_PAYMENT 才會改，回傳 1 = 成功、0 = 狀態不對
     // 同時把預扣標成「應該釋放、尚未同步」；呼叫 inventory 成功後再用 markReservationSynced 標成已同步
     // 條件式 UPDATE 會鎖住這一筆：和付款通知同時送達時，後到的重新判斷條件，只有一個會成功

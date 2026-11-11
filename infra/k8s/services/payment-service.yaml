@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  labels:
+    app: payment-service
+spec:
+  # ClusterIP：只在叢集內可連，進出由 NetworkPolicy 控制（見 network-policies.yaml）
+  type: ClusterIP
+  selector:
+    app: payment-service
+  ports:
+    - name: http
+      port: 8085
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  labels:
+    app: payment-service
+spec:
+  # 只有 1 個副本：定時工作（逾時取消、預扣釋放、通知重試）沒有分散式鎖，多個副本會重複執行
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: payment-service
+          image: my-microservice/payment-service:0.1.0
+          # 本機 kind 用 kind load 載入映像檔；換成映像檔倉庫後改成 IfNotPresent 或 Always
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8085
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://payment-db:5432/payment_db
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: payment-db
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: payment-db
+                  key: password
+            - name: ORDER_SERVICE_URI
+              value: http://order-service:8082
+            # 模擬金流回呼（顧客可以自己把付款標成成功）預設關閉（SEC-01）。這個示範環境的付款流程靠它完成，
+            # 所以明確開啟；對外的環境不可以開，要接真實金流（第三方伺服器呼叫並驗證簽章）
+            - name: PAYMENT_MOCK_CALLBACK_ENABLED
+              value: "true"
+          startupProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            # 唯讀根檔案系統：Tomcat 與 JVM 要寫的暫存目錄
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

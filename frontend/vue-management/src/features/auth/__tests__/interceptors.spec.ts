@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { ApiError, ClientErrorCode } from '@/api/errors'
 import apiClient from '@/api/http'
 import { installAuthInterceptors } from '../interceptors'
-import { REFRESH_TOKEN_KEY, useAuthStore, type AuthStore } from '../store'
+import { SESSION_HINT_KEY, useAuthStore, type AuthStore } from '../store'
 import { problem, tokens } from './fixtures'
 
 const server = setupServer()
@@ -33,7 +33,7 @@ afterEach(() => {
 // 已登入：access-1 / refresh-1
 function signIn(): void {
   store.accessToken = 'access-1'
-  store.refreshToken = 'refresh-1'
+  store.hasSession = true
 }
 
 // 只接受 access-2 的 API；其他 token 一律 401，和 Gateway 一樣
@@ -93,7 +93,7 @@ describe('installAuthInterceptors', () => {
     server.use(
       ordersAcceptingOnly('access-2'),
       http.post('*/auth/refresh', async ({ request }) => {
-        refreshBodies.push(await request.json())
+        refreshBodies.push(request.headers.get('X-Requested-With'))
         await delay(20)
         return HttpResponse.json(tokens(2))
       }),
@@ -103,10 +103,10 @@ describe('installAuthInterceptors', () => {
 
     expect(first.data).toEqual({ ok: true })
     expect(second.data).toEqual({ ok: true })
-    expect(refreshBodies).toEqual([{ refreshToken: 'refresh-1' }])
+    expect(refreshBodies).toEqual(['XMLHttpRequest'])
     expect(store.accessToken).toBe('access-2')
-    expect(store.refreshToken).toBe('refresh-2')
-    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBe('refresh-2')
+    expect(store.hasSession).toBe(true)
+    expect(localStorage.getItem(SESSION_HINT_KEY)).toBe('1')
     expect(onSessionExpired).not.toHaveBeenCalled()
   })
 
@@ -136,7 +136,7 @@ describe('installAuthInterceptors', () => {
 
   it('refresh 被拒絕：清除登入狀態，導回登入頁', async () => {
     signIn()
-    localStorage.setItem(REFRESH_TOKEN_KEY, 'refresh-1')
+    localStorage.setItem(SESSION_HINT_KEY, '1')
     server.use(
       ordersAcceptingOnly('access-2'),
       http.post('*/auth/refresh', () => problem(401, 'REFRESH_TOKEN_INVALID')),
@@ -146,8 +146,8 @@ describe('installAuthInterceptors', () => {
 
     expect(error.code).toBe('REFRESH_TOKEN_INVALID')
     expect(store.accessToken).toBeNull()
-    expect(store.refreshToken).toBeNull()
-    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBeNull()
+    expect(store.hasSession).toBe(false)
+    expect(localStorage.getItem(SESSION_HINT_KEY)).toBeNull()
     expect(onSessionExpired).toHaveBeenCalled()
   })
 
@@ -170,7 +170,7 @@ describe('installAuthInterceptors', () => {
     const error = await rejectionOf(apiClient.get('/orders'))
 
     expect(error.code).toBe(ClientErrorCode.NETWORK_ERROR)
-    expect(store.refreshToken).toBe('refresh-1')
+    expect(store.hasSession).toBe(true)
     expect(onSessionExpired).not.toHaveBeenCalled()
   })
 

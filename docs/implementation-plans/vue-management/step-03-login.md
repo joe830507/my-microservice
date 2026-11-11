@@ -37,7 +37,7 @@
 
 ### 設計
 
-- **token 存放**：access token 只放 Pinia（記憶體）；refresh token 另外寫進 localStorage（key `vue-management.refreshToken`），讀寫都包 try/catch，無痕模式讀寫失敗時只是重新整理後要重新登入
+- **token 存放**：access token 只放 Pinia（記憶體）；refresh token 另外寫進 localStorage（key `vue-management.refreshToken`），讀寫都包 try/catch，無痕模式讀寫失敗時只是重新整理後要重新登入（**2026-11-11 SEC-06 後已改為 HttpOnly cookie，見 [known-issues](../../security/known-issues.md)**）
 - **登入流程**：`/auth/login` → 保存 token → `/users/me` → 不是 `ADMIN` 就呼叫 `/auth/logout` 撤銷剛拿到的 refresh token，丟出 `NOT_ADMIN`；`/users/me` 失敗也一樣登出，不留下半登入的狀態
 - **refresh 同時只發一次**：store 保留進行中的 refresh Promise，同時收到 401 的請求共用它
 - **請求送出後 token 已被換新**：攔截器比對這個請求帶的 token 和 store 目前的 token，不同就直接用新 token 重送，不再 refresh（refresh token 每次都會輪替，多 refresh 一次只是浪費）

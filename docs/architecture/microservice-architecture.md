@@ -21,7 +21,7 @@
 | 服務 | 職責 | 狀態 |
 |---|---|---|
 | `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、限流 | 已實作；細節見 [api-gateway-implementation-plan.md](../implementation-plans/api-gateway-implementation-plan.md) |
-| `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取、圖片上傳到物件儲存）；讀取公開，新增、修改、刪除限 ADMIN；後台的分類列表 `GET /api/v1/categories`（含停用的分類）也限 ADMIN |
+| `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取、圖片上傳到物件儲存）；讀取公開，但不是 ADMIN 只看得到上架中（`ACTIVE`）的商品（列表、單筆、SKU、圖片；其他狀態回 404），批次查詢照舊帶 `status`；新增、修改、刪除限 ADMIN；後台的分類列表 `GET /api/v1/categories`（含停用的分類）也限 ADMIN |
 | `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 已實作 |
 | `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](../implementation-plans/inventory-service-implementation-plan.md) |
 | `spring-order-service` | 訂單、商品快照、訂單狀態 | 已實作；步驟見 [order-service-implementation-plan.md](../implementation-plans/order-service-implementation-plan.md) |
@@ -58,7 +58,7 @@
 | user-service | 8084 | 5435 | 6380（登入失敗計數） |
 | payment-service | 8085 | 5436 | — |
 
-> 現有的 `GET /api/v1/products/batch` 主要給 order-service 用。之後可以搬到 `/internal/v1/products/batch`，或是對內、對外各留一支；雛型階段先不動。
+> 現有的 `GET /api/v1/products/batch` 給 order-service（建單檢查與快照）和前台購物車（購物車不需登入，訪客也會呼叫）使用。不是 ADMIN 時，非上架中（ACTIVE）的商品只回 `id` 與 `status`，`sku`、`name`、`price` 為 `null`，呼叫端只需要知道「不能買」。之後可以搬到 `/internal/v1/products/batch`，或是對內、對外各留一支；雛型階段先不動。
 
 ---
 

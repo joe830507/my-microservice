@@ -7,6 +7,7 @@
 | `architecture/` | 整體架構：服務切分、API、全域慣例、服務之間的互動 |
 | `implementation-plans/` | 每個服務（或共用模組）的實作步驟、進度與實際驗證結果 |
 | `design/` | 單一功能或技術選型的設計、評估，還沒排進實作計畫的也放這裡 |
+| `security/` | 已知的安全問題：現象、驗證方式、處理方向與處理狀態 |
 
 新增文件時依上表放進對應的資料夾；文件之間用相對路徑連結。
 
@@ -29,7 +30,9 @@
 | [order-service-implementation-plan.md](implementation-plans/order-service-implementation-plan.md) | 完成：建單、查詢、取消、付款通知、付款逾時 |
 | [payment-service-implementation-plan.md](implementation-plans/payment-service-implementation-plan.md) | 完成：建立付款、模擬金流回呼、通知重試；含完整下單流程的實測 |
 | [product-image-upload-implementation-plan.md](implementation-plans/product-image-upload-implementation-plan.md) | 完成：商品圖片上傳（相容 S3 的物件儲存，本機用 SeaweedFS），商品能正常上架 |
-| [vue-management/](implementation-plans/vue-management/README.md) | 進行中（Step 10 完成，剩下部署與 E2E）：後台前端（Vue 3 + TS + Element Plus），登入、商品、圖片、庫存、訂單、使用者 |
+| [vue-management/](implementation-plans/vue-management/README.md) | 完成（Step 0–12）：後台前端（Vue 3 + TS + Element Plus），登入、商品、圖片、庫存、訂單、使用者 |
+| [vue-customer/](implementation-plans/vue-customer/README.md) | 完成（Step 0–12）：顧客用的商店前台（Vue 3 + TS），瀏覽、購物車、下單、模擬付款、我的訂單 |
+| [backend-deployment-implementation-plan.md](implementation-plans/backend-deployment-implementation-plan.md) | 完成：後端 6 個服務與資料庫、Redis、物件儲存、兩個前端放進 K8s（kind 驗證）；NetworkPolicy、Secret；含實際攔截測試 |
 
 ## 設計與評估
 
@@ -37,3 +40,9 @@
 |---|---|
 | [product-service-middleware-evaluation.md](design/product-service-middleware-evaluation.md) | product-service 的中介軟體評估；Redis 已導入，其餘評估中 |
 | [product-image-upload-design.md](design/product-image-upload-design.md) | 商品圖片上傳（MinIO / S3，本機改用 SeaweedFS）；已實作 |
+
+## 安全
+
+| 文件 | 內容 |
+|---|---|
+| [known-issues.md](security/known-issues.md) | 已知的安全問題（11 項，高風險 3 項）、驗證過沒有問題的項目、還沒檢查的範圍；**上線前必讀** |

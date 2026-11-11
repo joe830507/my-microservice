@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/vue-management`
 > 位置：`frontend/vue-management`
-> 狀態：進行中（Step 10、12 完成；剩下部署）
+> 狀態：完成（Step 0–12）
 
 ## 進度
 
@@ -20,7 +20,7 @@
 | [8](step-08-inventory.md) | 庫存（放在商品編輯頁）                                     | 完成                                               |
 | [9](step-09-orders.md) | 訂單管理                                                   | 完成                                               |
 | [10](step-10-users.md) | 使用者列表                                                 | 完成                                               |
-| 11   | 部署：Dockerfile、nginx、K8s                               | 未開始                                             |
+| [11](step-11-deployment.md) | 部署：Dockerfile、nginx、K8s                               | 完成：kind 上驗證；CSP 已在 Step 12 於瀏覽器驗證            |
 | [12](step-12-e2e.md) | Playwright E2E                                             | 完成：登入、建立商品、上傳主圖、上架；含對著 nginx（CSP）的驗證 |
 
 每一步都附測試，測試通過後單獨 commit。
@@ -87,7 +87,7 @@ frontend/vue-management/
 
 - **錯誤處理集中在一處**：後端統一回 ProblemDetail 加上 `code`（見 [backend-common-implementation-plan.md](../backend-common-implementation-plan.md)）。`errors.ts` 轉成 `ApiError`，畫面依 `code` 顯示對應訊息，例如 `PRODUCT_ARCHIVED`、`IMAGE_TOO_LARGE`
 - **refresh 同時只發一次**：後端的 refresh token 每次都會換新，舊的立即失效。多個請求同時收到 401 時要共用同一個 refresh Promise，否則後面的請求會拿已經失效的 token 去換。refresh 本身失敗就清除登入狀態，導回登入頁
-- **token 存放**：access token 只放記憶體（Pinia）；refresh token 雛型階段放 localStorage，有 XSS 風險，之後考慮改成 httpOnly cookie（需要後端配合）
+- **token 存放**：access token 只放記憶體（Pinia）；refresh token 雛型階段放 localStorage，有 XSS 風險，之後考慮改成 httpOnly cookie（需要後端配合）（**2026-11-11 SEC-06 後已改為 HttpOnly cookie**）
 - **角色檢查只影響畫面**：登入後用 `GET /api/v1/users/me` 確認是 `ADMIN`，不是就登出並提示。真正的權限檢查仍由 Gateway 與 `@RequireRoles` 負責
 - **列表條件放在 URL query**：重新整理、分享連結都能保留篩選與分頁
 
@@ -105,14 +105,3 @@ frontend/vue-management/
 | 訂單     | `GET /orders`（ADMIN 可查全部）、`GET /orders/{id}`、`POST /orders/{id}/cancel`、`/ship`、`/complete`                                                                                              |
 | 使用者   | `GET /users`                                                                                                                                                                                               |
 
----
-
-## 還沒開始的 step
-
-### Step 11：部署
-
-- 多階段 Dockerfile：node build → nginx
-- nginx：SPA fallback（`try_files ... /index.html`），`/api` 轉發到 `http://api-gateway:8080`
-- K8s Deployment、Service
-
-**驗證**：在 kind 上實際登入並跑一次建立商品 → 上傳主圖 → 上架。

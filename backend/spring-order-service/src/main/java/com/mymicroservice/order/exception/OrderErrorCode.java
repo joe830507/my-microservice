@@ -23,6 +23,9 @@ public enum OrderErrorCode implements ErrorCode {
     // 只有 SHIPPED 可以完成
     ORDER_NOT_COMPLETABLE(HttpStatus.CONFLICT, "order %s cannot be completed in status %s."),
 
+    // 同一個 Idempotency-Key 已經用過，但這次的商品與數量不一樣：不能默默回傳另一份內容的訂單
+    IDEMPOTENCY_KEY_REUSED(HttpStatus.UNPROCESSABLE_ENTITY, "idempotency key was already used with a different request."),
+
     // 建立訂單：列出所有有問題的商品 id 或 SKU，以逗號分隔
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "product not found: %s."),
     // 商品存在但不是上架狀態（DRAFT、INACTIVE、ARCHIVED）

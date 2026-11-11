@@ -1,0 +1,147 @@
+# 相容 S3 的物件儲存（商品圖片）；本機 / 示範用，正式環境用 S3 或其他託管服務。
+# 存取金鑰與匿名讀取權限在 Secret object-storage 的 s3.json（由 scripts/create-secrets.sh 產生，金鑰不在 repo 裡）：
+# 只有 products/ 開放匿名讀，tmp/ 私有。
+apiVersion: v1
+kind: Service
+metadata:
+  name: object-storage
+  labels:
+    app: object-storage
+spec:
+  # headless：名字直接解析到 Pod IP。SeaweedFS 以 -ip=object-storage 對外宣告位址，它自己的元件
+  # （master、volume server、filer）和初始化 Job 都用這個名字連過來；ClusterIP 只會轉發 Service 上列出的埠，
+  # volume server 的 8080 / 18080 不在其中，上傳就會失敗（No writable volumes）。只有 1 個副本，headless 沒有問題
+  clusterIP: None
+  selector:
+    app: object-storage
+  ports:
+    - name: s3
+      port: 8333
+      targetPort: s3
+    - name: master
+      port: 9333
+      targetPort: master
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: object-storage
+  labels:
+    app: object-storage
+spec:
+  serviceName: object-storage
+  replicas: 1
+  selector:
+    matchLabels:
+      app: object-storage
+  template:
+    metadata:
+      labels:
+        app: object-storage
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: seaweedfs
+          image: chrislusf/seaweedfs:3.80
+          args: ["server", "-s3", "-s3.port=8333", "-s3.config=/etc/seaweedfs/s3.json",
+                 "-dir=/data", "-ip=object-storage", "-ip.bind=0.0.0.0"]
+          ports:
+            - name: s3
+              containerPort: 8333
+            - name: master
+              containerPort: 9333
+            - name: master-grpc
+              containerPort: 19333
+            - name: filer
+              containerPort: 8888
+            - name: filer-grpc
+              containerPort: 18888
+          readinessProbe:
+            httpGet:
+              path: /cluster/status
+              port: master
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /cluster/status
+              port: master
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: s3-config
+              mountPath: /etc/seaweedfs
+              readOnly: true
+      volumes:
+        - name: s3-config
+          secret:
+            secretName: object-storage
+            items:
+              - key: s3.json
+                path: s3.json
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
+---
+# 建立 bucket、設定 tmp/ 一天後自動刪除（沒有登記的上傳檔案）；重複執行沒關係
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: object-storage-init
+  labels:
+    app: object-storage-init
+spec:
+  backoffLimit: 20
+  template:
+    metadata:
+      labels:
+        app: object-storage-init
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: init
+          image: chrislusf/seaweedfs:3.80
+          command: ["/bin/sh", "-c"]
+          args:
+            - >-
+              printf 's3.bucket.create -name product-images\nfs.configure -locationPrefix=/buckets/product-images/tmp/ -ttl=1d -apply\n'
+              | weed shell -master=object-storage:9333
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault

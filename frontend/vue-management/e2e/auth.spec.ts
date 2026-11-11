@@ -35,6 +35,25 @@ test.describe('沒有登入', () => {
     await expect(page.getByRole('menuitem', { name: '訂單管理' })).toBeVisible()
   })
 
+  test('登入後 refresh token 在 HttpOnly cookie：JavaScript 與 localStorage 都拿不到（SEC-06）', async ({
+    page,
+  }) => {
+    const { email, password } = adminCredentials()
+
+    await fillLogin(page, email, password)
+    await expect(page).toHaveURL(/\/$|\/products|\/orders/)
+
+    const cookies = await page.context().cookies()
+    const refresh = cookies.find((cookie) => cookie.name === 'refresh_token')
+    expect(refresh).toMatchObject({ httpOnly: true, sameSite: 'Strict', path: '/api/v1/auth' })
+    const visible = await page.evaluate(() => ({
+      cookie: document.cookie,
+      storage: JSON.stringify({ ...window.localStorage }),
+    }))
+    expect(visible.cookie).not.toContain('refresh_token')
+    expect(visible.storage).not.toContain(refresh?.value ?? 'missing')
+  })
+
   test('一般顧客登入：後台拒絕（沒有後台管理權限）', async ({ page, request }) => {
     // 固定一個顧客帳號，不會每次執行都多一個
     await ensureCustomer(request, 'e2e-customer@example.com', 'password123')

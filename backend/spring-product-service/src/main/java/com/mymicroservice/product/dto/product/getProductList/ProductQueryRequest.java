@@ -23,6 +23,8 @@ public record ProductQueryRequest(
         @Size(max = 255) String keyword,
 
         UUID categoryId,
+        // true 時連同 categoryId 的所有子孫分類一起查（前台點上層分類要看到底下的商品）；預設 false
+        Boolean includeSubcategories,
 
         ProductStatus status,
 
@@ -42,6 +44,9 @@ public record ProductQueryRequest(
 
     // 未傳入的分頁、排序參數補上預設值：第一頁、每頁 20 筆、最新的排前面
     public ProductQueryRequest {
+        if (includeSubcategories == null) {
+            includeSubcategories = Boolean.FALSE;
+        }
         if (page == null) {
             page = 0;
         }

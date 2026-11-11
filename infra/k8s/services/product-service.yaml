@@ -1,0 +1,128 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  labels:
+    app: product-service
+spec:
+  # ClusterIP：只在叢集內可連，進出由 NetworkPolicy 控制（見 network-policies.yaml）
+  type: ClusterIP
+  selector:
+    app: product-service
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+  labels:
+    app: product-service
+spec:
+  # 只有 1 個副本：定時工作（逾時取消、預扣釋放、通知重試）沒有分散式鎖，多個副本會重複執行
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product-service
+  template:
+    metadata:
+      labels:
+        app: product-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: product-service
+          image: my-microservice/product-service:0.1.0
+          # 本機 kind 用 kind load 載入映像檔；換成映像檔倉庫後改成 IfNotPresent 或 Always
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8081
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://product-db:5432/product_db
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: product-db
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: product-db
+                  key: password
+            - name: SPRING_DATA_REDIS_HOST
+              value: product-redis
+            - name: SPRING_DATA_REDIS_PORT
+              value: "6379"
+            - name: SPRING_DATA_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: product-redis
+                  key: password
+            # 物件儲存：product-service 自己操作物件（叢集內部位址）
+            - name: STORAGE_ENDPOINT
+              value: http://object-storage:8333
+            # 給瀏覽器直接上傳的簽章網址用對外位址：瀏覽器連不到叢集內部的 object-storage。
+            # 簽章包含 Host，這個值要和瀏覽器實際連線的主機與埠一致（kind 驗證時用 port-forward 到 localhost:8333）
+            - name: STORAGE_UPLOAD_ENDPOINT
+              value: http://localhost:8333
+            # 圖片的公開網址前綴（前台、後台的 <img> 與 CSP 的 img-src 都用它）
+            - name: STORAGE_PUBLIC_BASE_URL
+              value: http://localhost:8333/product-images
+            - name: STORAGE_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: object-storage
+                  key: access-key
+            - name: STORAGE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: object-storage
+                  key: secret-key
+          startupProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            # 唯讀根檔案系統：Tomcat 與 JVM 要寫的暫存目錄
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

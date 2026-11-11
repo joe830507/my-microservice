@@ -18,13 +18,15 @@ import com.mymicroservice.product.dto.product.updateOneProduct.UpdateOneProductR
 public interface ProductService {
     AddOneNewProductRes addOneNewProduct(AddOneNewProductReq addOneNewProductReq);
 
-    GetProductByIdRes getProductById(UUID id);
+    // includeUnpublished：false 時只看得到上架中（ACTIVE）的商品，其他狀態視同不存在；後台（ADMIN）傳 true
+    GetProductByIdRes getProductById(UUID id, boolean includeUnpublished);
 
-    GetProductBySkuRes getProductBySku(String sku);
+    GetProductBySkuRes getProductBySku(String sku, boolean includeUnpublished);
 
-    ProductQueryResponse getProductList(ProductQueryRequest productQueryRequest);
+    ProductQueryResponse getProductList(ProductQueryRequest productQueryRequest, boolean includeUnpublished);
 
-    GetProductsByIdsRes getProductsByIds(List<UUID> ids);
+    // includeUnpublished：false 時，不是上架中的商品只回 id 與 status（不回 sku、name、price）
+    GetProductsByIdsRes getProductsByIds(List<UUID> ids, boolean includeUnpublished);
 
     UpdateOneProductRes updateOneProduct(UUID id, UpdateOneProductReq updateOneProductReq);
 

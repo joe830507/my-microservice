@@ -1,0 +1,135 @@
+# 登入、註冊、JWT 簽發與驗證用的金鑰（JWKS）
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  labels:
+    app: user-service
+spec:
+  # ClusterIP：只在叢集內可連，進出由 NetworkPolicy 控制（見 network-policies.yaml）
+  type: ClusterIP
+  selector:
+    app: user-service
+  ports:
+    - name: http
+      port: 8084
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  labels:
+    app: user-service
+spec:
+  # 只有 1 個副本：定時工作（逾時取消、預扣釋放、通知重試）沒有分散式鎖，多個副本會重複執行
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: user-service
+          image: my-microservice/user-service:0.1.0
+          # 本機 kind 用 kind load 載入映像檔；換成映像檔倉庫後改成 IfNotPresent 或 Always
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8084
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://user-db:5432/user_db
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: user-db
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: user-db
+                  key: password
+            - name: SPRING_DATA_REDIS_HOST
+              value: user-redis
+            - name: SPRING_DATA_REDIS_PORT
+              value: "6379"
+            - name: SPRING_DATA_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: user-redis
+                  key: password
+            # 啟動時建立第一個管理員（SEC-12）：註冊只能建立 CUSTOMER，沒有這個就沒有任何方式取得管理員。
+            # 用設定開關開啟，不再為了這件事把整個服務切成 dev profile。建好之後把這個改成 "false"，並換掉 Secret 的密碼
+            - name: BOOTSTRAP_ADMIN_ENABLED
+              value: "true"
+            - name: BOOTSTRAP_ADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: bootstrap-admin
+                  key: email
+            - name: BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bootstrap-admin
+                  key: password
+            # JWT 金鑰從 Secret jwt-keys 掛進來（不放進映像檔）
+            - name: JWT_PRIVATE_KEY_LOCATION
+              value: file:/etc/jwt/jwt-private.pem
+            - name: JWT_PUBLIC_KEY_LOCATION
+              value: file:/etc/jwt/jwt-public.pem
+          startupProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            # 唯讀根檔案系統：Tomcat 與 JVM 要寫的暫存目錄
+            - name: tmp
+              mountPath: /tmp
+            - name: jwt-keys
+              mountPath: /etc/jwt
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: jwt-keys
+          secret:
+            secretName: jwt-keys
+            defaultMode: 0440

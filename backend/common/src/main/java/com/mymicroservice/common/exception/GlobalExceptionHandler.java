@@ -5,7 +5,9 @@ import java.util.stream.Collectors;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -60,7 +62,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         String detail = exception.getBindingResult().getAllErrors().stream()
                 .map(error -> error instanceof FieldError fieldError
-                        ? fieldError.getField() + ": " + fieldError.getDefaultMessage()
+                        ? describe(fieldError)
                         : error.getDefaultMessage())
                 .collect(Collectors.joining("; "));
         return ResponseEntity.status(CommonErrorCode.VALIDATION_FAILED.getStatus())
@@ -77,13 +79,46 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .flatMap(result -> result instanceof ParameterErrors errors
                         ? errors.getAllErrors().stream()
                                 .map(error -> error instanceof FieldError fieldError
-                                        ? fieldError.getField() + ": " + fieldError.getDefaultMessage()
+                                        ? describe(fieldError)
                                         : error.getDefaultMessage())
                         : result.getResolvableErrors().stream()
                                 .map(error -> parameterName(result) + ": " + error.getDefaultMessage()))
                 .collect(Collectors.joining("; "));
         return ResponseEntity.status(CommonErrorCode.VALIDATION_FAILED.getStatus())
                 .body(toProblemDetail(CommonErrorCode.VALIDATION_FAILED, detail));
+    }
+
+    // 欄位的驗證錯誤：「欄位: 訊息」。型別轉換失敗（bindingFailure，例如列舉欄位傳了不認識的值）的預設訊息是
+    // Spring 的原始例外文字，會帶出內部的類別名稱（例如 com.mymicroservice.order.enums.OrderStatus），改成不含內部資訊的固定訊息
+    private static String describe(FieldError fieldError) {
+        return fieldError.getField() + ": " + (fieldError.isBindingFailure() ? INVALID_VALUE : fieldError.getDefaultMessage());
+    }
+
+    private static final String INVALID_VALUE = "invalid value";
+
+    // 路徑變數、查詢參數的型別轉換失敗（例如 /orders/not-a-uuid）：Spring 預設的 detail 是
+    // 「Failed to convert 'id' with value: ...」，而且沒有 code 欄位。統一成 VALIDATION_FAILED，不回原始訊息
+    @Override
+    protected ResponseEntity<Object> handleTypeMismatch(TypeMismatchException exception, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+        String name = exception.getPropertyName() != null ? exception.getPropertyName() : "parameter";
+        return ResponseEntity.status(CommonErrorCode.VALIDATION_FAILED.getStatus())
+                .body(toProblemDetail(CommonErrorCode.VALIDATION_FAILED, name + ": " + INVALID_VALUE));
+    }
+
+    // Spring MVC 自己產生的錯誤（路徑不存在、方法不支援、JSON 格式錯誤等）沒有 code 欄位，和其他錯誤格式不一致：
+    // 補上以 HTTP 狀態命名的 code（NOT_FOUND、METHOD_NOT_ALLOWED...）
+    @Override
+    protected ResponseEntity<Object> handleExceptionInternal(Exception exception, Object body, HttpHeaders headers,
+            HttpStatusCode statusCode, WebRequest request) {
+        // ProblemDetail 是 super 內部才建立的（body 傳進來常常是 null），所以要在呼叫 super 之後再補 code
+        ResponseEntity<Object> response = super.handleExceptionInternal(exception, body, headers, statusCode, request);
+        if (response != null && response.getBody() instanceof ProblemDetail problemDetail
+                && (problemDetail.getProperties() == null || !problemDetail.getProperties().containsKey("code"))) {
+            HttpStatus httpStatus = HttpStatus.resolve(statusCode.value());
+            problemDetail.setProperty("code", httpStatus != null ? httpStatus.name() : "ERROR");
+        }
+        return response;
     }
 
     // 參數名稱需要編譯時加 -parameters（spring-boot-starter-parent 預設有開）；拿不到時退回參數位置

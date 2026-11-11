@@ -44,7 +44,7 @@ import com.mymicroservice.payment.PaymentTestData;
 import com.mymicroservice.payment.TestcontainersConfiguration;
 
 // POST /api/v1/payments/{id}/mock-callback：order-service 用 WireMock 模擬
-@SpringBootTest
+@SpringBootTest(properties = "payment.mock-callback.enabled=true")
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 class PaymentControllerMockCallbackIntegrationTests {

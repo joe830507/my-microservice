@@ -3,18 +3,15 @@ package com.mymicroservice.user.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
 import java.util.UUID;
-import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -26,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.jayway.jsonpath.JsonPath;
+import com.mymicroservice.user.RefreshCookies;
 import com.mymicroservice.user.TestcontainersConfiguration;
 import com.mymicroservice.user.service.impl.RefreshTokenGenerator;
 
@@ -106,8 +104,8 @@ class AuthControllerLogoutIntegrationTests {
         // 輪替後登出新的 token；舊 token 雖然還在寬限時間內，但換成的新 token 已失效，不能再換發
         UUID userId = register("alice@example.com");
         String original = loginForRefreshToken("alice@example.com");
-        String rotated = JsonPath.read(refresh(original).andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString(), "$.refreshToken");
+        String rotated = RefreshCookies.tokenOf(refresh(original).andExpect(status().isOk())
+                .andReturn());
 
         logout(rotated).andExpect(status().isNoContent());
 
@@ -150,27 +148,43 @@ class AuthControllerLogoutIntegrationTests {
         register("alice@example.com");
         String refreshToken = loginForRefreshToken("alice@example.com");
 
-        mockMvc.perform(post(LOGOUT_URL)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body(refreshToken)))
+        mockMvc.perform(RefreshCookies.postWithToken(LOGOUT_URL, refreshToken))
                 .andExpect(status().isNoContent());
     }
 
-    // ---------- 欄位驗證 ----------
+    // ---------- cookie 與 CSRF 檢查 ----------
 
-    static Stream<Arguments> invalidBodies() {
-        return Stream.of(
-                Arguments.of("缺少 refreshToken", "{}"),
-                Arguments.of("refreshToken 空白", "{\"refreshToken\": \" \"}"),
-                Arguments.of("refreshToken 過長", "{\"refreshToken\": \"" + "a".repeat(101) + "\"}"));
+    @Test
+    void logout_withoutCookie_returns204AndClearsTheCookie() throws Exception {
+        mockMvc.perform(post(LOGOUT_URL).header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isNoContent())
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.startsWith("refresh_token=;"),
+                        org.hamcrest.Matchers.containsString("Max-Age=0"),
+                        org.hamcrest.Matchers.containsString("Path=/api/v1/auth"))));
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("invalidBodies")
-    void logout_invalidBody_returns400(String caseName, String body) throws Exception {
-        mockMvc.perform(post(LOGOUT_URL).contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    @Test
+    void logout_clearsTheCookieAndRevokesTheToken() throws Exception {
+        register("alice@example.com");
+        String token = loginForRefreshToken("alice@example.com");
+
+        logout(token).andExpect(status().isNoContent())
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("Max-Age=0")));
+
+        assertThat(revokedAtOf(token)).isNotNull();
+    }
+
+    @Test
+    void logout_withoutRequestedWithHeader_returns403AndKeepsTheToken() throws Exception {
+        register("alice@example.com");
+        String token = loginForRefreshToken("alice@example.com");
+
+        mockMvc.perform(post(LOGOUT_URL).cookie(new jakarta.servlet.http.Cookie("refresh_token", token)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CSRF_CHECK_FAILED"));
+
+        assertThat(revokedAtOf(token)).isNull();
     }
 
     // ---------- helpers ----------
@@ -187,30 +201,21 @@ class AuthControllerLogoutIntegrationTests {
     }
 
     private String loginForRefreshToken(String email) throws Exception {
-        String response = mockMvc.perform(post("/api/v1/auth/login")
+        return RefreshCookies.tokenOf(mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"email": "%s", "password": "%s"}
                         """.formatted(email, PASSWORD)))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return JsonPath.read(response, "$.refreshToken");
+                .andReturn());
     }
 
     private ResultActions logout(String refreshToken) throws Exception {
-        return mockMvc.perform(post(LOGOUT_URL).contentType(MediaType.APPLICATION_JSON).content(body(refreshToken)));
+        return mockMvc.perform(RefreshCookies.postWithToken(LOGOUT_URL, refreshToken));
     }
 
     private ResultActions refresh(String refreshToken) throws Exception {
-        return mockMvc.perform(post("/api/v1/auth/refresh")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body(refreshToken)));
-    }
-
-    private static String body(String refreshToken) {
-        return """
-                {"refreshToken": "%s"}
-                """.formatted(refreshToken);
+        return mockMvc.perform(RefreshCookies.postWithToken("/api/v1/auth/refresh", refreshToken));
     }
 
     private Instant revokedAtOf(String refreshToken) {

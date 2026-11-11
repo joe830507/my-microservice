@@ -1,0 +1,12 @@
+# 編譯結果：映像檔裡自己重新編譯
+**/target
+.git
+.vscode
+# 金鑰與密碼絕對不能進映像檔：user-service 的 JWT 金鑰、管理員密碼
+**/secrets
+**/*.pem
+**/*.env
+**/.env*
+# 測試用的金鑰在 src/test/resources 底下，不會被打包進 jar，但也不需要送進建置
+**/src/test/resources/**/*.pem
+HELP.md

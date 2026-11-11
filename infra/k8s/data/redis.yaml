@@ -1,0 +1,218 @@
+# 三個 Redis 各自獨立（資料不混用），只放短期資料，不需要持久化。
+# 有設密碼（Secret <名稱>-redis）：就算網路隔離失效，也不能直接連進來讀寫。
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-redis
+  labels:
+    app: user-redis
+spec:
+  selector:
+    app: user-redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-redis
+  labels:
+    app: user-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-redis
+  template:
+    metadata:
+      labels:
+        app: user-redis
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+      containers:
+        - name: redis
+          image: redis:8.2
+          # user-service 的登入失敗計數；不存檔、不用 AOF
+          command: ["sh", "-c", "exec redis-server --save '' --appendonly no --requirepass \"$REDIS_PASSWORD\""]
+          ports:
+            - name: redis
+              containerPort: 6379
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: user-redis
+                  key: password
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-redis
+  labels:
+    app: product-redis
+spec:
+  selector:
+    app: product-redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-redis
+  labels:
+    app: product-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product-redis
+  template:
+    metadata:
+      labels:
+        app: product-redis
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+      containers:
+        - name: redis
+          image: redis:8.2
+          # product-service 的商品快取；不存檔、不用 AOF
+          command: ["sh", "-c", "exec redis-server --save '' --appendonly no --requirepass \"$REDIS_PASSWORD\""]
+          ports:
+            - name: redis
+              containerPort: 6379
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: product-redis
+                  key: password
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-redis
+  labels:
+    app: gateway-redis
+spec:
+  selector:
+    app: gateway-redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-redis
+  labels:
+    app: gateway-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway-redis
+  template:
+    metadata:
+      labels:
+        app: gateway-redis
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+      containers:
+        - name: redis
+          image: redis:8.2
+          # api-gateway 依來源 IP 的登入限流；不存檔、不用 AOF
+          command: ["sh", "-c", "exec redis-server --save '' --appendonly no --requirepass \"$REDIS_PASSWORD\""]
+          ports:
+            - name: redis
+              containerPort: 6379
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: gateway-redis
+                  key: password
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault

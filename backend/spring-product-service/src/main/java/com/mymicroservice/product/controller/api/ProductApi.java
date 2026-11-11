@@ -45,37 +45,40 @@ public interface ProductApi {
     })
     AddOneNewProductRes addOneNewProduct(@Valid AddOneNewProductReq addOneNewProductReq);
 
-    @Operation(summary = "依 id 查詢商品（後台用）", description = "回傳完整資料，包含所有狀態的商品與 version。")
+    @Operation(summary = "依 id 查詢商品", description = "回傳完整資料與 version。ADMIN 看得到所有狀態；其他人只看得到上架中（ACTIVE）的商品，其他狀態回 404。")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "查詢成功"),
-            @ApiResponse(responseCode = "404", description = "商品不存在",
+            @ApiResponse(responseCode = "404", description = "商品不存在，或不是 ADMIN 而商品不是上架中",
                     content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ProblemDetail.class)))
     })
     GetProductByIdRes getProductById(
+            @Parameter(hidden = true) String roles,
             @Parameter(description = "商品 id（UUIDv7）", example = "01a17c88-9d2b-7788-a9e8-b7530ab28287") UUID id);
 
-    @Operation(summary = "依 sku 查詢商品（後台用）")
+    @Operation(summary = "依 sku 查詢商品", description = "可見性和依 id 查詢相同。")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "查詢成功"),
             @ApiResponse(responseCode = "404", description = "商品不存在",
                     content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ProblemDetail.class)))
     })
     GetProductBySkuRes getProductBySku(
+            @Parameter(hidden = true) String roles,
             @Parameter(description = "商品 sku", example = "SHOE-NK-001") String sku);
 
-    @Operation(summary = "查詢商品列表", description = "可依分類、狀態篩選，支援分頁與排序。")
+    @Operation(summary = "查詢商品列表", description = "可依分類、狀態篩選，支援分頁與排序。不是 ADMIN 時只列出上架中（ACTIVE）的商品，傳入的 status 會被忽略。每筆帶主圖網址 primaryImageUrl（沒有主圖為 null）。includeSubcategories=true 時，categoryId 連同所有子孫分類一起查。")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "查詢成功"),
             @ApiResponse(responseCode = "400", description = "查詢參數驗證失敗",
                     content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ProblemDetail.class)))
     })
-    ProductQueryResponse getProductList(@Valid ProductQueryRequest productQueryRequest);
+    ProductQueryResponse getProductList(@Parameter(hidden = true) String roles,
+            @Valid ProductQueryRequest productQueryRequest);
 
-    @Operation(summary = "依多個 id 批次查詢商品（供 order-service 使用）", description = "不存在的 id 直接略過，不回 404。")
+    @Operation(summary = "依多個 id 批次查詢商品（供 order-service 與前台購物車使用）", description = "不存在的 id 直接略過，不回 404。不是 ADMIN 時，非上架中（ACTIVE）的商品只回 id 與 status，sku、name、price 為 null，呼叫端只需要知道不能買。")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "查詢成功")
     })
-    GetProductsByIdsRes getProductsByIds(
+    GetProductsByIdsRes getProductsByIds(@Parameter(hidden = true) String roles,
             @Parameter(description = "商品 id 清單，以逗號分隔") @Size(max = 100, message = "list length should not greater than 100") List<UUID> ids);
 
     @Operation(summary = "修改商品", description = "整筆取代基本資料，不可修改狀態（請使用 publish / unpublish / archive）；version 須與目前版本一致。")

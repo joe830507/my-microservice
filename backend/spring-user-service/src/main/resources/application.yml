@@ -29,15 +29,40 @@ jwt:
   public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:./secrets/jwt-public.pem}
   key-id: user-service-2026-11
   issuer: user-service
-  access-token-ttl: 15m
+  # access token 無法撤銷（無狀態 JWT）：登出所有裝置、停用帳號後，已發出的 token 在到期前仍然有效。
+  # 時效越短風險越小；前端本來就會用 refresh token 自動換新，縮短對使用者沒有感覺。5 分鐘（SEC-07，原本 15 分鐘）
+  access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:5m}
   refresh-token-ttl: 14d
   refresh-token-reuse-grace: 10s
+  # refresh token 的 cookie 是否加 Secure（SEC-06）：只在 HTTPS 送。預設開啟；瀏覽器把 localhost 視為安全來源，本機純 HTTP 也收得到。
+  # 用區域網路 IP 之類的純 HTTP 位址測試時才設 REFRESH_COOKIE_SECURE=false
+  refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}
 app:
+  # 啟動時建立第一個管理員（SEC-12）：註冊只能建立 CUSTOMER，沒有這個就沒有任何方式取得管理員。預設關閉；
+  # 本機的 dev profile 自動開啟（application-dev.yml），其他環境（例如 K8s）用環境變數 BOOTSTRAP_ADMIN_ENABLED=true，
+  # 並提供 BOOTSTRAP_ADMIN_EMAIL、BOOTSTRAP_ADMIN_PASSWORD（來自 Secret）。建好之後關掉開關並換掉 Secret 裡的密碼
+  bootstrap-admin:
+    enabled: ${BOOTSTRAP_ADMIN_ENABLED:false}
+    email: ${BOOTSTRAP_ADMIN_EMAIL:}
+    password: ${BOOTSTRAP_ADMIN_PASSWORD:}
   # 每天 UTC 03:30 刪除過期超過 7 天的 refresh token（RefreshTokenCleanupJob）
   refresh-token-cleanup:
     cron: "0 30 3 * * *"
     retention: 7d
-  # 同一個 email 在 window 內失敗 max-failures 次後，到 window 結束前一律回 429（LoginAttemptService）
+  # 兩層鎖定（LoginAttemptService，SEC-05）：
+  # 1. 同一個（email + 來源 IP）在 window 內失敗 max-failures 次後，那一組到 window 結束前一律回 429；
+  #    單一攻擊者來源只鎖得到自己，鎖不到本人從別處登入
+  # 2. 同一個 email 不分來源的失敗總次數達 max-failures-per-email 次，所有來源都鎖住：擋分散式暴力猜密碼
+  # 來源 IP 由 Gateway 用 X-Client-Ip 帶過來（沒有時視為同一個來源 unknown，行為等於只依 email）
   login-attempt:
     max-failures: 5
+    max-failures-per-email: 30
     window: 15m
+
+# API 文件（springdoc）：預設關閉（SEC-09）。Swagger UI 與 /v3/api-docs 會公開所有 API 的細節，只在本機開發用環境變數
+# SPRINGDOC_ENABLED=true 開啟；Gateway 本來就不轉發這些路徑，所以對外也看不到
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:false}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:false}

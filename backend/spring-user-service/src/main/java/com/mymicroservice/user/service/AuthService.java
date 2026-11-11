@@ -10,7 +10,8 @@ public interface AuthService {
 
     public RegisterResDto register(RegisterReqDto registerReqDto);
 
-    public TokenResDto login(LoginReqDto loginReqDto);
+    // clientIp：Gateway 帶來的用戶端來源 IP（X-Client-Ip），用於登入失敗鎖定；沒有時傳 null
+    public TokenResDto login(LoginReqDto loginReqDto, String clientIp);
 
     public TokenResDto refresh(RefreshReqDto refreshReqDto);
 

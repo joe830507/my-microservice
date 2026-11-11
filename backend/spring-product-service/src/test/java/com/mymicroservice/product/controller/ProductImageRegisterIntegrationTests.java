@@ -107,7 +107,10 @@ class ProductImageRegisterIntegrationTests {
                 .andExpect(jsonPath("$.isPrimary").value(false))
                 .andExpect(jsonPath("$.sortOrder").value(1));
 
-        mockMvc.perform(get("/api/v1/products/{productId}/images", productId))
+        // 商品是草稿：只有 ADMIN 看得到它的圖片（ProductVisibilityIntegrationTests）
+        mockMvc.perform(get("/api/v1/products/{productId}/images", productId)
+                .header(UserContextHeaders.USER_ID, UUID.randomUUID().toString())
+                .header(UserContextHeaders.USER_ROLES, "ADMIN"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.images.length()").value(2))
                 .andExpect(jsonPath("$.images[0].url").value(org.hamcrest.Matchers.endsWith(".png")))

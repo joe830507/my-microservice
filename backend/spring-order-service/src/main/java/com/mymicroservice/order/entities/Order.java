@@ -56,6 +56,13 @@ public class Order extends CommonEntity {
     @Column(name = "total_amount", nullable = false, updatable = false)
     private BigDecimal totalAmount;
 
+    // 建單的冪等鍵與請求內容的指紋（沒帶 key 的訂單兩個都是 null）
+    @Column(name = "idempotency_key", updatable = false)
+    private String idempotencyKey;
+
+    @Column(name = "idempotency_hash", updatable = false)
+    private String idempotencyHash;
+
     @Column(name = "paid_at")
     private Instant paidAt;
 
