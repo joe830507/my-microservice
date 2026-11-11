@@ -35,13 +35,19 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/features/catalog/SearchView.vue'),
         meta: { title: '搜尋商品' },
       },
-      // 內容在 Step 5 完成；商品卡片先有地方可以連
       {
         path: 'p/:id',
         name: 'product-detail',
         component: () => import('@/features/catalog/ProductDetailView.vue'),
         props: true,
         meta: { title: '商品詳情' },
+      },
+      // 內容在 Step 6 完成；先有路由，「前往購物車」與頂部列才有地方可以連
+      {
+        path: 'cart',
+        name: 'cart',
+        component: () => import('@/features/cart/CartView.vue'),
+        meta: { title: '購物車' },
       },
       {
         path: 'login',

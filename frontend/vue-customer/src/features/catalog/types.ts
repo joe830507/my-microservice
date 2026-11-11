@@ -38,6 +38,44 @@ export interface ProductListItem {
   primaryImageUrl: string | null
 }
 
+// GET /products/{id}：非上架中（草稿、下架、封存）的商品對顧客回 404 PRODUCT_NOT_FOUND
+export interface Product {
+  id: string
+  sku: string
+  name: string
+  description: string | null
+  categoryId: string | null
+  brand: string | null
+  price: number
+  originalPrice: number | null
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+// GET /products/{id}/images 的一張；回應的順序就是顯示順序
+export interface ProductImage {
+  id: string
+  url: string
+  altText: string | null
+  sortOrder: number
+  isPrimary: boolean
+}
+
+export interface ProductImagesRes {
+  productId: string
+  images: ProductImage[]
+}
+
+// GET /inventory/{sku}
+export interface Stock {
+  sku: string
+  // 可賣的數量，不含已預扣的
+  available: number
+  reserved: number
+  updatedAt: string
+}
+
 export interface ProductPage {
   items: ProductListItem[]
   // 從 0 開始

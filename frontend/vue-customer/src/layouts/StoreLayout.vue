@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useCartStore } from '@/features/cart/store'
 import { useCategoryStore } from '@/features/catalog/categoryStore'
 import { useAuthStore } from '@/features/auth/store'
 import { APP_TITLE } from '@/router'
 
-// 骨架階段：購物車件數是假的內容，在 Step 6 接上真的功能
 const auth = useAuthStore()
 const categories = useCategoryStore()
+const cart = useCartStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -53,7 +54,14 @@ async function onLogout(): Promise<void> {
           />
         </form>
         <nav class="store-nav" aria-label="主要導覽">
-          <a class="store-nav__item" href="#" @click.prevent>購物車</a>
+          <RouterLink class="store-nav__item" :to="{ name: 'cart' }">
+            購物車<span
+              v-if="cart.count > 0"
+              class="store-nav__badge"
+              :aria-label="`${cart.count} 件商品`"
+              >{{ cart.count }}</span
+            >
+          </RouterLink>
           <template v-if="auth.isAuthenticated">
             <span class="store-nav__user">{{ auth.user?.displayName }}</span>
             <button type="button" class="store-nav__item store-nav__logout" @click="onLogout">
@@ -149,6 +157,19 @@ async function onLogout(): Promise<void> {
 
 .store-nav__item:hover {
   color: var(--color-primary);
+}
+
+.store-nav__badge {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-left: var(--space-1);
+  padding: 0 var(--space-1);
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  text-align: center;
 }
 
 .store-nav__user {

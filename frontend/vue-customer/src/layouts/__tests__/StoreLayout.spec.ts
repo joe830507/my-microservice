@@ -8,6 +8,7 @@ import apiClient from '@/api/http'
 import { installAuthInterceptors } from '@/features/auth/interceptors'
 import { REFRESH_TOKEN_KEY, useAuthStore } from '@/features/auth/store'
 import { me } from '@/features/auth/__tests__/fixtures'
+import { useCartStore } from '@/features/cart/store'
 import { categoryTree } from '@/features/catalog/__tests__/fixtures'
 import { installAuthGuard } from '@/router'
 
@@ -45,6 +46,7 @@ async function mountLayout(path = '/') {
         children: [
           { path: '', name: 'home', component: Page },
           { path: 'search', name: 'search', component: Page },
+          { path: 'cart', name: 'cart', component: Page },
           { path: 'c/:slug', name: 'category', component: Page },
           { path: 'login', name: 'login', component: Page },
           { path: 'register', name: 'register', component: Page },
@@ -61,6 +63,31 @@ async function mountLayout(path = '/') {
 }
 
 describe('StoreLayout', () => {
+  it('購物車連結：有商品才顯示件數（數量加總），加入後即時更新', async () => {
+    localStorage.setItem(
+      'vue-customer.cart',
+      JSON.stringify([
+        { productId: 'p1', qty: 2 },
+        { productId: 'p2', qty: 1 },
+      ]),
+    )
+    const { wrapper } = await mountLayout()
+
+    expect(wrapper.find('.store-nav__badge').text()).toBe('3')
+    expect(wrapper.find('a[href="/cart"]').exists()).toBe(true)
+
+    useCartStore().add('p3', 4)
+    await flushPromises()
+
+    expect(wrapper.find('.store-nav__badge').text()).toBe('7')
+  })
+
+  it('購物車是空的：不顯示件數', async () => {
+    const { wrapper } = await mountLayout()
+
+    expect(wrapper.find('.store-nav__badge').exists()).toBe(false)
+  })
+
   it('分類列：顯示頂層分類，連到分類頁', async () => {
     const { wrapper } = await mountLayout()
     await flushPromises()
