@@ -185,11 +185,11 @@ backend/
           │
 前端 ──▶ payment-service  POST /api/v1/payments
      4. ──▶ order     GET  /internal/v1/orders/{id}              取金額與狀態
-     5. mock-callback 成功
-     6. ──▶ order     POST /internal/v1/orders/{id}/paid
-                         └──▶ inventory POST .../reservations/{orderId}/confirm
+     5. mock-callback 成功：payment 狀態與 PaymentSucceeded 同交易寫入 Outbox
+     6. Kafka payment.events → order：訂單改為 PAID，並寫 OrderPaid
+     7. Kafka order.events → inventory：確認預扣
 
-   取消或逾時：order ──▶ inventory POST .../reservations/{orderId}/release
+   取消或逾時：order 寫 OrderCancelled → Kafka order.events → inventory 釋放預扣
 ```
 
 ### 雛型階段：同步 REST
@@ -197,15 +197,22 @@ backend/
 - 服務之間用 RestClient 或 HTTP Interface 呼叫，搭配 Resilience4j 的 timeout、retry
 - 原因：中介軟體評估文件把 Kafka 排在第 3 步，事件機制還沒建立
 
-### 之後：事件驅動
+### 階段 C：事件驅動
 
-Kafka + Outbox 導入後，把步驟 6 和「逾時釋放」改成事件，變成 choreography Saga：
+Kafka 使用單節點 KRaft。業務資料與事件在同一個 PostgreSQL 交易寫入 Outbox；輪詢器以至少一次方式發送，消費者在同一個交易記錄 `eventId` 並更新業務資料，重複事件會略過。失敗重試 4 次後送到同名 `.DLT` topic。事件 JSON 欄位為 `eventId`、`type`、`version`、`occurredAt`、`aggregateId`、`payload`；同一 aggregate 以 id 作為 Kafka key。
 
-| 事件 | 發送方 | 接收方 |
-|---|---|---|
-| `PaymentSucceeded` | payment | order（改為 PAID）、inventory（確認扣除） |
-| `OrderCancelled` | order | inventory（釋放預扣） |
-| `ProductCreated` | product | inventory（建立 SKU 庫存紀錄） |
+事件 payload 與版本規則見[事件契約](event-contracts.md)。
+
+建單時查商品與預扣、建立付款時查訂單金額仍維持同步，因為這些步驟需要即時結果。付款結果、訂單付款／取消後的庫存確認與釋放則走事件：
+
+| Topic | 事件 | 發送方 | 接收方 |
+|---|---|---|---|
+| `payment.events` | `PaymentSucceeded`、`PaymentFailed` | payment | order |
+| `order.events` | `OrderPaid`、`OrderCancelled` | order | inventory；之後 notification |
+| `product.events` | `ProductCreated`、`ProductUpdated`、`ProductStatusChanged` | product | 之後搜尋索引與快取失效 |
+| `user.events` | `UserRegistered` | user | 之後 notification |
+
+庫存預扣逾時釋放排程保留，作為訂單服務長時間故障時的安全網。Kafka 目前只靠 NetworkPolicy 隔離，沒有 SASL/ACL；不可直接暴露到不受信任的網路。
 
 ---
 

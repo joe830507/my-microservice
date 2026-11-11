@@ -36,6 +36,7 @@
 | [middleware-roadmap.md](implementation-plans/middleware/middleware-roadmap.md) | 規劃中：中介軟體導入計畫（可觀測性 → 韌性 → Kafka + Outbox → Elasticsearch → 通知 → 真的金流） |
 | [observability-implementation-plan.md](implementation-plans/middleware/observability-implementation-plan.md) | 完成（中介軟體階段 A）：指標、追蹤、log 用 OTLP 送到 Grafana LGTM；儀表板、告警規則；本機與 kind 都驗證 |
 | [resilience-implementation-plan.md](implementation-plans/middleware/resilience-implementation-plan.md) | 完成（中介軟體階段 B）：重試與熔斷、Gateway 熔斷、排程分散式鎖（ShedLock）、2 個副本、優雅關閉；kind 上實測 |
+| [middleware-roadmap.md](implementation-plans/middleware/middleware-roadmap.md) | 階段 C 實作中：Kafka + Outbox、事件契約與通知／搜尋／金流後續路線圖 |
 
 ## 設計與評估
 

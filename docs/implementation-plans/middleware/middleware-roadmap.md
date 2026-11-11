@@ -3,7 +3,7 @@
 > 建立日期：2026-11-11
 > 分支：`feature/middleware-roadmap`（只有這份計畫；每個階段實作時再各自開分支）
 > 對應：[product-service-middleware-evaluation.md](../../design/product-service-middleware-evaluation.md)「建議導入順序」、[microservice-architecture.md](../../architecture/microservice-architecture.md)「之後：事件驅動」
-> 狀態：階段 A（[observability-implementation-plan.md](observability-implementation-plan.md)）、B（[resilience-implementation-plan.md](resilience-implementation-plan.md)）完成；C 之後尚未開始
+> 狀態：階段 A（[observability-implementation-plan.md](observability-implementation-plan.md)）、B（[resilience-implementation-plan.md](resilience-implementation-plan.md)）完成；C 正在接手實作與驗證，D–F 尚未開始
 
 從雛型的「同步 REST + 排程補償」走向「事件驅動 + 可觀測 + 可水平擴充」。每個階段都要能在本機 compose 與 kind 上跑起來並驗證，做法和之前一樣：每一步附測試，測試通過後單獨 commit。
 
@@ -115,13 +115,13 @@
 
 | Step | 內容                                                                                                                                                                                                                                     | 驗收                                                                                                      |
 | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| C1   | infra：compose 與 K8s 加 Kafka（KRaft，單一節點，StatefulSet）；NetworkPolicy 只允許有用到的服務連 9092；topic 由設定檔建立                                                                                                              | kind 上沒有授權的 Pod 連不到 Kafka                                                                        |
-| C2   | common：outbox 共用元件。各服務 DB 加 `outbox_event` 表（Flyway）；業務程式在同一個交易內寫入事件；發送器用 `SELECT ... FOR UPDATE SKIP LOCKED` 輪詢未發送的事件送到 Kafka，成功後標記（多副本不會重複搶同一筆）；清除已發送的舊資料 | 單元＋整合測試（Testcontainers 的 Kafka）：交易 rollback 時事件不會送出；Kafka 停掉時事件保留、恢復後送出 |
-| C3   | common：消費端共用元件。`processed_event` 表（`eventId` 主鍵）與業務更新在同一個交易內寫入，重複的事件直接略過；失敗有限次重試後送到 dead letter topic（`<topic>.DLT`）                                                            | 同一個事件送兩次只處理一次；處理失敗的事件進 DLT，不會卡住整個 partition                                  |
-| C4   | **付款成功改成事件**：payment 寫 `PaymentSucceeded` 到 outbox；order 消費後改為 PAID。移除 payment → order 的同步通知與 `OrderNotificationRetryJob`                                                                           | 停掉 order 時付款仍然成功；order 恢復後自動變成 PAID；E2E 通過                                            |
-| C5   | **庫存確認、釋放改成事件**：order 在 PAID、CANCELLED 時寫 `OrderPaid`、`OrderCancelled`；inventory 消費後確認或釋放。移除 order 的 `ReservationSyncJob` 與 `reservation_synced` 欄位的補做邏輯                             | 停掉 inventory 時取消與付款仍然成功；恢復後預扣正確確認或釋放                                             |
-| C6   | `product.events`、`user.events` 先開始發送（還沒有消費者），給 D、E 使用                                                                                                                                                             | 事件出現在 topic 裡，格式符合規格                                                                         |
-| C7   | 可觀測：KafkaTemplate 與 listener 開啟 observation，trace 跨過 Kafka 不斷；指標加 consumer lag、outbox 待發送數量、DLT 數量                                                                                                              | 一張訂單的 trace 包含非同步的部分；lag 有告警                                                             |
+| C1（實作完成／kind 待驗收） | infra：compose 與 K8s 加 Kafka（KRaft，單一節點，StatefulSet）；NetworkPolicy 只允許有用到的服務連 9092；topic 由設定檔建立                                                                                                              | kind 上沒有授權的 Pod 連不到 Kafka                                                                        |
+| C2（整合測試通過） | common：outbox 共用元件。各服務 DB 加 `outbox_event` 表（Flyway）；業務程式在同一個交易內寫入事件；發送器用 `SELECT ... FOR UPDATE SKIP LOCKED` 輪詢未發送的事件送到 Kafka，成功後標記（多副本不會重複搶同一筆）；清除已發送的舊資料 | 單元＋整合測試（Testcontainers 的 Kafka）：交易 rollback 時事件不會送出；Kafka 停掉時事件保留、恢復後送出 |
+| C3（去重與 DLT 測試通過） | common：消費端共用元件。`processed_event` 表（`eventId` 主鍵）與業務更新在同一個交易內寫入，重複的事件直接略過；失敗有限次重試後送到 dead letter topic（`<topic>.DLT`）                                                            | 同一個事件送兩次只處理一次；處理失敗的事件進 DLT，不會卡住整個 partition                                  |
+| C4（事件測試通過／部署驗收待辦） | **付款成功改成事件**：payment 寫 `PaymentSucceeded` 到 outbox；order 消費後改為 PAID。移除 payment → order 的同步通知與 `OrderNotificationRetryJob`                                                                           | 停掉 order 時付款仍然成功；order 恢復後自動變成 PAID；E2E 通過                                            |
+| C5（事件測試通過／部署驗收待辦） | **庫存確認、釋放改成事件**：order 在 PAID、CANCELLED 時寫 `OrderPaid`、`OrderCancelled`；inventory 消費後確認或釋放。移除 order 的 `ReservationSyncJob` 與 `reservation_synced` 欄位的補做邏輯                             | 停掉 inventory 時取消與付款仍然成功；恢復後預扣正確確認或釋放                                             |
+| C6（實作完成／契約驗收待辦） | `product.events`、`user.events` 先開始發送（還沒有消費者），給 D、E 使用                                                                                                                                                             | 事件出現在 topic 裡，格式符合規格                                                                         |
+| C7（設定完成／實測待辦） | 可觀測：KafkaTemplate 與 listener 開啟 observation，trace 跨過 Kafka 不斷；指標加 consumer lag、outbox 待發送數量、DLT 數量                                                                                                              | 一張訂單的 trace 包含非同步的部分；lag 有告警                                                             |
 
 注意：
 
@@ -178,3 +178,8 @@
 - C：事件格式用 JSON 加文件規格，或導入 Schema Registry（Avro／Protobuf）。建議先用 JSON
 - D：Elasticsearch 或 OpenSearch（授權條款不同）
 - F：金流商的選擇
+
+
+## 階段 C 驗收追蹤
+
+C1–C7 的逐項進度、審查修正、過渡路徑移除條件與尚未完成的驗收，見[事件實作計畫](event-implementation-plan.md)。階段 C 仍為進行中。
