@@ -26,7 +26,7 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     // 成功時 orderNotification 設成 PENDING（待通知 order-service），失敗時維持 null
     // 條件式 UPDATE 會鎖住這一筆，重複或同時回呼只有一個生效；批次 UPDATE 不經過實體，version 與稽核欄位要自己更新
     @Transactional
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE Payment p
             SET p.status = :status, p.orderNotification = :orderNotification, p.completedAt = :now,

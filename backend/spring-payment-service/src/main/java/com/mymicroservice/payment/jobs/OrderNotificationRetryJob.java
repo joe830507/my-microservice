@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import com.mymicroservice.payment.properties.OrderNotificationRetryProperties;
 import com.mymicroservice.payment.repositories.PaymentRepository;
@@ -21,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 // 每次只掃一輪：這輪失敗的（order-service 還沒恢復）留到下次排程
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "app.events.enabled", havingValue = "false", matchIfMissing = false)
 @RequiredArgsConstructor
 public class OrderNotificationRetryJob {
     private final PaymentRepository paymentRepository;

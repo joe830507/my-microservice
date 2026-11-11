@@ -1,5 +1,6 @@
 package com.mymicroservice.payment.service.impl;
 
+import java.util.Map;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Instant;
 import java.util.List;
@@ -10,8 +11,10 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 
 import com.mymicroservice.common.CommonAutoConfiguration;
+import com.mymicroservice.common.events.OutboxEventWriter;
 import com.mymicroservice.common.exception.AppException;
 import com.mymicroservice.payment.clients.OrderClient;
 import com.mymicroservice.payment.dtos.CreatePaymentReqDto;
@@ -20,12 +23,12 @@ import com.mymicroservice.payment.dtos.MockCallbackReqDto;
 import com.mymicroservice.payment.dtos.PaymentResDto;
 import com.mymicroservice.payment.entities.Payment;
 import com.mymicroservice.payment.enums.MockPaymentResult;
-import com.mymicroservice.payment.enums.OrderNotification;
 import com.mymicroservice.payment.enums.PaymentStatus;
 import com.mymicroservice.payment.exception.PaymentErrorCode;
 import com.mymicroservice.payment.repositories.PaymentRepository;
 import com.mymicroservice.payment.service.PaymentService;
-import com.mymicroservice.payment.support.UuidV7;
+import com.mymicroservice.common.events.UuidV7;
+import com.mymicroservice.payment.enums.OrderNotification;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,12 +40,17 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderClient orderClient;
     private final AuditorAware<UUID> auditorAware;
+    private final OutboxEventWriter outbox;
+    @Value("${app.events.enabled:true}")
+    private boolean eventsEnabled;
 
     public PaymentServiceImpl(PaymentRepository paymentRepository, OrderClient orderClient,
-            @Qualifier(CommonAutoConfiguration.AUDITOR_AWARE_BEAN_NAME) AuditorAware<UUID> auditorAware) {
+            @Qualifier(CommonAutoConfiguration.AUDITOR_AWARE_BEAN_NAME) AuditorAware<UUID> auditorAware,
+            OutboxEventWriter outbox) {
         this.paymentRepository = paymentRepository;
         this.orderClient = orderClient;
         this.auditorAware = auditorAware;
+        this.outbox = outbox;
     }
 
     // 不加 @Transactional：呼叫 order-service 時不佔著 DB 連線
@@ -84,9 +92,8 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     // 模擬金流回呼：PENDING → SUCCEEDED 或 FAILED；同樣的結果重送回 200，相反的結果回 409
-    // 不加 @Transactional：狀態改完並 commit 後才通知 order-service，通知期間不佔 DB 連線
-    // 通知失敗不影響回應：orderNotification 維持 PENDING，由排程重試
     @Override
+    @Transactional
     public PaymentResDto mockCallback(UUID paymentId, UUID userId, boolean admin,
             MockCallbackReqDto mockCallbackReqDto) {
         Payment payment = findVisiblePayment(paymentId, userId, admin);
@@ -94,7 +101,7 @@ public class PaymentServiceImpl implements PaymentService {
         PaymentStatus target = success ? PaymentStatus.SUCCEEDED : PaymentStatus.FAILED;
 
         boolean completed = paymentRepository.completeIfPending(paymentId, target,
-                success ? OrderNotification.PENDING : null, Instant.now(),
+                success ? (eventsEnabled ? OrderNotification.NOT_REQUIRED : OrderNotification.PENDING) : null, Instant.now(),
                 auditorAware.getCurrentAuditor().orElseThrow()) == 1;
         if (completed) {
             Metrics.counter("payments.completed", "result", success ? "succeeded" : "failed").increment();
@@ -104,8 +111,14 @@ public class PaymentServiceImpl implements PaymentService {
                 throw new AppException(PaymentErrorCode.PAYMENT_ALREADY_COMPLETED, paymentId, payment.getStatus());
             }
         }
-        // 新成功的，或之前成功但還沒通知成功的：通知 order-service
-        if (success) {
+        if (completed && eventsEnabled) {
+            Payment current = paymentRepository.findById(paymentId).orElseThrow();
+            outbox.append("payment.events", success ? "PaymentSucceeded" : "PaymentFailed",
+                    current.getOrderId().toString(), Map.of("paymentId", paymentId.toString(),
+                            "orderId", current.getOrderId().toString(), "status", target.name(),
+                            "amount", current.getAmount()));
+        }
+        if (success && !eventsEnabled) {
             Payment current = paymentRepository.findById(paymentId).orElseThrow();
             if (current.getOrderNotification() == OrderNotification.PENDING) {
                 notifyOrder(current);
@@ -114,6 +127,7 @@ public class PaymentServiceImpl implements PaymentService {
         return PaymentResDto.from(paymentRepository.findById(paymentId).orElseThrow());
     }
 
+    // 僅供未啟用事件的舊版本機資料相容；事件模式新付款已在交易內寫入 outbox。
     @Override
     public boolean retryOrderNotification(UUID paymentId) {
         return paymentRepository.findById(paymentId)
@@ -122,19 +136,16 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElse(true);
     }
 
-    // 通知 order-service 付款成功，記下結果；FAILED 不改（維持 PENDING 等排程重試）
     private boolean notifyOrder(Payment payment) {
         OrderClient.NotifyResult result = orderClient.notifyPaid(payment.getOrderId());
         switch (result) {
             case NOTIFIED -> paymentRepository.markOrderNotification(payment.getId(), OrderNotification.DONE);
             case REJECTED -> {
-                // 錢收了但訂單已取消：要退款，雛型階段只記錄
                 log.error("payment {} succeeded but order {} was rejected (cancelled); refund required",
                         payment.getId(), payment.getOrderId());
                 paymentRepository.markOrderNotification(payment.getId(), OrderNotification.REJECTED);
             }
-            case FAILED -> {
-            }
+            case FAILED -> { }
         }
         return result != OrderClient.NotifyResult.FAILED;
     }

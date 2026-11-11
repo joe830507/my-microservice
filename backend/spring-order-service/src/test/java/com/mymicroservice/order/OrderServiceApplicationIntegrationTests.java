@@ -53,7 +53,7 @@ class OrderServiceApplicationIntegrationTests {
                 ORDER BY table_name
                 """, String.class);
 
-        assertThat(tables).containsExactly("order_item", "orders", "shedlock");
+        assertThat(tables).containsExactly("order_item", "orders", "outbox_event", "processed_event", "shedlock");
     }
 
     @Test
