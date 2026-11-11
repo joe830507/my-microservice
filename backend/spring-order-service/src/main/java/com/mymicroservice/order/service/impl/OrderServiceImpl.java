@@ -1,5 +1,6 @@
 package com.mymicroservice.order.service.impl;
 
+import io.micrometer.core.instrument.Metrics;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -72,6 +73,7 @@ public class OrderServiceImpl implements OrderService {
         if (idempotencyKey != null) {
             Optional<Order> replay = findReplay(userId, idempotencyKey, requestHash);
             if (replay.isPresent()) {
+                Metrics.counter("orders.created", "result", "replayed").increment();
                 return new CreateOrderResult(OrderResDto.from(replay.get()), false);
             }
         }
@@ -97,11 +99,13 @@ public class OrderServiceImpl implements OrderService {
             if (idempotencyKey != null && exception instanceof DataIntegrityViolationException) {
                 Optional<Order> winner = findReplay(userId, idempotencyKey, requestHash);
                 if (winner.isPresent()) {
+                    Metrics.counter("orders.created", "result", "replayed").increment();
                     return new CreateOrderResult(OrderResDto.from(winner.get()), false);
                 }
             }
             throw exception;
         }
+        Metrics.counter("orders.created", "result", "created").increment();
         return new CreateOrderResult(OrderResDto.from(order), true);
     }
 
@@ -173,7 +177,9 @@ public class OrderServiceImpl implements OrderService {
 
         boolean paid = orderRepository.markPaidIfPending(orderId, Instant.now(),
                 auditorAware.getCurrentAuditor().orElseThrow()) == 1;
-        if (!paid) {
+        if (paid) {
+            Metrics.counter("orders.paid").increment();
+        } else {
             order = orderRepository.findById(orderId).orElseThrow();
             if (order.getStatus() == OrderStatus.CANCELLED) {
                 throw new AppException(OrderErrorCode.ORDER_ALREADY_CANCELLED, orderId);
@@ -197,7 +203,9 @@ public class OrderServiceImpl implements OrderService {
 
         boolean cancelled = orderRepository.cancelIfPending(orderId, Instant.now(),
                 auditorAware.getCurrentAuditor().orElseThrow()) == 1;
-        if (!cancelled) {
+        if (cancelled) {
+            Metrics.counter("orders.cancelled", "reason", "user").increment();
+        } else {
             // 狀態不對：重新讀取，可能剛好被別的請求取消（冪等），或已經付款
             Order order = findVisibleOrder(orderId, userId, admin);
             if (order.getStatus() != OrderStatus.CANCELLED) {
@@ -248,6 +256,7 @@ public class OrderServiceImpl implements OrderService {
         boolean cancelled = orderRepository.cancelIfPending(orderId, Instant.now(),
                 auditorAware.getCurrentAuditor().orElseThrow()) == 1;
         if (cancelled) {
+            Metrics.counter("orders.cancelled", "reason", "timeout").increment();
             syncReservation(orderId, ReservationStatus.RELEASED);
         }
         return cancelled;

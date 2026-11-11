@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>4.1.1</version>
+		<relativePath/>
+	</parent>
+	<groupId>com.mymicroservice</groupId>
+	<artifactId>observability</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>observability</name>
+	<description>Shared observability setup (metrics, tracing, logs over OTLP) for all backend services</description>
+	<properties>
+		<java.version>21</java.version>
+		<!-- 要和 Boot 管理的 OpenTelemetry SDK（1.62.0）搭配：instrumentation 2.28.x 對應 SDK 1.62.0 -->
+		<otel-instrumentation.version>2.28.0-alpha</otel-instrumentation.version>
+	</properties>
+	<!-- 沒有程式碼，只有設定與依賴：服務加上這一個依賴，再在 application.yml 加
+		spring.config.import: classpath:observability.yml 就接上指標、追蹤與 log。
+		Gateway 是 reactive、不依賴 common，所以這份不放在 common 裡 -->
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+		<!-- 追蹤（Micrometer Tracing 的 OpenTelemetry bridge）與 OTLP 匯出指標、追蹤、log -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-opentelemetry</artifactId>
+		</dependency>
+		<!-- /actuator/prometheus：拉取式的指標，除錯與本機檢查用 -->
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-registry-prometheus</artifactId>
+		</dependency>
+		<!-- 把 Logback 的 log 送進 OpenTelemetry（logback-spring.xml 裡的 OTEL appender） -->
+		<dependency>
+			<groupId>io.opentelemetry.instrumentation</groupId>
+			<artifactId>opentelemetry-logback-appender-1.0</artifactId>
+			<version>${otel-instrumentation.version}</version>
+		</dependency>
+	</dependencies>
+</project>

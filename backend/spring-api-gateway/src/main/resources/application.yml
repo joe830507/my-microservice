@@ -40,6 +40,9 @@ gateway:
 spring:
   application:
     name: api-gateway
+  # 指標、追蹤、log 的共用設定（common 以外的 observability 模組，階段 A）
+  config:
+    import: classpath:observability.yml
   data:
     redis:
       host: ${GATEWAY_REDIS_HOST:localhost}
@@ -110,7 +113,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
   health:
     redis:
       # Redis 只用來限流，掛掉時放行；不能讓它把 Gateway 標成 DOWN（K8s 會因此重啟或移出流量）

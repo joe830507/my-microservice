@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 沿用 Spring Boot 預設的輸出（主控台；結構化格式用 LOGGING_STRUCTURED_FORMAT_CONSOLE 開啟），
+     另外把每一筆 log 交給 OpenTelemetry：有開 OTLP 匯出時送到 collector（Loki），沒開就丟掉。
+     traceId、spanId 由 Micrometer Tracing 放進 MDC，OTel 會把它們附在 log 上，所以 log 可以用 traceId 串起來 -->
+<configuration>
+	<include resource="org/springframework/boot/logging/logback/base.xml"/>
+	<appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+		<captureKeyValuePairAttributes>true</captureKeyValuePairAttributes>
+		<captureMdcAttributes>*</captureMdcAttributes>
+	</appender>
+	<root level="INFO">
+		<appender-ref ref="OTEL"/>
+	</root>
+</configuration>

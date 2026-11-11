@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: product-service
+  # 指標、追蹤、log 的共用設定（common 以外的 observability 模組，階段 A）
+  config:
+    import: classpath:observability.yml
   datasource:
     url: jdbc:postgresql://localhost:5432/product_db
     username: ${DB_USERNAME:postgres}
@@ -64,4 +67,4 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus

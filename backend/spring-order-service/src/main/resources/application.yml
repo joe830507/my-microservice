@@ -13,6 +13,9 @@ order:
 spring:
   application:
     name: order-service
+  # 指標、追蹤、log 的共用設定（common 以外的 observability 模組，階段 A）
+  config:
+    import: classpath:observability.yml
   datasource:
     url: jdbc:postgresql://localhost:5433/order_db
     username: ${DB_USERNAME:postgres}

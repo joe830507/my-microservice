@@ -1,5 +1,6 @@
 package com.mymicroservice.payment.service.impl;
 
+import io.micrometer.core.instrument.Metrics;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -95,7 +96,9 @@ public class PaymentServiceImpl implements PaymentService {
         boolean completed = paymentRepository.completeIfPending(paymentId, target,
                 success ? OrderNotification.PENDING : null, Instant.now(),
                 auditorAware.getCurrentAuditor().orElseThrow()) == 1;
-        if (!completed) {
+        if (completed) {
+            Metrics.counter("payments.completed", "result", success ? "succeeded" : "failed").increment();
+        } else {
             payment = paymentRepository.findById(paymentId).orElseThrow();
             if (payment.getStatus() != target) {
                 throw new AppException(PaymentErrorCode.PAYMENT_ALREADY_COMPLETED, paymentId, payment.getStatus());
