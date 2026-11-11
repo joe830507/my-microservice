@@ -1,5 +1,6 @@
 package com.mymicroservice.product.service.impl;
 
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.EnumSet;
@@ -58,7 +59,8 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public AddOneNewProductRes addOneNewProduct(AddOneNewProductReq addOneNewProductReq) {
-        Product savedProduct = productRepository.save(addOneNewProductReq.toEntity());
+        // 先 flush 取得資料庫精度一致的 createdAt 與 version，再把同一份快照寫入 outbox。
+        Product savedProduct = productRepository.saveAndFlush(addOneNewProductReq.toEntity());
         publishProductEvent(savedProduct, "ProductCreated");
 
         // 建立前可能有人查過這個 sku，查不到的結果會被短暫快取
@@ -314,6 +316,8 @@ public class ProductServiceImpl implements ProductService {
                 "sku", product.getSku(),
                 "name", product.getName(),
                 "description", product.getDescription() == null ? "" : product.getDescription(),
+                "brand", product.getBrand() == null ? "" : product.getBrand(),
+                "createdAt", product.getCreatedAt().truncatedTo(ChronoUnit.MICROS).toString(),
                 "price", product.getPrice(),
                 "categoryId", product.getCategoryId() == null ? "" : product.getCategoryId().toString(),
                 "status", product.getStatus().name(),

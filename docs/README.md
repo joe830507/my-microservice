@@ -38,7 +38,7 @@
 | [resilience-implementation-plan.md](implementation-plans/middleware/resilience-implementation-plan.md) | 完成（中介軟體階段 B）：重試與熔斷、Gateway 熔斷、排程分散式鎖（ShedLock）、2 個副本、優雅關閉；kind 上實測 |
 | [event-implementation-plan.md](implementation-plans/middleware/event-implementation-plan.md) | 完成（中介軟體階段 C）：Kafka + Outbox、消費端去重與 DLT、付款與庫存改事件、商品與使用者事件；kind 停機恢復與 trace、告警實測 |
 | [search-implementation-plan.md](implementation-plans/middleware/search-implementation-plan.md) | 實作中（中介軟體階段 D）：Elasticsearch 搜尋的詳細計畫、索引與查詢設計、步驟 D1–D7，以及給實作者的規範 |
-| [search-implementation-record.md](implementation-plans/middleware/search-implementation-record.md) | 進行中（階段 D）：D1 Elasticsearch／SmartCN、中文召回與 kind 網路隔離驗收；D2 索引管理及外部版本寫入已通過真實 ES 測試；D3–D7 待實作 |
+| [search-implementation-record.md](implementation-plans/middleware/search-implementation-record.md) | 進行中（階段 D）：D1 Elasticsearch／SmartCN、中文召回與 kind 網路隔離；D2 索引管理與外部版本寫入；D3 商品事件索引器、亂序版本及故障恢復已通過真實 Kafka＋ES 測試；D4–D7 待實作 |
 
 ## 設計與評估
 

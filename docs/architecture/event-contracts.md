@@ -16,12 +16,12 @@ IDE 使用 localhost:9094；Compose 容器與 kind 使用 kafka:9092。
 | payment.events | PaymentFailed | orderId | paymentId、orderId、status、amount | 記錄消費，維持訂單狀態 |
 | order.events | OrderPaid | orderId | orderId | 確認庫存預留 |
 | order.events | OrderCancelled | orderId | orderId、選填 reason | 釋放庫存預留 |
-| product.events | ProductCreated、ProductUpdated、ProductStatusChanged | productId | productId、sku、name、description、price、categoryId、status、version | 預留給搜尋索引與快取更新 |
+| product.events | ProductCreated、ProductUpdated、ProductStatusChanged | productId | productId、sku、name、description、brand、createdAt、price、categoryId、status、version | product-service 搜尋索引與快取更新 |
 | user.events | UserRegistered | userId | userId、email、displayName | 預留給通知服務 |
 
-商品快照的 description 與 categoryId 未設定時使用空字串；price 是 JSON 數字，version 是商品的樂觀鎖整數版本。事件信封的 version 則是契約版本，兩者意義不同。
+商品快照的 description、brand 與 categoryId 未設定時使用空字串；createdAt 是商品建立時間的 ISO-8601 UTC 字串；price 是 JSON 數字，payload.version 是商品的樂觀鎖整數版本。事件信封的 version 則是契約版本，兩者意義不同。商品更新先 flush 再寫 outbox，確保 payload.version 是本次提交後的版本，同一商品的事件版本嚴格遞增。
 
-業務更新與 outbox 寫入共用交易。Relay 每批最多十筆，每筆等待 ACK 最多三秒，期間持有 DB 連線與資料列鎖，作為低流量雛型的簡化取捨。ACK 後提交失敗仍會重送，消費端須以 processed_event 去重。已發布事件保留七天，未發布事件持續保留。
+業務更新與 outbox 寫入共用交易。Relay 每批最多十筆，每筆等待 ACK 最多三秒，期間持有 DB 連線與資料列鎖，作為低流量雛型的簡化取捨。ACK 後提交失敗仍會重送；執行資料庫副作用的消費者以 `processed_event` 去重。商品搜尋索引是刻意的例外：不寫 `processed_event`，而以商品的 payload.version 作 ES `external_gte` 版本，讓索引覆寫冪等並拒絕舊快照。已發布事件保留七天，未發布事件持續保留。
 
 DefaultErrorHandler 負責重試與 DLT。暫時性錯誤重試三次、間隔 500ms；JSON、參數及業務規則錯誤直接進入來源 topic 加上 .DLT 的死信佇列。DLT 發送失敗向外拋出，保留原事件。付款成功但訂單已取消時，錯誤處理器記錄例外並送 DLT，需人工追蹤退款；自動退款屬階段 F。
 
