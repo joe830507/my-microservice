@@ -128,6 +128,24 @@ describe('購物車頁', () => {
       expect(wrapper.text()).toContain('有 2 項商品已無法購買')
     })
 
+    it('後端對非上架商品只回 id 與 status（沒有名稱、價格）：顯示「此商品已下架」', async () => {
+      serveBatch([
+        batch('ok', 100),
+        { id: 'off', sku: null, name: null, price: null, status: 'DRAFT' },
+      ])
+
+      const { wrapper } = await mountCart([
+        { productId: 'ok', qty: 1 },
+        { productId: 'off', qty: 3 },
+      ])
+
+      const line = wrapper.findAll('.cart-line')[1]
+      expect(line?.text()).toContain('此商品已下架')
+      expect(line?.text()).toContain('無法購買')
+      expect(line?.find('[aria-label="移除 此商品已下架"]').exists()).toBe(true)
+      expect(wrapper.find('.cart-summary__total').text()).toContain('NT$ 100')
+    })
+
     it('可以單獨移除，或一次全部移除', async () => {
       serveBatch([batch('ok', 100), batch('off', 999, 'INACTIVE')])
       const { wrapper } = await mountCart(items)

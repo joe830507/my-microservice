@@ -30,7 +30,7 @@
   - `getProductList`：不是 ADMIN 時把狀態條件固定成 `ACTIVE`，傳入的 `status` 不採用
   - `getProductById`、`getProductBySku`：**先讀詳情快取再判斷可見性**。快取存的是完整資料，ADMIN 讀過的草稿進了快取，訪客再讀仍然是 404
   - `getProductImages`：不是 ADMIN 時用 `existsByIdAndStatus(id, ACTIVE)` 判斷商品是否存在
-- `GET /products/batch`：不變，購物車需要它的 `status`
+- `GET /products/batch`：當時不變，購物車需要它的 `status`；**之後補上了限制，見下方「後續補強」**
 - 後台（vue-management）帶著 ADMIN 的 token，行為不變；它的 261 個測試照樣通過
 - **連帶修改的既有測試**：
   - `ProductDetailCacheIntegrationTests` 直接呼叫 service，測的是快取，改成傳 `includeUnpublished = true`
@@ -56,3 +56,14 @@
 - product-service：151 個測試全部通過（新增 21 個）
 - vue-management：261 個測試全部通過（前端沒有改動，確認後端改動不影響後台）
 - `microservice-architecture.md` 已更新 product-service 的說明
+
+## 後續補強（2026-11-11）：`GET /products/batch` 不外流非上架商品的內容
+
+vue-customer 與真的後端對接時發現：上面第一輪漏掉 `/products/batch`，匿名使用者查草稿商品的 id 會拿到完整的 SKU、名稱、價格。這支 API 不能改成要登入（訪客的購物車頁要用），所以改成限制內容：
+
+- 不是 ADMIN（匿名、CUSTOMER，以及沒有帶角色 header 的服務間呼叫）時，**非 `ACTIVE` 的商品只回 `id` 與 `status`**，`sku`、`name`、`price` 為 `null`；`ACTIVE` 照舊回完整內容；ADMIN 全部回完整內容
+- 呼叫端都不受影響：order-service 只在商品是 `ACTIVE` 時才用 SKU、名稱、價格，其他狀態只看 `status`（已用真的服務驗證：草稿 → `PRODUCT_NOT_AVAILABLE`、上架商品 → 建單成功且快照正確）；購物車只需要 `status` 就能標成「無法購買」
+- 和其他讀取 API 一致：**先讀詳情快取再判斷**，快取存的是完整資料，ADMIN 讀過的草稿進了快取，匿名使用者仍然只拿到 `id`、`status`
+- `ProductService.getProductsByIds` 多了 `includeUnpublished` 參數；controller 讀 `X-User-Roles`；`ProductBatchItem.forVisibility` 決定回完整還是只有 status
+- **測試**：`ProductVisibilityIntegrationTests` 把原本「批次查詢不變」的案例換成 5 個（匿名、CUSTOMER、ADMIN、ADMIN 先讀快取後匿名、不存在的 id 略過），共 16 個；`ProductDetailCacheIntegrationTests` 改傳 `includeUnpublished = true`。product-service 全部 155 個通過
+- 前端（vue-customer）：`BatchProduct` 的 `sku`、`name`、`price` 改成可為 `null`；購物車列上沒有名稱的非上架商品顯示「此商品已下架」

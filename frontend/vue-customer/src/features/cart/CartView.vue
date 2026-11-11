@@ -3,7 +3,7 @@ import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import QuantityInput from '@/components/QuantityInput.vue'
 import { formatPrice } from '@/utils/format'
-import { lineSubtotal } from './lines'
+import { lineName, lineSubtotal } from './lines'
 import { useCartStore } from './store'
 import { useCartLines } from './useCartLines'
 
@@ -62,9 +62,9 @@ function checkout(): void {
             >
               {{ line.product.name }}
             </RouterLink>
-            <span v-else class="cart-line__name">{{ line.product?.name ?? '商品已不存在' }}</span>
+            <span v-else class="cart-line__name">{{ lineName(line) }}</span>
             <p v-if="line.purchasable && line.product" class="cart-line__price">
-              NT$ {{ formatPrice(line.product.price) }}
+              NT$ {{ formatPrice(line.product.price ?? 0) }}
             </p>
             <p v-else class="cart-line__unavailable">無法購買</p>
           </div>
@@ -81,7 +81,7 @@ function checkout(): void {
           <button
             type="button"
             class="cart-link cart-line__remove"
-            :aria-label="`移除 ${line.product?.name ?? '商品'}`"
+            :aria-label="`移除 ${lineName(line)}`"
             @click="cart.remove(line.productId)"
           >
             移除

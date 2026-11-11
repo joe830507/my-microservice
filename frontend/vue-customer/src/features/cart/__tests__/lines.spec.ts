@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BatchProduct } from '../api'
-import { buildLines, cartTotal, lineSubtotal } from '../lines'
+import { buildLines, cartTotal, lineName, lineSubtotal } from '../lines'
 
 function batch(id: string, price: number, status = 'ACTIVE'): BatchProduct {
   return { id, sku: `SKU-${id}`, name: `商品 ${id}`, price, status }
@@ -38,6 +38,35 @@ describe('buildLines', () => {
     const [line] = buildLines([{ productId: 'gone', qty: 1 }], [])
 
     expect(line).toMatchObject({ product: null, purchasable: false })
+  })
+})
+
+// 後端對非上架中的商品只回 id 與 status，sku、name、price 是 null
+const statusOnly = (id: string, status: string): BatchProduct => ({
+  id,
+  sku: null,
+  name: null,
+  price: null,
+  status,
+})
+
+describe('非上架中的商品只有 id 與 status', () => {
+  it('無法購買，小計是 0，不計入總計，名稱顯示「此商品已下架」', () => {
+    const lines = buildLines(
+      [
+        { productId: 'ok', qty: 2 },
+        { productId: 'off', qty: 5 },
+        { productId: 'gone', qty: 1 },
+      ],
+      [batch('ok', 100), statusOnly('off', 'DRAFT')],
+    )
+
+    expect(lines[1]).toMatchObject({ purchasable: false })
+    expect(lineSubtotal(lines[1]!)).toBe(0)
+    expect(cartTotal(lines)).toBe(200)
+    expect(lineName(lines[0]!)).toBe('商品 ok')
+    expect(lineName(lines[1]!)).toBe('此商品已下架')
+    expect(lineName(lines[2]!)).toBe('商品已不存在')
   })
 })
 

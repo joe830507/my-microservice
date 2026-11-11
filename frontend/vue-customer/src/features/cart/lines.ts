@@ -29,14 +29,22 @@ function toCents(price: number): number {
   return Math.round(price * 100)
 }
 
+// 沒有價格（查不到、非上架中只回 status）的商品是 0
 export function lineSubtotal(line: CartLine): number {
-  return line.product ? (toCents(line.product.price) * line.qty) / 100 : 0
+  const price = line.product?.price
+  return price == null ? 0 : (toCents(price) * line.qty) / 100
+}
+
+// 購物車列上顯示的名稱：非上架中的商品後端不回名稱
+export function lineName(line: CartLine): string {
+  if (!line.product) return '商品已不存在'
+  return line.product.name ?? '此商品已下架'
 }
 
 // 總計只算可購買的商品
 export function cartTotal(lines: CartLine[]): number {
   const cents = lines
-    .filter((line) => line.purchasable && line.product)
-    .reduce((sum, line) => sum + toCents(line.product!.price) * line.qty, 0)
+    .filter((line) => line.purchasable)
+    .reduce((sum, line) => sum + toCents(line.product?.price ?? 0) * line.qty, 0)
   return cents / 100
 }

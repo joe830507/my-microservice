@@ -1,12 +1,13 @@
 import apiClient from '@/api/http'
 
 // GET /products/batch：只有下單需要的欄位（沒有圖片、原價）；不存在的 id 不會出現在結果裡
+// 不是上架中（ACTIVE）的商品，後端對一般使用者只回 id 與 status，sku、name、price 是 null，
+// 購物車只需要知道「不能買」；所以只有 status 是 ACTIVE 時才可以用這三個欄位
 export interface BatchProduct {
   id: string
-  sku: string
-  name: string
-  price: number
-  // 公開 API 照舊回傳所有狀態，購物車靠它知道哪些商品已下架
+  sku: string | null
+  name: string | null
+  price: number | null
   status: string
 }
 
