@@ -3,7 +3,6 @@ package com.mymicroservice.order.messaging;
 import java.util.UUID;
 
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
@@ -18,7 +17,6 @@ import tools.jackson.databind.ObjectMapper;
 
 @Component
 @Slf4j
-@ConditionalOnProperty(name = "app.events.enabled", havingValue = "true")
 public class PaymentEventListener {
     private final ObjectMapper objectMapper;
     private final ProcessedEventHandler processedEvents;

@@ -121,7 +121,7 @@ class OrderControllerCreateIntegrationTests {
         assertThat(row.get("user_id")).isEqualTo(USER_ID);
         assertThat(row.get("status")).isEqualTo("PENDING_PAYMENT");
         assertThat(row.get("reservation_status")).isEqualTo("RESERVED");
-        assertThat(row.get("reservation_synced")).isEqualTo(true);
+
         assertThat((BigDecimal) row.get("total_amount")).isEqualByComparingTo("449.98");
         assertThat(row.get("created_by")).isEqualTo(USER_ID);
         assertThat(countItems(orderId)).isEqualTo(2);

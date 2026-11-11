@@ -2,13 +2,11 @@ package com.mymicroservice.common.events;
 
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Component
-@ConditionalOnProperty(name = "app.events.enabled", havingValue = "true")
 public class ProcessedEventHandler {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;

@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.beans.factory.annotation.Value;
 
 import com.mymicroservice.common.CommonAutoConfiguration;
 import com.mymicroservice.common.events.OutboxEventWriter;
@@ -28,7 +27,6 @@ import com.mymicroservice.payment.exception.PaymentErrorCode;
 import com.mymicroservice.payment.repositories.PaymentRepository;
 import com.mymicroservice.payment.service.PaymentService;
 import com.mymicroservice.common.events.UuidV7;
-import com.mymicroservice.payment.enums.OrderNotification;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -41,8 +39,6 @@ public class PaymentServiceImpl implements PaymentService {
     private final OrderClient orderClient;
     private final AuditorAware<UUID> auditorAware;
     private final OutboxEventWriter outbox;
-    @Value("${app.events.enabled:true}")
-    private boolean eventsEnabled;
 
     public PaymentServiceImpl(PaymentRepository paymentRepository, OrderClient orderClient,
             @Qualifier(CommonAutoConfiguration.AUDITOR_AWARE_BEAN_NAME) AuditorAware<UUID> auditorAware,
@@ -101,7 +97,7 @@ public class PaymentServiceImpl implements PaymentService {
         PaymentStatus target = success ? PaymentStatus.SUCCEEDED : PaymentStatus.FAILED;
 
         boolean completed = paymentRepository.completeIfPending(paymentId, target,
-                success ? (eventsEnabled ? OrderNotification.NOT_REQUIRED : OrderNotification.PENDING) : null, Instant.now(),
+                Instant.now(),
                 auditorAware.getCurrentAuditor().orElseThrow()) == 1;
         if (completed) {
             Metrics.counter("payments.completed", "result", success ? "succeeded" : "failed").increment();
@@ -111,43 +107,14 @@ public class PaymentServiceImpl implements PaymentService {
                 throw new AppException(PaymentErrorCode.PAYMENT_ALREADY_COMPLETED, paymentId, payment.getStatus());
             }
         }
-        if (completed && eventsEnabled) {
+        if (completed) {
             Payment current = paymentRepository.findById(paymentId).orElseThrow();
             outbox.append("payment.events", success ? "PaymentSucceeded" : "PaymentFailed",
                     current.getOrderId().toString(), Map.of("paymentId", paymentId.toString(),
                             "orderId", current.getOrderId().toString(), "status", target.name(),
                             "amount", current.getAmount()));
         }
-        if (success && !eventsEnabled) {
-            Payment current = paymentRepository.findById(paymentId).orElseThrow();
-            if (current.getOrderNotification() == OrderNotification.PENDING) {
-                notifyOrder(current);
-            }
-        }
         return PaymentResDto.from(paymentRepository.findById(paymentId).orElseThrow());
-    }
-
-    // 僅供未啟用事件的舊版本機資料相容；事件模式新付款已在交易內寫入 outbox。
-    @Override
-    public boolean retryOrderNotification(UUID paymentId) {
-        return paymentRepository.findById(paymentId)
-                .filter(payment -> payment.getOrderNotification() == OrderNotification.PENDING)
-                .map(this::notifyOrder)
-                .orElse(true);
-    }
-
-    private boolean notifyOrder(Payment payment) {
-        OrderClient.NotifyResult result = orderClient.notifyPaid(payment.getOrderId());
-        switch (result) {
-            case NOTIFIED -> paymentRepository.markOrderNotification(payment.getId(), OrderNotification.DONE);
-            case REJECTED -> {
-                log.error("payment {} succeeded but order {} was rejected (cancelled); refund required",
-                        payment.getId(), payment.getOrderId());
-                paymentRepository.markOrderNotification(payment.getId(), OrderNotification.REJECTED);
-            }
-            case FAILED -> { }
-        }
-        return result != OrderClient.NotifyResult.FAILED;
     }
 
     private Payment findVisiblePayment(UUID paymentId, UUID userId, boolean admin) {

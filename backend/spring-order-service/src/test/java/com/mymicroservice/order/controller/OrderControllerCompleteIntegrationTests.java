@@ -66,7 +66,7 @@ class OrderControllerCompleteIntegrationTests {
         assertThat(row.get("version")).isEqualTo(1L);
         // 完成不影響預扣
         assertThat(row.get("reservation_status")).isEqualTo("CONFIRMED");
-        assertThat(row.get("reservation_synced")).isEqualTo(true);
+
     }
 
     @Test

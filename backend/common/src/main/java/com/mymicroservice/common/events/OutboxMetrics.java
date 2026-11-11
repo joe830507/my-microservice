@@ -2,12 +2,10 @@ package com.mymicroservice.common.events;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.atomic.AtomicLong;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnProperty(name = "app.events.enabled", havingValue = "true")
 public class OutboxMetrics {
     private final MeterRegistry registry;
     private final AtomicLong pending = new AtomicLong();

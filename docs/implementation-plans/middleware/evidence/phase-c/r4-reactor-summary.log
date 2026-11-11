@@ -1,0 +1,20 @@
+[INFO] --- clean:3.5.0:clean (default-clean) @ backend ---
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for backend 0.0.1-SNAPSHOT:
+[INFO] 
+[INFO] common ............................................. SUCCESS [ 24.781 s]
+[INFO] observability ...................................... SUCCESS [  0.332 s]
+[INFO] product-service .................................... SUCCESS [02:56 min]
+[INFO] user-service ....................................... SUCCESS [01:11 min]
+[INFO] inventory-service .................................. SUCCESS [ 28.973 s]
+[INFO] order-service ...................................... SUCCESS [ 49.875 s]
+[INFO] payment-service .................................... SUCCESS [ 31.959 s]
+[INFO] api-gateway ........................................ SUCCESS [ 41.728 s]
+[INFO] backend ............................................ SUCCESS [  0.002 s]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  07:05 min
+[INFO] Finished at: 2026-11-11T20:12:19+08:00
+[INFO] ------------------------------------------------------------------------
+Surefire totals: tests=761 failures=0 errors=0 skipped=0

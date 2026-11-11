@@ -1,17 +1,18 @@
 package com.mymicroservice.common.events;
 
 import com.mymicroservice.common.exception.AppException;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import io.opentelemetry.api.OpenTelemetry;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /** 重試與死信轉送由 listener container 的 DefaultErrorHandler 統一管理。 */
 @Component
-@ConditionalOnProperty(name = "app.events.enabled", havingValue = "true")
 public class ResilientEventConsumer {
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private io.opentelemetry.api.OpenTelemetry openTelemetry = io.opentelemetry.api.OpenTelemetry.noop();
+    @Autowired(required = false)
+    private OpenTelemetry openTelemetry = OpenTelemetry.noop();
 
-    public void consume(org.apache.kafka.clients.consumer.ConsumerRecord<String, String> record,
+    public void consume(ConsumerRecord<String, String> record,
             EventWork work) throws Exception {
         EventTrace.consume(openTelemetry, record,
                 () -> consume(record.topic(), record.key(), record.value(), work));

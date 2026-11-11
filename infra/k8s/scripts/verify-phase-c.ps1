@@ -8,6 +8,8 @@ function Forward($service, $mapping) {
 }
 $orderPort = Get-Random -Minimum 20000 -Maximum 30000
 $orderForward = Forward order-service "${orderPort}:8082"
+$paymentPort = Get-Random -Minimum 30000 -Maximum 40000
+$paymentForward = Forward payment-service "${paymentPort}:8085"
 function Kube { & kubectl --context $Context -n $ns @args; if ($LASTEXITCODE -ne 0) { throw "kubectl failed: $args" } }
 function Sql($service, $query) {
     $query | & kubectl --context $Context -n $ns exec -i "$service-db-0" -- sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At'
@@ -35,11 +37,11 @@ for ($i = 0; $i -lt 3; $i++) {
     $orders += Api $orderPort '/api/v1/orders' @{items = @(@{productId=$product;qty=1})}
 }
 $payments = @()
-foreach ($order in $orders[0..1]) { $payments += Api 18085 '/api/v1/payments' @{orderId=$order.id} }
+foreach ($order in $orders[0..1]) { $payments += Api $paymentPort '/api/v1/payments' @{orderId=$order.id} }
 try {
     Kube scale deployment/order-service --replicas=0
     Kube wait --for=delete pod -l app=order-service --timeout=90s
-    $paid = Api 18085 "/api/v1/payments/$($payments[0].id)/mock-callback" @{result='SUCCESS'}
+    $paid = Api $paymentPort "/api/v1/payments/$($payments[0].id)/mock-callback" @{result='SUCCESS'}
     if ($paid.status -ne 'SUCCEEDED') { throw 'Payment did not succeed during order outage' }
     AwaitSql order "SELECT status FROM order_service.orders WHERE id='$($orders[0].id)'" 'PENDING_PAYMENT'
     Write-Output "C4 payment succeeded while order stopped: $($orders[0].id)"
@@ -52,7 +54,7 @@ $orderForward = Forward order-service "${orderPort}:8082"
 try {
     Kube scale deployment/inventory-service --replicas=0
     Kube wait --for=delete pod -l app=inventory-service --timeout=90s
-    $paid = Api 18085 "/api/v1/payments/$($payments[1].id)/mock-callback" @{result='SUCCESS'}
+    $paid = Api $paymentPort "/api/v1/payments/$($payments[1].id)/mock-callback" @{result='SUCCESS'}
     $cancelled = Api $orderPort "/api/v1/orders/$($orders[2].id)/cancel" @{}
     if ($paid.status -ne 'SUCCEEDED' -or $cancelled.status -ne 'CANCELLED') { throw 'C5 API results differ' }
     AwaitSql order "SELECT status FROM order_service.orders WHERE id='$($orders[1].id)'" 'PAID'
@@ -66,3 +68,4 @@ Write-Output 'C5 recovered: CONFIRMED, RELEASED; available=18 reserved=0'
 Write-Output "C5_READY user=$user paidOrder=$($orders[1].id) cancelOrder=$($orders[2].id) payment=$($payments[1].id) sku=$sku traceparent=$($headers.traceparent)"
 $state = @{user=$user; paidOrder=$orders[1].id; cancelOrder=$orders[2].id; payment=$payments[1].id; sku=$sku; traceparent=$headers.traceparent}
 $state | ConvertTo-Json | Set-Content -Encoding utf8 backend/phase-c-acceptance-state.json
+Stop-Process -Id $orderForward.Id, $paymentForward.Id -ErrorAction SilentlyContinue

@@ -180,3 +180,18 @@ R3 全部通過後，刪除：`app.events.enabled` 旗標與服務內的 if/else
 
 - 命名：`V4__create_event_tables.sql` 與 `V5__order_outbox_by_sequence.sql` 這類「先建後改」的 migration 因為尚未 commit，可直接合併成一份，避免留下沒有發布過的中間版本。
 - 同一階段若之後要用 SASL，`SEC-13` 與 NetworkPolicy 要一起更新。
+
+## R1–R4 最終處理（2026-11-11）
+
+以下紀錄取代上方「第二輪修正追蹤」的待辦狀態；原審查內容保留作為歷史。
+
+| 項目 | 結果 |
+|---|---|
+| R1 | 通用 consumer 依 HTTP 狀態分類，沒有 order 業務碼；退款提醒位於 PaymentEventListener，以 OrderErrorCode enum 判斷。分類、取消訂單 rollback 與 W3C context 測試通過 |
+| R2 | 本次重新執行完整 `mvnw.cmd -o clean test`，含 Kafka/PostgreSQL Testcontainers；不是引用前次結果。本機 clean build 的結果與限制記錄於實作紀錄，不宣稱隔離 CI 或第三方簽核 |
+| R3 | kind 的未授權 Pod、C4/C5 停機恢復、C6 實際 topic、C7 Tempo 與真實告警 firing 全數通過；並修復驗收找出的 lag 指標名稱、DLT 零值基線、Kafka trace 傳遞問題 |
+| R4 | R3 通過後移除旗標、分支、舊 job／properties／client 通知、補償欄位與舊測試。新增升級 migration 保留未完成通知，既有歷史 migration 不改校驗碼；kind 升級與停機恢復重測通過。獨立提交於 R1–R3 之後 |
+
+指令、輸出、trace、告警及完整測試摘要見 [事件實作與驗收紀錄](event-implementation-plan.md)。R1–R3 修正提交為 `eec6350`；R4 後續獨立提交。R5 的 C1→C7 歷史拆分不在本次範圍，原有 `.vscode/launch.json` 不納入提交。
+
+最終 R4 完整 `clean test`：2026-11-11 20:12:19，九模組 SUCCESS，7:05（含 Kafka、PostgreSQL 與升級 migration）。[摘要](evidence/phase-c/r4-reactor-summary.log)。

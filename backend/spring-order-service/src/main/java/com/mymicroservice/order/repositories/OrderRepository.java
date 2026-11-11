@@ -28,7 +28,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
     Optional<Order> findWithItemsByUserIdAndIdempotencyKey(UUID userId, String idempotencyKey);
 
     // 取消：只有 PENDING_PAYMENT 才會改，回傳 1 = 成功、0 = 狀態不對
-    // 同時把預扣標成「應該釋放、尚未同步」；呼叫 inventory 成功後再用 markReservationSynced 標成已同步
     // 條件式 UPDATE 會鎖住這一筆：和付款通知同時送達時，後到的重新判斷條件，只有一個會成功
     // 批次 UPDATE 不經過實體，@Version 與稽核欄位要自己更新
     @Transactional
@@ -37,20 +36,10 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
             UPDATE Order o
             SET o.status = com.mymicroservice.order.enums.OrderStatus.CANCELLED, o.cancelledAt = :now,
                 o.reservationStatus = com.mymicroservice.order.enums.ReservationStatus.RELEASED,
-                o.reservationSynced = false,
                 o.version = o.version + 1, o.updatedAt = :now, o.updatedBy = :updatedBy
             WHERE o.id = :id AND o.status = com.mymicroservice.order.enums.OrderStatus.PENDING_PAYMENT
             """)
     int cancelIfPending(@Param("id") UUID id, @Param("now") Instant now, @Param("updatedBy") UUID updatedBy);
-
-    // inventory 已經是 reservationStatus 的狀態；reservationStatus 不符（期間又被改了）就不動
-    @Transactional
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("""
-            UPDATE Order o SET o.reservationSynced = true
-            WHERE o.id = :id AND o.reservationStatus = :reservationStatus AND o.reservationSynced = false
-            """)
-    int markReservationSynced(@Param("id") UUID id, @Param("reservationStatus") ReservationStatus reservationStatus);
 
     // 付款成功：只有 PENDING_PAYMENT 才會改，回傳 1 = 成功、0 = 狀態不對
     // 同時把預扣標成「應該確認、尚未同步」；和取消同時送達時只有一個會成功
@@ -60,7 +49,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
             UPDATE Order o
             SET o.status = com.mymicroservice.order.enums.OrderStatus.PAID, o.paidAt = :now,
                 o.reservationStatus = com.mymicroservice.order.enums.ReservationStatus.CONFIRMED,
-                o.reservationSynced = false,
                 o.version = o.version + 1, o.updatedAt = :now, o.updatedBy = :updatedBy
             WHERE o.id = :id AND o.status = com.mymicroservice.order.enums.OrderStatus.PENDING_PAYMENT
             """)
@@ -97,13 +85,4 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
             ORDER BY o.createdAt
             """)
     List<UUID> findPendingCreatedBefore(@Param("cutoff") Instant cutoff, Pageable pageable);
-
-    // ReservationSyncJob：還沒成功通知 inventory 的訂單；使用 idx_orders_reservation_unsynced
-    // 只挑最後更新超過一段時間的，避免和正在處理中的請求（剛改完狀態、正要呼叫 inventory）搶著做
-    @Query("""
-            SELECT o.id FROM Order o
-            WHERE o.reservationSynced = false AND o.updatedAt < :cutoff
-            ORDER BY o.updatedAt
-            """)
-    List<UUID> findUnsyncedUpdatedBefore(@Param("cutoff") Instant cutoff, Pageable pageable);
 }

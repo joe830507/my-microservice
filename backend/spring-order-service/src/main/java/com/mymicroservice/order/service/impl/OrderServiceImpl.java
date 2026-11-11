@@ -21,7 +21,6 @@ import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.beans.factory.annotation.Value;
 
 import com.mymicroservice.common.CommonAutoConfiguration;
 import com.mymicroservice.common.events.OutboxEventWriter;
@@ -55,8 +54,6 @@ public class OrderServiceImpl implements OrderService {
     private final InventoryClient inventoryClient;
     private final AuditorAware<UUID> auditorAware;
     private final OutboxEventWriter outbox;
-    @Value("${app.events.enabled:true}")
-    private boolean eventsEnabled;
 
     public OrderServiceImpl(OrderRepository orderRepository, ProductClient productClient,
             InventoryClient inventoryClient,
@@ -190,19 +187,10 @@ public class OrderServiceImpl implements OrderService {
             if (order.getStatus() == OrderStatus.CANCELLED) {
                 throw new AppException(OrderErrorCode.ORDER_ALREADY_CANCELLED, orderId);
             }
-            if (!eventsEnabled && !order.isReservationSynced()
-                    && order.getReservationStatus() == ReservationStatus.CONFIRMED) {
-                syncReservation(orderId, ReservationStatus.CONFIRMED);
-                order = orderRepository.findById(orderId).orElseThrow();
-            }
             return InternalOrderResDto.from(order);
         }
 
-        if (eventsEnabled) {
-            outbox.append("order.events", "OrderPaid", orderId.toString(), Map.of("orderId", orderId.toString()));
-        } else {
-            syncReservation(orderId, ReservationStatus.CONFIRMED);
-        }
+        outbox.append("order.events", "OrderPaid", orderId.toString(), Map.of("orderId", orderId.toString()));
         return InternalOrderResDto.from(orderRepository.findById(orderId).orElseThrow());
     }
 
@@ -222,16 +210,12 @@ public class OrderServiceImpl implements OrderService {
             if (order.getStatus() != OrderStatus.CANCELLED) {
                 throw new AppException(OrderErrorCode.ORDER_NOT_CANCELLABLE, orderId, order.getStatus());
             }
-            if (order.isReservationSynced()) {
-                return OrderResDto.from(order);
-            }
+            return OrderResDto.from(order);
         }
 
-        // 新取消的，或之前取消但釋放還沒成功的：呼叫 inventory 釋放（inventory 那邊是冪等的）
-        if (cancelled && eventsEnabled) {
+        // 與取消狀態共用交易，確保事件持久化後由 inventory 消費。
+        if (cancelled) {
             outbox.append("order.events", "OrderCancelled", orderId.toString(), Map.of("orderId", orderId.toString()));
-        } else if (!eventsEnabled) {
-            syncReservation(orderId, ReservationStatus.RELEASED);
         }
         return OrderResDto.from(findVisibleOrder(orderId, userId, admin));
     }
@@ -273,37 +257,10 @@ public class OrderServiceImpl implements OrderService {
                 auditorAware.getCurrentAuditor().orElseThrow()) == 1;
         if (cancelled) {
             Metrics.counter("orders.cancelled", "reason", "timeout").increment();
-            if (eventsEnabled) {
-                outbox.append("order.events", "OrderCancelled", orderId.toString(),
-                        Map.of("orderId", orderId.toString(), "reason", "timeout"));
-            } else {
-                syncReservation(orderId, ReservationStatus.RELEASED);
-            }
+            outbox.append("order.events", "OrderCancelled", orderId.toString(),
+                    Map.of("orderId", orderId.toString(), "reason", "timeout"));
         }
         return cancelled;
-    }
-
-    @Override
-    public boolean retryReservationSync(UUID orderId) {
-        Order order = orderRepository.findById(orderId).orElse(null);
-        if (order == null || order.isReservationSynced()
-                || order.getReservationStatus() == ReservationStatus.RESERVED) {
-            return order != null;
-        }
-        return syncReservation(orderId, order.getReservationStatus());
-    }
-
-    // 呼叫 inventory 讓預扣變成 target 狀態；成功才標成已同步，失敗留給排程重試
-    private boolean syncReservation(UUID orderId, ReservationStatus target) {
-        boolean success = switch (target) {
-            case RELEASED -> inventoryClient.release(orderId);
-            case CONFIRMED -> inventoryClient.confirm(orderId);
-            case RESERVED -> throw new IllegalArgumentException("cannot sync to RESERVED");
-        };
-        if (success) {
-            orderRepository.markReservationSynced(orderId, target);
-        }
-        return success;
     }
 
     private Order findVisibleOrder(UUID orderId, UUID userId, boolean admin) {
@@ -346,7 +303,6 @@ public class OrderServiceImpl implements OrderService {
         order.setUserId(userId);
         order.setStatus(OrderStatus.PENDING_PAYMENT);
         order.setReservationStatus(ReservationStatus.RESERVED);
-        order.setReservationSynced(true);
 
         BigDecimal total = BigDecimal.ZERO;
         for (Map.Entry<UUID, Integer> entry : quantities.entrySet()) {

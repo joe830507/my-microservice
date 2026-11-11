@@ -16,7 +16,6 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.beans.factory.annotation.Value;
 
 import com.mymicroservice.product.cache.ProductDetailCache;
 import com.mymicroservice.product.dto.product.addOneNewProduct.AddOneNewProductReq;
@@ -56,8 +55,6 @@ public class ProductServiceImpl implements ProductService {
     private final ProductDetailCache productDetailCache;
     private final ImageStorage imageStorage;
     private final OutboxEventWriter outbox;
-    @Value("${app.events.enabled:true}")
-    private boolean eventsEnabled;
 
     @Override
     public AddOneNewProductRes addOneNewProduct(AddOneNewProductReq addOneNewProductReq) {
@@ -312,7 +309,6 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private void publishProductEvent(Product product, String type) {
-        if (!eventsEnabled) return;
         outbox.append("product.events", type, product.getId().toString(), Map.of(
                 "productId", product.getId().toString(),
                 "sku", product.getSku(),

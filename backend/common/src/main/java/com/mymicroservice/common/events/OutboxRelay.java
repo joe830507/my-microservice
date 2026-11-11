@@ -16,7 +16,6 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.internals.RecordHeader;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -25,7 +24,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "app.events.enabled", havingValue = "true")
 public class OutboxRelay {
     private final JdbcTemplate jdbc;
     private final KafkaTemplate<String, String> kafka;

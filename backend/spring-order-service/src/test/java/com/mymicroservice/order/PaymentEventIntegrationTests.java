@@ -23,7 +23,7 @@ import com.mymicroservice.order.service.OrderService;
 import tools.jackson.databind.ObjectMapper;
 
 /** 真實資料庫驗證事件模式，停用 Kafka listener 自動啟動以隔離 broker 依賴。 */
-@SpringBootTest(properties = {"app.events.enabled=true", "spring.kafka.listener.auto-startup=false",
+@SpringBootTest(properties = {"spring.kafka.listener.auto-startup=false",
         "app.events.outbox-poll-interval=3600000"})
 @Import(TestcontainersConfiguration.class)
 class PaymentEventIntegrationTests {

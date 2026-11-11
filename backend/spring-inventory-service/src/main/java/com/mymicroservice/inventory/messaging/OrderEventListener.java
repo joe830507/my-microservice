@@ -2,7 +2,6 @@ package com.mymicroservice.inventory.messaging;
 
 import java.util.UUID;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -14,7 +13,6 @@ import com.mymicroservice.inventory.service.ReservationService;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
-@ConditionalOnProperty(name = "app.events.enabled", havingValue = "true")
 public class OrderEventListener {
     private final ObjectMapper objectMapper;
     private final ProcessedEventHandler processedEvents;

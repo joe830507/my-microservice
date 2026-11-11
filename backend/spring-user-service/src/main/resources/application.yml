@@ -54,7 +54,6 @@ jwt:
   refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}
 app:
   events:
-    enabled: ${APP_EVENTS_ENABLED:true}
     schema: user_service
   # 排程的分散式鎖（ShedLock，階段 B4）：鎖放在自己的 PostgreSQL；
   # at-least-for 要大於副本之間的時鐘差、小於 cron 的間隔（這裡所有排程至少相隔 15 秒以上）

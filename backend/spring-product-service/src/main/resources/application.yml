@@ -43,7 +43,6 @@ spring:
     type: redis
 app:
   events:
-    enabled: ${APP_EVENTS_ENABLED:true}
     schema: product_service
 # 商品圖片的物件儲存；本機是 infra/docker-compose.yml 的 object-storage（SeaweedFS）
 # 帳密只用在本機，和 infra/seaweedfs/s3.json 一致；正式環境用環境變數覆蓋

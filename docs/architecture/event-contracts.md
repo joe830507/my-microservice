@@ -25,6 +25,6 @@ IDE 使用 localhost:9094；Compose 容器與 kind 使用 kafka:9092。
 
 DefaultErrorHandler 負責重試與 DLT。暫時性錯誤重試三次、間隔 500ms；JSON、參數及業務規則錯誤直接進入來源 topic 加上 .DLT 的死信佇列。DLT 發送失敗向外拋出，保留原事件。付款成功但訂單已取消時，錯誤處理器記錄例外並送 DLT，需人工追蹤退款；自動退款屬階段 F。
 
-過渡期間保留 app.events.enabled=false 的舊同步路徑，供既有部署回退及測試遷移。預設啟用事件，舊排程僅在明確設為 false 時啟動。事件模式的付款通知狀態為 NOT_REQUIRED，代表不使用舊同步通知。移除時點為 C4/C5 事件整合測試與 Compose/kind 停機恢復驗收通過後、階段 C 結案前，屆時刪除旗標、舊排程與欄位。
+事件為唯一的付款與庫存狀態通知路徑。R3 部署驗收通過後已移除旗標、舊重試工作與補償欄位。升級 migration 先將未完成的舊通知補入 outbox，再刪除欄位；已部署的歷史 migration 保留校驗碼。
 
 UserRegistered 含 email，不可將 payload 或地址複製到 log 或 trace attribute。現有 Kafka 未啟用 SASL/ACL，見[已知安全問題](../security/known-issues.md)。

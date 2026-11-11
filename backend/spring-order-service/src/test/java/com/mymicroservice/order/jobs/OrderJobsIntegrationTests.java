@@ -35,9 +35,7 @@ import com.mymicroservice.order.TestcontainersConfiguration;
 // 這裡打開 cron（src/test/resources 預設停用），只為了確認有註冊；cron 時間設成不會在測試期間觸發
 @SpringBootTest(properties = {
         "app.payment-timeout.cron=0 0 0 1 1 *",
-        "app.reservation-sync.cron=0 0 0 1 1 *",
-        "app.payment-timeout.batch-size=2",
-        "app.reservation-sync.batch-size=2" })
+        "app.payment-timeout.batch-size=2" })
 @Import(TestcontainersConfiguration.class)
 class OrderJobsIntegrationTests {
     private static final String RESERVATIONS = "/internal/v1/inventory/reservations/";
@@ -56,8 +54,6 @@ class OrderJobsIntegrationTests {
 
     @Autowired
     private PaymentTimeoutJob paymentTimeoutJob;
-    @Autowired
-    private ReservationSyncJob reservationSyncJob;
     @Autowired
     private JdbcTemplate jdbcTemplate;
     @Autowired
@@ -83,13 +79,13 @@ class OrderJobsIntegrationTests {
         assertThat(expiredRow.get("status")).isEqualTo("CANCELLED");
         assertThat(expiredRow.get("cancelled_at")).isNotNull();
         assertThat(expiredRow.get("reservation_status")).isEqualTo("RELEASED");
-        assertThat(expiredRow.get("reservation_synced")).isEqualTo(true);
+
         assertThat(expiredRow.get("updated_by")).isEqualTo(SYSTEM);
-        INVENTORY_SERVICE.verify(1, postRequestedFor(urlEqualTo(RESERVATIONS + expired + "/release")));
+        INVENTORY_SERVICE.verify(0, postRequestedFor(urlEqualTo(RESERVATIONS + expired + "/release")));
 
         assertThat(findOrder(recent).get("status")).isEqualTo("PENDING_PAYMENT");
         assertThat(findOrder(oldButPaid).get("status")).isEqualTo("PAID");
-        INVENTORY_SERVICE.verify(1, anyRequestedFor(anyUrl()));
+        INVENTORY_SERVICE.verify(0, anyRequestedFor(anyUrl()));
     }
 
     @Test
@@ -106,7 +102,7 @@ class OrderJobsIntegrationTests {
     }
 
     @Test
-    void paymentTimeout_inventoryDown_stillCancelsAndLeavesUnsynced() throws Exception {
+    void paymentTimeout_inventoryDown_stillCancelsAndWritesEvent() throws Exception {
         stubInventory(500);
         UUID expired = insert("PENDING_PAYMENT", minutesAgo(31));
 
@@ -114,57 +110,10 @@ class OrderJobsIntegrationTests {
 
         Map<String, Object> row = findOrder(expired);
         assertThat(row.get("status")).isEqualTo("CANCELLED");
-        assertThat(row.get("reservation_synced")).isEqualTo(false);
+
     }
 
     // ---------- 補做庫存同步 ----------
-
-    @Test
-    void reservationSync_retriesReleaseAndConfirmForUnsyncedOrders() throws Exception {
-        UUID cancelled = insertUnsynced("CANCELLED", "RELEASED", minutesAgo(5));
-        UUID paid = insertUnsynced("PAID", "CONFIRMED", minutesAgo(5));
-
-        reservationSyncJob.run();
-
-        INVENTORY_SERVICE.verify(1, postRequestedFor(urlEqualTo(RESERVATIONS + cancelled + "/release")));
-        INVENTORY_SERVICE.verify(1, postRequestedFor(urlEqualTo(RESERVATIONS + paid + "/confirm")));
-        assertThat(findOrder(cancelled).get("reservation_synced")).isEqualTo(true);
-        assertThat(findOrder(paid).get("reservation_synced")).isEqualTo(true);
-    }
-
-    @Test
-    void reservationSync_skipsRecentlyUpdatedOrders() throws Exception {
-        // 剛改完狀態、請求本身可能正在呼叫 inventory，不搶著做
-        UUID justCancelled = insertUnsynced("CANCELLED", "RELEASED", Instant.now().minusSeconds(10));
-
-        reservationSyncJob.run();
-
-        INVENTORY_SERVICE.verify(0, anyRequestedFor(anyUrl()));
-        assertThat(findOrder(justCancelled).get("reservation_synced")).isEqualTo(false);
-    }
-
-    @Test
-    void reservationSync_inventoryStillDown_leavesUnsyncedForNextRun() throws Exception {
-        stubInventory(500);
-        UUID cancelled = insertUnsynced("CANCELLED", "RELEASED", minutesAgo(5));
-
-        reservationSyncJob.run();
-        assertThat(findOrder(cancelled).get("reservation_synced")).isEqualTo(false);
-
-        stubInventory(200);
-        reservationSyncJob.run();
-        assertThat(findOrder(cancelled).get("reservation_synced")).isEqualTo(true);
-    }
-
-    @Test
-    void reservationSync_ignoresSyncedOrders() throws Exception {
-        insert("CANCELLED", minutesAgo(5));
-        insert("PAID", minutesAgo(5));
-
-        reservationSyncJob.run();
-
-        INVENTORY_SERVICE.verify(0, anyRequestedFor(anyUrl()));
-    }
 
     @Test
     void jobs_areScheduledWithConfiguredCron() {
@@ -187,15 +136,6 @@ class OrderJobsIntegrationTests {
 
     private UUID insert(String status, Instant createdAt) {
         return OrderTestData.insertOrder(jdbcTemplate, ALICE, status, 1, createdAt);
-    }
-
-    // 已經改了狀態、但還沒成功通知 inventory 的訂單
-    private UUID insertUnsynced(String status, String reservationStatus, Instant updatedAt) {
-        UUID orderId = insert(status, updatedAt);
-        jdbcTemplate.update("""
-                UPDATE order_service.orders SET reservation_status = ?, reservation_synced = false WHERE id = ?
-                """, reservationStatus, orderId);
-        return orderId;
     }
 
     private Map<String, Object> findOrder(UUID orderId) {

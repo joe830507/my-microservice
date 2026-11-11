@@ -3,7 +3,6 @@ package com.mymicroservice.common.events;
 import org.apache.kafka.common.TopicPartition;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -14,7 +13,6 @@ import org.springframework.util.backoff.FixedBackOff;
 import tools.jackson.core.JacksonException;
 
 @AutoConfiguration
-@ConditionalOnProperty(name = "app.events.enabled", havingValue = "true")
 @EnableScheduling
 @Import({OutboxRelay.class, OutboxMetrics.class, ProcessedEventHandler.class, ResilientEventConsumer.class})
 public class EventsAutoConfiguration {

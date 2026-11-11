@@ -14,7 +14,6 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.beans.factory.annotation.Value;
 
 import com.mymicroservice.common.exception.AppException;
 import com.mymicroservice.common.events.OutboxEventWriter;
@@ -47,8 +46,6 @@ public class AuthServiceImpl implements AuthService {
     private final JwtProperties jwtProperties;
     private final LoginAttemptService loginAttemptService;
     private final OutboxEventWriter outbox;
-    @Value("${app.events.enabled:true}")
-    private boolean eventsEnabled;
 
     // 帳號不存在時拿來比對的假雜湊，讓回應時間與「帳號存在但密碼錯」相近
     // 否則 bcrypt 比對約需數十毫秒，可從回應快慢推測 email 是否已註冊
@@ -86,7 +83,7 @@ public class AuthServiceImpl implements AuthService {
         user.getRoles().add(Role.CUSTOMER);
 
         User savedUser = userRepository.save(user);
-        if (eventsEnabled) outbox.append("user.events", "UserRegistered", savedUser.getId().toString(),
+        outbox.append("user.events", "UserRegistered", savedUser.getId().toString(),
                 Map.of("userId", savedUser.getId().toString(),
                         "email", savedUser.getEmail(), "displayName", savedUser.getDisplayName()));
         return RegisterResDto.from(savedUser);

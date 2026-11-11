@@ -22,7 +22,7 @@ import com.mymicroservice.inventory.service.ReservationService;
 
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest(properties = {"app.events.enabled=true", "spring.kafka.listener.auto-startup=false",
+@SpringBootTest(properties = {"spring.kafka.listener.auto-startup=false",
         "app.events.outbox-poll-interval=3600000"})
 @Import(TestcontainersConfiguration.class)
 class OrderEventIntegrationTests {
