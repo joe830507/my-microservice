@@ -4,6 +4,17 @@ server:
 spring:
   application:
     name: product-service
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
+    producer:
+      properties:
+        max.block.ms: 3000
+        request.timeout.ms: 3000
+        delivery.timeout.ms: 10000
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    template:
+      observation-enabled: true
   # 指標、追蹤、log 的共用設定（common 以外的 observability 模組，階段 A）
   config:
     import: classpath:observability.yml
@@ -29,6 +40,10 @@ spring:
       connect-timeout: 1s # 建立連線最多等多久
   cache:
     type: redis
+app:
+  events:
+    enabled: ${APP_EVENTS_ENABLED:true}
+    schema: product_service
 # 商品圖片的物件儲存；本機是 infra/docker-compose.yml 的 object-storage（SeaweedFS）
 # 帳密只用在本機，和 infra/seaweedfs/s3.json 一致；正式環境用環境變數覆蓋
 storage:

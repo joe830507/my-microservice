@@ -16,6 +16,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 
 import com.mymicroservice.product.cache.ProductDetailCache;
 import com.mymicroservice.product.dto.product.addOneNewProduct.AddOneNewProductReq;
@@ -35,6 +36,7 @@ import com.mymicroservice.product.entity.ProductImage;
 import com.mymicroservice.product.entity.ProductStatus;
 import com.mymicroservice.common.exception.AppException;
 import com.mymicroservice.common.exception.CommonErrorCode;
+import com.mymicroservice.common.events.OutboxEventWriter;
 import com.mymicroservice.product.exception.ProductErrorCode;
 import com.mymicroservice.product.repository.CategoryRepository;
 import com.mymicroservice.product.repository.ProductImageRepository;
@@ -53,10 +55,14 @@ public class ProductServiceImpl implements ProductService {
     private final ProductImageRepository productImageRepository;
     private final ProductDetailCache productDetailCache;
     private final ImageStorage imageStorage;
+    private final OutboxEventWriter outbox;
+    @Value("${app.events.enabled:true}")
+    private boolean eventsEnabled;
 
     @Override
     public AddOneNewProductRes addOneNewProduct(AddOneNewProductReq addOneNewProductReq) {
         Product savedProduct = productRepository.save(addOneNewProductReq.toEntity());
+        publishProductEvent(savedProduct, "ProductCreated");
 
         // 建立前可能有人查過這個 sku，查不到的結果會被短暫快取
         productDetailCache.evictSkuMappingAfterCommit(savedProduct.getSku());
@@ -214,6 +220,7 @@ public class ProductServiceImpl implements ProductService {
         String oldSku = product.getSku();
         updateOneProductReq.applyTo(product);
         productRepository.flush();
+        publishProductEvent(product, "ProductUpdated");
 
         // sku 有改的話，舊 sku 的對照會過期，新 sku 可能有快取到查不到的結果，兩者都要刪
         productDetailCache.evictAfterCommit(id);
@@ -247,6 +254,7 @@ public class ProductServiceImpl implements ProductService {
         // 5. 改狀態並儲存
         product.setStatus(ProductStatus.ACTIVE);
         product = productRepository.saveAndFlush(product);
+        publishProductEvent(product, "ProductStatusChanged");
 
         productDetailCache.evictAfterCommit(id);
         return ChangeProductStatusRes.from(product);
@@ -265,6 +273,7 @@ public class ProductServiceImpl implements ProductService {
         // 3. 改狀態並儲存
         product.setStatus(ProductStatus.INACTIVE);
         product = productRepository.saveAndFlush(product);
+        publishProductEvent(product, "ProductStatusChanged");
 
         productDetailCache.evictAfterCommit(id);
         return ChangeProductStatusRes.from(product);
@@ -283,6 +292,7 @@ public class ProductServiceImpl implements ProductService {
         // 3. 改狀態並儲存
         product.setStatus(ProductStatus.ARCHIVED);
         product = productRepository.saveAndFlush(product);
+        publishProductEvent(product, "ProductStatusChanged");
 
         productDetailCache.evictAfterCommit(id);
         return ChangeProductStatusRes.from(product);
@@ -299,5 +309,18 @@ public class ProductServiceImpl implements ProductService {
         }
 
         return product;
+    }
+
+    private void publishProductEvent(Product product, String type) {
+        if (!eventsEnabled) return;
+        outbox.append("product.events", type, product.getId().toString(), Map.of(
+                "productId", product.getId().toString(),
+                "sku", product.getSku(),
+                "name", product.getName(),
+                "description", product.getDescription() == null ? "" : product.getDescription(),
+                "price", product.getPrice(),
+                "categoryId", product.getCategoryId() == null ? "" : product.getCategoryId().toString(),
+                "status", product.getStatus().name(),
+                "version", product.getVersion()));
     }
 }

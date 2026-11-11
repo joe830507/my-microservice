@@ -4,6 +4,17 @@ server:
 spring:
   application:
     name: user-service
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
+    producer:
+      properties:
+        max.block.ms: 3000
+        request.timeout.ms: 3000
+        delivery.timeout.ms: 10000
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    template:
+      observation-enabled: true
   # 指標、追蹤、log 的共用設定（common 以外的 observability 模組，階段 A）
   config:
     import: classpath:observability.yml
@@ -41,6 +52,9 @@ jwt:
   # 用區域網路 IP 之類的純 HTTP 位址測試時才設 REFRESH_COOKIE_SECURE=false
   refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}
 app:
+  events:
+    enabled: ${APP_EVENTS_ENABLED:true}
+    schema: user_service
   # 排程的分散式鎖（ShedLock，階段 B4）：鎖放在自己的 PostgreSQL；
   # at-least-for 要大於副本之間的時鐘差、小於 cron 的間隔（這裡所有排程至少相隔 15 秒以上）
   scheduling:
