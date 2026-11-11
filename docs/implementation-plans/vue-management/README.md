@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/vue-management`
 > 位置：`frontend/vue-management`
-> 狀態：進行中（Step 10 完成；剩下部署與 E2E）
+> 狀態：進行中（Step 10、12 完成；剩下部署）
 
 ## 進度
 
@@ -21,7 +21,7 @@
 | [9](step-09-orders.md) | 訂單管理                                                   | 完成                                               |
 | [10](step-10-users.md) | 使用者列表                                                 | 完成                                               |
 | 11   | 部署：Dockerfile、nginx、K8s                               | 未開始                                             |
-| 12   | Playwright E2E（之後再做）                                 | 未開始                                             |
+| [12](step-12-e2e.md) | Playwright E2E                                             | 完成：登入、建立商品、上傳主圖、上架；含對著 nginx（CSP）的驗證 |
 
 每一步都附測試，測試通過後單獨 commit。
 
@@ -116,7 +116,3 @@ frontend/vue-management/
 - K8s Deployment、Service
 
 **驗證**：在 kind 上實際登入並跑一次建立商品 → 上傳主圖 → 上架。
-
-### Step 12：E2E（之後再做）
-
-Playwright 搭配 compose：登入 → 建立商品 → 上傳主圖 → 上架。
