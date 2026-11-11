@@ -37,6 +37,17 @@ gateway:
     burst-capacity: 60
     requested-tokens: 20
 
+  # 對每個下游服務的熔斷（階段 B3）：最近 20 次轉送裡有一半以上「連不上或逾時」就打開，打開 10 秒內直接回 503，不再轉送；
+  # 之後放 3 個請求試探。下游回的 HTTP 狀態碼（含 5xx）不算失敗，原樣轉給用戶端
+  resilience:
+    sliding-window-size: 20
+    minimum-number-of-calls: 10
+    failure-rate-threshold: 50
+    wait-duration-in-open-state: 10s
+    permitted-calls-in-half-open-state: 3
+    # 比 spring.cloud.gateway...httpclient.response-timeout（10s）長：讓 HTTP 層的逾時先觸發
+    time-limit: 15s
+
 spring:
   application:
     name: api-gateway
@@ -60,6 +71,7 @@ spring:
             response-timeout: 10s
           # 路徑對應見 docs/architecture/microservice-architecture.md「api-gateway 路由」；/internal/** 一律不建路由
           # Path 的 /** 也會比對到沒有子路徑的情況，例如 /api/v1/products
+          # 每個路由有 CircuitBreaker filter：同一個下游共用一個熔斷器（名字 = 服務名稱，login、register 與 user-service 同一個）
           routes:
             # 登入要依來源 IP 限流，獨立一條路由；order 比 user-service 小，先比對
             - id: user-service-login
@@ -74,6 +86,10 @@ spring:
                     replenish-rate: ${gateway.login-rate-limit.replenish-rate}
                     burst-capacity: ${gateway.login-rate-limit.burst-capacity}
                     requested-tokens: ${gateway.login-rate-limit.requested-tokens}
+                - name: CircuitBreaker
+                  args:
+                    name: user-service
+                    fallbackUri: forward:/fallback/unavailable
             - id: user-service-register
               uri: ${gateway.services.user-uri}
               order: -1
@@ -86,28 +102,57 @@ spring:
                     replenish-rate: ${gateway.register-rate-limit.replenish-rate}
                     burst-capacity: ${gateway.register-rate-limit.burst-capacity}
                     requested-tokens: ${gateway.register-rate-limit.requested-tokens}
+                - name: CircuitBreaker
+                  args:
+                    name: user-service
+                    fallbackUri: forward:/fallback/unavailable
             - id: product-service
               uri: ${gateway.services.product-uri}
               predicates:
                 - Path=/api/v1/products/**,/api/v1/categories/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: product-service
+                    fallbackUri: forward:/fallback/unavailable
             - id: user-service
               uri: ${gateway.services.user-uri}
               predicates:
                 - Path=/api/v1/auth/**,/api/v1/users/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: user-service
+                    fallbackUri: forward:/fallback/unavailable
             - id: inventory-service
               uri: ${gateway.services.inventory-uri}
               predicates:
                 - Path=/api/v1/inventory/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: inventory-service
+                    fallbackUri: forward:/fallback/unavailable
             # 訂單全部需要登入（SecurityConfig 的 anyExchange().authenticated()）
             - id: order-service
               uri: ${gateway.services.order-uri}
               predicates:
                 - Path=/api/v1/orders/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: order-service
+                    fallbackUri: forward:/fallback/unavailable
             # 付款全部需要登入（SecurityConfig 的 anyExchange().authenticated()）
             - id: payment-service
               uri: ${gateway.services.payment-uri}
               predicates:
                 - Path=/api/v1/payments/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: payment-service
+                    fallbackUri: forward:/fallback/unavailable
 
 management:
   endpoints:

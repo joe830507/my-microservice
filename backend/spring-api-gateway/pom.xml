@@ -28,6 +28,11 @@
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
 		</dependency>
+		<!-- 路由的 CircuitBreaker filter（Resilience4j 的 reactive 版）：下游連不上、逾時時快速失敗 -->
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
+		</dependency>
 		<!-- 可觀測性（階段 A）：指標、追蹤、log 的共用設定 -->
 		<dependency>
 			<groupId>com.mymicroservice</groupId>
