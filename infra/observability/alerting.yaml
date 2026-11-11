@@ -249,6 +249,126 @@
           ]
         },
         {
+          "uid": "mm-circuit-open",
+          "title": "熔斷器打開",
+          "condition": "C",
+          "for": "1m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "annotations": {
+            "summary": "{{ $labels.name }} 的熔斷器打開超過 1 分鐘：下游連不上或逾時，呼叫被直接拒絕"
+          },
+          "labels": {
+            "severity": "critical"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "max by (name) (resilience4j_circuitbreaker_state{state=\"open\"})",
+                "instant": true,
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last"
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "mm-replicas-low",
+          "title": "副本數少於 2",
+          "condition": "C",
+          "for": "3m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "annotations": {
+            "summary": "{{ $labels.service_name }} 的副本少於 2 個超過 3 分鐘（Pod 掛了或更新卡住）"
+          },
+          "labels": {
+            "severity": "warning"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "count by (service_name) (count by (service_name, instance) (last_over_time(process_cpu_usage[1m])))",
+                "instant": true,
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last"
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "lt",
+                      "params": [
+                        2
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
           "uid": "mm-reservation-rejected",
           "title": "預扣被拒偏多",
           "condition": "C",

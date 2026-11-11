@@ -881,7 +881,7 @@
     {
       "id": 20,
       "type": "row",
-      "title": "Log（warn、error）",
+      "title": "韌性與副本（階段 B）",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -892,6 +892,314 @@
     },
     {
       "id": 21,
+      "type": "stat",
+      "title": "運作中的副本數",
+      "description": "每個服務應該是 2 個；少於 2 個代表有 Pod 掛了或正在更新",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(count by (service_name, instance) (last_over_time(process_cpu_usage[1m])))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "打開中的熔斷器",
+      "description": "每個副本各自一個熔斷器（狀態不共用），所以這裡是副本數",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 40,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "count(max by (name, instance) (resilience4j_circuitbreaker_state{state=\"open\"}) == 1)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "熔斷器狀態（1 = 打開）",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 40,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "max by (name, instance) (resilience4j_circuitbreaker_state{state=\"open\"})",
+          "legendFormat": "{{name}} {{instance}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 0,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      }
+    },
+    {
+      "id": 24,
+      "type": "timeseries",
+      "title": "熔斷器失敗率",
+      "description": "最近 20 次呼叫的失敗比例（-1 = 呼叫次數還不夠評估）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 40,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "max by (name) (resilience4j_circuitbreaker_failure_rate)",
+          "legendFormat": "{{name}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "fillOpacity": 0,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      }
+    },
+    {
+      "id": 25,
+      "type": "timeseries",
+      "title": "被熔斷拒絕的呼叫（每 5 分鐘）",
+      "description": "熔斷打開時沒有送出的呼叫：立刻失敗，不佔用執行緒等逾時",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "expr": "sum by (name) (increase(resilience4j_circuitbreaker_not_permitted_calls_total[5m]))",
+          "legendFormat": "{{name}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 0,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      }
+    },
+    {
+      "id": 26,
+      "type": "timeseries",
+      "title": "各服務的副本",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 44,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "expr": "count by (service_name) (count by (service_name, instance) (last_over_time(process_cpu_usage[1m])))",
+          "legendFormat": "{{service_name}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 0,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      }
+    },
+    {
+      "id": 27,
+      "type": "row",
+      "title": "Log（warn、error）",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 51,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 28,
       "type": "logs",
       "title": "warn / error",
       "datasource": {
@@ -900,7 +1208,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 40,
+        "y": 52,
         "w": 24,
         "h": 10
       },

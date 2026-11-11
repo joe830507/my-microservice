@@ -50,15 +50,28 @@ spec:
         runAsUser: 10001
         runAsGroup: 10001
         fsGroup: 10001
+      # 要大於 preStop 的等待 + 優雅關閉的上限
+      terminationGracePeriodSeconds: 40
       containers:
         - name: inventory-service
           image: my-microservice/inventory-service:0.1.0
           # 本機 kind 用 kind load 載入映像檔；換成映像檔倉庫後改成 IfNotPresent 或 Always
           imagePullPolicy: IfNotPresent
+          lifecycle:
+            preStop:
+              # Pod 被刪除時，Service 的端點移除和 SIGTERM 是同時發生的：先等幾秒，讓 kube-proxy／Gateway 停止把新請求送來，
+              # 再開始關閉；不等的話滾動更新時會有少數請求打到正在關閉的 Pod
+              exec:
+                command: ["sleep", "8"]
           ports:
             - name: http
               containerPort: 8083
           env:
+            # 優雅關閉（階段 B5）：收到 SIGTERM 後不再接新請求，把處理中的做完（最久 20 秒）
+            - name: SERVER_SHUTDOWN
+              value: graceful
+            - name: SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE
+              value: 20s
             # 可觀測性（階段 A）：指標、追蹤、log 用 OTLP 送到 observability
             - name: OBSERVABILITY_EXPORT_ENABLED
               value: "true"

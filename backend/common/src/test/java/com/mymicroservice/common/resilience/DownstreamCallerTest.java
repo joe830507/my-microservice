@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
+import java.net.http.HttpConnectTimeoutException;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -95,6 +96,22 @@ class DownstreamCallerTest {
         assertThatThrownBy(() -> caller.callIdempotent(() -> {
             attempts.incrementAndGet();
             throw readTimeout();
+        })).isInstanceOf(ResourceAccessException.class);
+
+        assertThat(attempts).hasValue(1);
+    }
+
+    @Test
+    void idempotent_doesNotRetryConnectTimeout() {
+        DownstreamCaller caller = callers.create("a", PROPERTIES);
+        AtomicInteger attempts = new AtomicInteger();
+
+        // JDK HttpClient 的連線逾時：HttpConnectTimeoutException 裡面還包著一個 ConnectException
+        assertThatThrownBy(() -> caller.callIdempotent(() -> {
+            attempts.incrementAndGet();
+            HttpConnectTimeoutException timeout = new HttpConnectTimeoutException("HTTP connect timed out");
+            timeout.initCause(new ConnectException("HTTP connect timed out"));
+            throw new ResourceAccessException("connect timeout", timeout);
         })).isInstanceOf(ResourceAccessException.class);
 
         assertThat(attempts).hasValue(1);

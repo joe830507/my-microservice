@@ -3,7 +3,7 @@
 > 建立日期：2026-11-11
 > 分支：`feature/middleware-roadmap`（只有這份計畫；每個階段實作時再各自開分支）
 > 對應：[product-service-middleware-evaluation.md](../design/product-service-middleware-evaluation.md)「建議導入順序」、[microservice-architecture.md](../architecture/microservice-architecture.md)「之後：事件驅動」
-> 狀態：階段 A 完成（見 [observability-implementation-plan.md](observability-implementation-plan.md)）；B 之後尚未開始
+> 狀態：階段 A（[observability-implementation-plan.md](observability-implementation-plan.md)）、B（[resilience-implementation-plan.md](resilience-implementation-plan.md)）完成；C 之後尚未開始
 
 從雛型的「同步 REST + 排程補償」走向「事件驅動 + 可觀測 + 可水平擴充」。每個階段都要能在本機 compose 與 kind 上跑起來並驗證，做法和之前一樣：每一步附測試，測試通過後單獨 commit。
 
@@ -78,7 +78,7 @@
 - 自訂業務指標（建單數、付款成功數）用 `MeterRegistry`，不要從 log 計算
 - 不能把 token、密碼、Email 寫進 span 的屬性或 log
 
-## 階段 B：韌性與水平擴充
+## 階段 B：韌性與水平擴充（已完成，紀錄見 [resilience-implementation-plan.md](resilience-implementation-plan.md)）
 
 | Step | 內容                                                                                                                                           | 驗收                                                                                           |
 | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |

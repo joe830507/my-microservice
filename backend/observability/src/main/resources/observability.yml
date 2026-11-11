@@ -38,6 +38,9 @@ management:
   opentelemetry:
     resource-attributes:
       service.namespace: my-microservice
+      # 多個副本時區分是哪一個：K8s 的 HOSTNAME 是 Pod 名稱；沒有時（本機）用服務名稱。
+      # 少了它，兩個副本的同名指標會互相覆蓋（Prometheus 看起來只有一個）
+      service.instance.id: ${HOSTNAME:${spring.application.name}}
       deployment.environment.name: ${DEPLOYMENT_ENVIRONMENT:local}
     tracing:
       export:

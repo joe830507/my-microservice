@@ -35,6 +35,7 @@
 | [backend-deployment-implementation-plan.md](implementation-plans/backend-deployment-implementation-plan.md) | 完成：後端 6 個服務與資料庫、Redis、物件儲存、兩個前端放進 K8s（kind 驗證）；NetworkPolicy、Secret；含實際攔截測試 |
 | [middleware-roadmap.md](implementation-plans/middleware-roadmap.md) | 規劃中：中介軟體導入計畫（可觀測性 → 韌性 → Kafka + Outbox → Elasticsearch → 通知 → 真的金流） |
 | [observability-implementation-plan.md](implementation-plans/observability-implementation-plan.md) | 完成（中介軟體階段 A）：指標、追蹤、log 用 OTLP 送到 Grafana LGTM；儀表板、告警規則；本機與 kind 都驗證 |
+| [resilience-implementation-plan.md](implementation-plans/resilience-implementation-plan.md) | 完成（中介軟體階段 B）：重試與熔斷、Gateway 熔斷、排程分散式鎖（ShedLock）、2 個副本、優雅關閉；kind 上實測 |
 
 ## 設計與評估
 

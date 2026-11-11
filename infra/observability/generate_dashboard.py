@@ -109,6 +109,26 @@ panels.append(series("資料庫連線（使用中 / 等待中）", [
 ], 16, y, 8, 8))
 y += 8
 
+panels.append(row("韌性與副本（階段 B）", y)); y += 1
+panels.append(stat("運作中的副本數", 'sum(count by (service_name, instance) (last_over_time(process_cpu_usage[1m])))', 0, y, w=4,
+                   desc="每個服務應該是 2 個；少於 2 個代表有 Pod 掛了或正在更新"))
+panels.append(stat("打開中的熔斷器", 'count(max by (name, instance) (resilience4j_circuitbreaker_state{state="open"}) == 1)', 4, y, w=4,
+                   thresholds=red, desc="每個副本各自一個熔斷器（狀態不共用），所以這裡是副本數"))
+panels.append(series("熔斷器狀態（1 = 打開）", [
+    ('max by (name, instance) (resilience4j_circuitbreaker_state{state="open"})', "{{name}} {{instance}}"),
+], 8, y, 8, 4))
+panels.append(series("熔斷器失敗率", [
+    ('max by (name) (resilience4j_circuitbreaker_failure_rate)', "{{name}}"),
+], 16, y, 8, 4, unit="percent", desc="最近 20 次呼叫的失敗比例（-1 = 呼叫次數還不夠評估）"))
+y += 4
+panels.append(series("被熔斷拒絕的呼叫（每 5 分鐘）", [
+    ('sum by (name) (increase(resilience4j_circuitbreaker_not_permitted_calls_total[5m]))', "{{name}}"),
+], 0, y, 12, 7, desc="熔斷打開時沒有送出的呼叫：立刻失敗，不佔用執行緒等逾時"))
+panels.append(series("各服務的副本", [
+    ('count by (service_name) (count by (service_name, instance) (last_over_time(process_cpu_usage[1m])))', "{{service_name}}"),
+], 12, y, 12, 7))
+y += 7
+
 panels.append(row("Log（warn、error）", y)); y += 1
 panels.append({
     "id": _id(), "type": "logs", "title": "warn / error", "datasource": LOKI,
@@ -165,6 +185,12 @@ alerts = {"apiVersion": 1, "groups": [{
              'time() - max by (service_name) (timestamp(process_cpu_usage))',
              "gt", 120, "1m", "{{ $labels.service_name }} 超過 2 分鐘沒有送指標（服務停了，或到 collector 的連線斷了）",
              "critical"),
+        rule("mm-circuit-open", "熔斷器打開",
+             'max by (name) (resilience4j_circuitbreaker_state{state="open"})',
+             "gt", 0, "1m", "{{ $labels.name }} 的熔斷器打開超過 1 分鐘：下游連不上或逾時，呼叫被直接拒絕", "critical"),
+        rule("mm-replicas-low", "副本數少於 2",
+             'count by (service_name) (count by (service_name, instance) (last_over_time(process_cpu_usage[1m])))',
+             "lt", 2, "3m", "{{ $labels.service_name }} 的副本少於 2 個超過 3 分鐘（Pod 掛了或更新卡住）"),
         rule("mm-reservation-rejected", "預扣被拒偏多",
              'sum(increase(reservations_total{result="rejected"}[10m]))',
              "gt", 20, "0s", "10 分鐘內超過 20 次預扣被拒：庫存不足或被刷"),

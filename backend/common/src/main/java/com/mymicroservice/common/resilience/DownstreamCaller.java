@@ -1,7 +1,8 @@
 package com.mymicroservice.common.resilience;
 
 import java.net.ConnectException;
-import java.net.http.HttpConnectTimeoutException;
+import java.net.SocketTimeoutException;
+import java.net.http.HttpTimeoutException;
 import java.util.function.Supplier;
 
 import org.springframework.web.client.HttpServerErrorException;
@@ -18,8 +19,9 @@ import io.github.resilience4j.retry.Retry;
 //
 // 熔斷打開時丟出 CallNotPermittedException：呼叫方要把它當成「下游暫時無法使用，而且這次沒有送出請求」處理。
 //
-// 重試只用在冪等的呼叫（callIdempotent），而且只重試「很快就知道失敗」的情況：連線被拒／連線逾時，或 502／503／504。
-// 讀取逾時不重試：已經等了整個 read-timeout，再來兩次會讓使用者等三倍時間，下游多半也沒恢復。
+// 重試只用在冪等的呼叫（callIdempotent），而且只重試「很快就知道失敗」的情況：連線被拒（ConnectException），或 502／503／504。
+// 連線逾時與讀取逾時都不重試：已經等了整個逾時時間（connect-timeout、read-timeout），再來兩次會讓使用者等三倍時間，
+// 下游多半也沒恢復（K8s 上 Service 沒有可用的 Pod 時就是連線逾時，實測過重試會讓每個請求多等 4 秒）。
 public final class DownstreamCaller {
     private final CircuitBreaker circuitBreaker;
     private final Retry retry;
@@ -56,12 +58,16 @@ public final class DownstreamCaller {
             return status == 502 || status == 503 || status == 504;
         }
         if (throwable instanceof ResourceAccessException) {
+            boolean refused = false;
             Throwable cause = throwable.getCause();
             for (int depth = 0; cause != null && depth < 10; depth++, cause = cause.getCause()) {
-                if (cause instanceof ConnectException || cause instanceof HttpConnectTimeoutException) {
-                    return true;
+                // 逾時（含連線逾時：JDK 的 HttpConnectTimeoutException 內部還包著一個 ConnectException）一律不重試
+                if (cause instanceof HttpTimeoutException || cause instanceof SocketTimeoutException) {
+                    return false;
                 }
+                refused |= cause instanceof ConnectException;
             }
+            return refused;
         }
         return false;
     }
