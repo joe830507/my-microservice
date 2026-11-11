@@ -7,7 +7,7 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import apiClient from '@/api/http'
 import { me } from '@/features/auth/__tests__/fixtures'
 import { installAuthInterceptors } from '@/features/auth/interceptors'
-import { REFRESH_TOKEN_KEY, useAuthStore } from '@/features/auth/store'
+import { SESSION_HINT_KEY, useAuthStore } from '@/features/auth/store'
 import { CART_KEY, useCartStore } from '@/features/cart/store'
 import { installAuthGuard, routes } from '@/router'
 
@@ -31,7 +31,7 @@ beforeEach(() => localStorage.clear())
 async function mountAccount(
   signedIn = true,
 ): Promise<{ wrapper: VueWrapper; router: Router; auth: ReturnType<typeof useAuthStore> }> {
-  localStorage.setItem(REFRESH_TOKEN_KEY, 'refresh-1')
+  localStorage.setItem(SESSION_HINT_KEY, '1')
   const pinia = createPinia()
   setActivePinia(pinia)
   const auth = useAuthStore()
@@ -40,7 +40,7 @@ async function mountAccount(
     auth.accessToken = 'access-1'
     auth.user = me()
   } else {
-    auth.refreshToken = null
+    auth.hasSession = false
     localStorage.clear()
   }
   const router = createRouter({ history: createMemoryHistory(), routes })
@@ -132,7 +132,7 @@ describe('帳號頁', () => {
       expect(authorization).toBe('Bearer access-1')
       expect(auth.isAuthenticated).toBe(false)
       expect(auth.accessToken).toBeNull()
-      expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBeNull()
+      expect(localStorage.getItem(SESSION_HINT_KEY)).toBeNull()
       expect(router.currentRoute.value.name).toBe('home')
       expect(useCartStore().items).toEqual([{ productId: 'p1', qty: 2 }])
 
@@ -159,7 +159,7 @@ describe('帳號頁', () => {
       expect(wrapper.find('[role="alert"]').text()).toContain('其他裝置可能仍然登入')
       expect(wrapper.find('[role="alert"]').text()).toContain('服務忙碌')
       expect(auth.isAuthenticated).toBe(true)
-      expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBe('refresh-1')
+      expect(localStorage.getItem(SESSION_HINT_KEY)).toBe('1')
       expect(router.currentRoute.value.name).toBe('account')
 
       fail = false

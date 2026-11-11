@@ -49,7 +49,7 @@ export function installAuthInterceptors(
         await store.refreshAccessToken()
       }
     } catch (refreshError) {
-      if (!store.refreshToken) {
+      if (!store.hasSession) {
         onSessionExpired()
       }
       throw refreshError

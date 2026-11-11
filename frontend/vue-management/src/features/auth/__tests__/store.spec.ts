@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { ApiError } from '@/api/errors'
 import apiClient from '@/api/http'
 import { installAuthInterceptors } from '../interceptors'
-import { AuthErrorCode, REFRESH_TOKEN_KEY, useAuthStore, type AuthStore } from '../store'
+import { AuthErrorCode, SESSION_HINT_KEY, useAuthStore, type AuthStore } from '../store'
 import { me, problem, tokens } from './fixtures'
 
 const server = setupServer()
@@ -41,12 +41,12 @@ async function rejectionOf(promise: Promise<unknown>): Promise<ApiError> {
   return error as ApiError
 }
 
-// 記錄 /auth/logout 收到的 body
+// 記錄 /auth/logout 收到的 X-Requested-With 標頭（refresh token 在 cookie，沒有 body）
 function logoutRecorder(): unknown[] {
   const bodies: unknown[] = []
   server.use(
     http.post('*/auth/logout', async ({ request }) => {
-      bodies.push(await request.json())
+      bodies.push(request.headers.get('X-Requested-With'))
       return new HttpResponse(null, { status: 204 })
     }),
   )
@@ -73,7 +73,7 @@ describe('useAuthStore.login', () => {
     expect(store.isAuthenticated).toBe(true)
     expect(store.user?.displayName).toBe('管理員')
     expect(store.accessToken).toBe('access-1')
-    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBe('refresh-1')
+    expect(localStorage.getItem(SESSION_HINT_KEY)).toBe('1')
     expect(meAuthorization).toBe('Bearer access-1')
   })
 
@@ -88,10 +88,10 @@ describe('useAuthStore.login', () => {
     const error = await rejectionOf(store.login({ email: 'user@example.com', password: 'secret' }))
 
     expect(error.code).toBe(AuthErrorCode.NOT_ADMIN)
-    expect(logoutBodies).toEqual([{ refreshToken: 'refresh-1' }])
+    expect(logoutBodies).toEqual(['XMLHttpRequest'])
     expect(store.isAuthenticated).toBe(false)
     expect(store.accessToken).toBeNull()
-    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBeNull()
+    expect(localStorage.getItem(SESSION_HINT_KEY)).toBeNull()
   })
 
   it('帳密錯誤（401）：不觸發 refresh，回傳後端的錯誤代碼', async () => {
@@ -118,7 +118,7 @@ describe('useAuthStore.login', () => {
 
 describe('useAuthStore.restoreSession', () => {
   it('localStorage 有 refresh token：換新 token、取得使用者，恢復登入狀態', async () => {
-    localStorage.setItem(REFRESH_TOKEN_KEY, 'refresh-1')
+    localStorage.setItem(SESSION_HINT_KEY, '1')
     let refreshCalls = 0
     server.use(
       http.post('*/auth/refresh', () => {
@@ -135,7 +135,7 @@ describe('useAuthStore.restoreSession', () => {
     expect(results).toEqual([true, true])
     expect(refreshCalls).toBe(1)
     expect(store.isAuthenticated).toBe(true)
-    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBe('refresh-2')
+    expect(localStorage.getItem(SESSION_HINT_KEY)).toBe('1')
   })
 
   it('沒有 refresh token：直接回 false，不發請求', async () => {
@@ -145,17 +145,17 @@ describe('useAuthStore.restoreSession', () => {
   })
 
   it('refresh token 已失效：回 false 並清除', async () => {
-    localStorage.setItem(REFRESH_TOKEN_KEY, 'refresh-1')
+    localStorage.setItem(SESSION_HINT_KEY, '1')
     server.use(http.post('*/auth/refresh', () => problem(401, 'REFRESH_TOKEN_INVALID')))
     const store = createStore()
 
     await expect(store.restoreSession()).resolves.toBe(false)
-    expect(store.refreshToken).toBeNull()
-    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBeNull()
+    expect(store.hasSession).toBe(false)
+    expect(localStorage.getItem(SESSION_HINT_KEY)).toBeNull()
   })
 
   it('恢復後發現不是 ADMIN：登出並回 false', async () => {
-    localStorage.setItem(REFRESH_TOKEN_KEY, 'refresh-1')
+    localStorage.setItem(SESSION_HINT_KEY, '1')
     server.use(
       http.post('*/auth/refresh', () => HttpResponse.json(tokens(2))),
       http.get('*/users/me', () => HttpResponse.json(me(['CUSTOMER']))),
@@ -164,34 +164,34 @@ describe('useAuthStore.restoreSession', () => {
     const store = createStore()
 
     await expect(store.restoreSession()).resolves.toBe(false)
-    expect(logoutBodies).toEqual([{ refreshToken: 'refresh-2' }])
+    expect(logoutBodies).toEqual(['XMLHttpRequest'])
     expect(store.isAuthenticated).toBe(false)
   })
 })
 
 describe('useAuthStore.logout', () => {
   it('呼叫 /auth/logout 並清除狀態', async () => {
-    localStorage.setItem(REFRESH_TOKEN_KEY, 'refresh-1')
+    localStorage.setItem(SESSION_HINT_KEY, '1')
     const logoutBodies = logoutRecorder()
     const store = createStore()
     store.accessToken = 'access-1'
 
     await store.logout()
 
-    expect(logoutBodies).toEqual([{ refreshToken: 'refresh-1' }])
+    expect(logoutBodies).toEqual(['XMLHttpRequest'])
     expect(store.accessToken).toBeNull()
-    expect(store.refreshToken).toBeNull()
-    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBeNull()
+    expect(store.hasSession).toBe(false)
+    expect(localStorage.getItem(SESSION_HINT_KEY)).toBeNull()
   })
 
   it('/auth/logout 失敗：本機狀態一樣清除', async () => {
-    localStorage.setItem(REFRESH_TOKEN_KEY, 'refresh-1')
+    localStorage.setItem(SESSION_HINT_KEY, '1')
     server.use(http.post('*/auth/logout', () => HttpResponse.error()))
     const store = createStore()
 
     await store.logout()
 
-    expect(store.refreshToken).toBeNull()
-    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBeNull()
+    expect(store.hasSession).toBe(false)
+    expect(localStorage.getItem(SESSION_HINT_KEY)).toBeNull()
   })
 })

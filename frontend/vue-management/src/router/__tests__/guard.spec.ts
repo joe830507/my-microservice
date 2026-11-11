@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import apiClient from '@/api/http'
 import { installAuthInterceptors } from '@/features/auth/interceptors'
-import { REFRESH_TOKEN_KEY, useAuthStore } from '@/features/auth/store'
+import { SESSION_HINT_KEY, useAuthStore } from '@/features/auth/store'
 import { me, problem, tokens } from '@/features/auth/__tests__/fixtures'
 import { installAuthGuard, installTitleUpdater, routes } from '..'
 
@@ -51,7 +51,7 @@ describe('installAuthGuard', () => {
   })
 
   it('重新整理後有 refresh token：恢復登入狀態並進入原頁面', async () => {
-    localStorage.setItem(REFRESH_TOKEN_KEY, 'refresh-1')
+    localStorage.setItem(SESSION_HINT_KEY, '1')
     server.use(
       http.post('*/auth/refresh', () => HttpResponse.json(tokens(2))),
       http.get('*/users/me', () => HttpResponse.json(me())),
@@ -65,7 +65,7 @@ describe('installAuthGuard', () => {
   })
 
   it('refresh token 已失效：導到登入頁', async () => {
-    localStorage.setItem(REFRESH_TOKEN_KEY, 'refresh-1')
+    localStorage.setItem(SESSION_HINT_KEY, '1')
     server.use(http.post('*/auth/refresh', () => problem(401, 'REFRESH_TOKEN_INVALID')))
     const router = createGuardedRouter()
 

@@ -8,7 +8,7 @@ import apiClient from '@/api/http'
 import { routes } from '@/router'
 import { installAuthInterceptors } from '../interceptors'
 import RegisterView from '../RegisterView.vue'
-import { REFRESH_TOKEN_KEY, useAuthStore } from '../store'
+import { SESSION_HINT_KEY, useAuthStore } from '../store'
 import { me, problem, tokens } from './fixtures'
 
 const server = setupServer()
@@ -67,7 +67,7 @@ describe('RegisterView', () => {
     })
     await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/cart'))
     expect(useAuthStore().isAuthenticated).toBe(true)
-    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBe('refresh-1')
+    expect(localStorage.getItem(SESSION_HINT_KEY)).toBe('1')
   })
 
   it('EMAIL_ALREADY_EXISTS：顯示 Email 已註冊，不登入', async () => {

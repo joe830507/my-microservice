@@ -8,7 +8,6 @@ export function tokens(n: number): TokenRes {
     accessToken: `access-${n}`,
     tokenType: 'Bearer',
     expiresIn: 900,
-    refreshToken: `refresh-${n}`,
     refreshExpiresIn: 1209600,
   }
 }
