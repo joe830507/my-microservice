@@ -7,3 +7,9 @@ export async function createOrder(req: CreateOrderReq): Promise<Order> {
   const { data } = await apiClient.post<Order>('/orders', req)
   return data
 }
+
+// 自己的訂單；不存在或是別人的訂單都回 404 ORDER_NOT_FOUND
+export async function getOrder(id: string): Promise<Order> {
+  const { data } = await apiClient.get<Order>(`/orders/${encodeURIComponent(id)}`)
+  return data
+}

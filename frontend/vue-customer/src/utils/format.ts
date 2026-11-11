@@ -13,3 +13,11 @@ export function discountPercent(price: number, originalPrice: number | null): nu
   }
   return Math.max(1, Math.round((1 - price / originalPrice) * 100))
 }
+
+// 倒數時間：mm:ss（90 秒 → 01:30）；不足一秒進位，所以剩 0.4 秒顯示 00:01，到 0 才是真的到期
+export function formatCountdown(ms: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}

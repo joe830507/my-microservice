@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { discountPercent, formatPrice } from '../format'
+import { discountPercent, formatCountdown, formatPrice } from '../format'
 
 describe('formatPrice', () => {
   it.each([
@@ -30,5 +30,19 @@ describe('discountPercent', () => {
     ['原價為 0', 0, 0],
   ])('%s：沒有折扣', (_, price, original) => {
     expect(discountPercent(price, original)).toBeNull()
+  })
+})
+
+describe('formatCountdown', () => {
+  it.each([
+    [0, '00:00'],
+    [-500, '00:00'],
+    [400, '00:01'],
+    [1000, '00:01'],
+    [90_000, '01:30'],
+    [30 * 60_000, '30:00'],
+    [29 * 60_000 + 59_001, '30:00'],
+  ])('%s ms → %s', (ms, expected) => {
+    expect(formatCountdown(ms)).toBe(expected)
   })
 })

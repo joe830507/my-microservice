@@ -3,7 +3,7 @@
 > 建立日期：2026-11-10
 > 分支：之後另開 `feature/vue-customer`
 > 位置：`frontend/vue-customer`（目前只有 `.gitkeep`）
-> 狀態：進行中（Step 0–7 完成）
+> 狀態：進行中（Step 0–8 完成）
 
 顧客用的商店前台：瀏覽商品、購物車、註冊登入、下單、付款（模擬金流）、查詢自己的訂單。後台是 [vue-management](../vue-management/README.md)。
 
@@ -19,7 +19,7 @@
 | [5](step-05-product-detail.md) | 商品詳情：圖片、價格、庫存、加入購物車                       | 完成   |
 | [6](step-06-cart.md) | 購物車（存在瀏覽器）                                         | 完成   |
 | [7](step-07-checkout.md) | 結帳、建立訂單                                               | 完成   |
-| 8    | 付款（模擬金流）                                             | 未開始 |
+| [8](step-08-payment.md) | 付款（模擬金流）                                             | 完成   |
 | 9    | 我的訂單：列表、詳情、取消、繼續付款                         | 未開始 |
 | 10   | 帳號頁：個人資料、登出所有裝置                               | 未開始 |
 | 11   | 部署：Dockerfile、nginx、K8s                                 | 未開始 |
@@ -117,15 +117,6 @@ frontend/vue-customer/
 ---
 
 ## 還沒開始的 step
-
-### Step 8：付款（模擬金流）
-
-- `/orders/:id/pay`：`POST /payments`（重新整理也回同一筆）；顯示金額與剩餘付款時間（建單後 30 分鐘）
-- 「付款成功」「付款失敗」按鈕呼叫 `mock-callback`；成功後輪詢 `GET /orders/{id}` 直到 `PAID`（有上限，逾時提示「付款處理中，請稍後到我的訂單查看」）
-- 付款失敗可以重新付款（建立新的付款）；訂單已取消或已付款時顯示對應狀態，不能再付
-- 錯誤代碼：`ORDER_ALREADY_PAID`、`ORDER_NOT_PAYABLE`、`PAYMENT_ALREADY_COMPLETED`
-
-**測試**：成功流程（建立付款 → 回呼 → 輪詢到 PAID）；失敗後重新付款；重新整理不會重複建立；超過付款期限的顯示；輪詢上限。
 
 ### Step 9：我的訂單
 
