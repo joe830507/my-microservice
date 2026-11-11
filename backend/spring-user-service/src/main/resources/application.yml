@@ -33,6 +33,13 @@ jwt:
   refresh-token-ttl: 14d
   refresh-token-reuse-grace: 10s
 app:
+  # 啟動時建立第一個管理員（SEC-12）：註冊只能建立 CUSTOMER，沒有這個就沒有任何方式取得管理員。預設關閉；
+  # 本機的 dev profile 自動開啟（application-dev.yml），其他環境（例如 K8s）用環境變數 BOOTSTRAP_ADMIN_ENABLED=true，
+  # 並提供 BOOTSTRAP_ADMIN_EMAIL、BOOTSTRAP_ADMIN_PASSWORD（來自 Secret）。建好之後關掉開關並換掉 Secret 裡的密碼
+  bootstrap-admin:
+    enabled: ${BOOTSTRAP_ADMIN_ENABLED:false}
+    email: ${BOOTSTRAP_ADMIN_EMAIL:}
+    password: ${BOOTSTRAP_ADMIN_PASSWORD:}
   # 每天 UTC 03:30 刪除過期超過 7 天的 refresh token（RefreshTokenCleanupJob）
   refresh-token-cleanup:
     cron: "0 30 3 * * *"
@@ -41,3 +48,11 @@ app:
   login-attempt:
     max-failures: 5
     window: 15m
+
+# API 文件（springdoc）：預設關閉（SEC-09）。Swagger UI 與 /v3/api-docs 會公開所有 API 的細節，只在本機開發用環境變數
+# SPRINGDOC_ENABLED=true 開啟；Gateway 本來就不轉發這些路徑，所以對外也看不到
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:false}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:false}
