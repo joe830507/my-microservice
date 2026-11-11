@@ -84,6 +84,10 @@ spec:
               value: json-logs
             - name: SPRING_DATASOURCE_URL
               value: jdbc:postgresql://payment-db:5432/payment_db
+            - name: APP_EVENTS_ENABLED
+              value: "true"
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: kafka:9092
             - name: DB_USERNAME
               valueFrom:
                 secretKeyRef:
