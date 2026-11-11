@@ -1,10 +1,23 @@
-import { describe, expect, it } from 'vitest'
+import { http, HttpResponse } from 'msw'
+import { setupServer } from 'msw/node'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import App from '../App.vue'
 import { routes } from '../router'
+
+const server = setupServer(
+  http.get('*/categories/tree', () => HttpResponse.json({ roots: [] })),
+  http.get('*/products', () =>
+    HttpResponse.json({ items: [], page: 0, size: 8, totalElements: 0, totalPages: 0 }),
+  ),
+)
+
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+afterEach(() => server.resetHandlers())
+afterAll(() => server.close())
 
 // 冒煙測試：App + router 能掛載，首頁顯示在 StoreLayout 裡；打錯網址顯示 404
 describe('App', () => {

@@ -23,6 +23,27 @@ export const routes: RouteRecordRaw[] = [
     children: [
       { path: '', name: 'home', component: HomeView },
       {
+        path: 'c/:slug',
+        name: 'category',
+        component: () => import('@/features/catalog/CategoryView.vue'),
+        props: true,
+        meta: { title: '商品分類' },
+      },
+      {
+        path: 'search',
+        name: 'search',
+        component: () => import('@/features/catalog/SearchView.vue'),
+        meta: { title: '搜尋商品' },
+      },
+      // 內容在 Step 5 完成；商品卡片先有地方可以連
+      {
+        path: 'p/:id',
+        name: 'product-detail',
+        component: () => import('@/features/catalog/ProductDetailView.vue'),
+        props: true,
+        meta: { title: '商品詳情' },
+      },
+      {
         path: 'login',
         name: 'login',
         component: () => import('@/features/auth/LoginView.vue'),

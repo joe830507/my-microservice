@@ -1,12 +1,32 @@
 <script setup lang="ts">
+import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useCategoryStore } from '@/features/catalog/categoryStore'
 import { useAuthStore } from '@/features/auth/store'
 import { APP_TITLE } from '@/router'
 
-// 骨架階段：搜尋、購物車件數是假的內容，分別在 Step 4、6 接上真的功能
+// 骨架階段：購物車件數是假的內容，在 Step 6 接上真的功能
 const auth = useAuthStore()
+const categories = useCategoryStore()
 const route = useRoute()
 const router = useRouter()
+
+onMounted(() => void categories.load())
+
+// 搜尋框：送出後到 /search?q=；在搜尋頁時跟著網址上的關鍵字
+const keyword = ref('')
+watch(
+  () => route.query.q,
+  (q) => {
+    keyword.value = route.name === 'search' && typeof q === 'string' ? q : ''
+  },
+  { immediate: true },
+)
+
+function onSearch(): void {
+  const q = keyword.value.trim()
+  void router.push({ name: 'search', query: q ? { q } : {} })
+}
 
 async function onLogout(): Promise<void> {
   await auth.logout()
@@ -22,8 +42,15 @@ async function onLogout(): Promise<void> {
     <header class="store-header">
       <div class="container store-header__inner">
         <RouterLink :to="{ name: 'home' }" class="store-brand">{{ APP_TITLE }}</RouterLink>
-        <form class="store-search" role="search" @submit.prevent>
-          <input type="search" name="q" placeholder="搜尋商品" aria-label="搜尋商品" />
+        <form class="store-search" role="search" @submit.prevent="onSearch">
+          <input
+            v-model="keyword"
+            type="search"
+            name="q"
+            maxlength="255"
+            placeholder="搜尋商品"
+            aria-label="搜尋商品"
+          />
         </form>
         <nav class="store-nav" aria-label="主要導覽">
           <a class="store-nav__item" href="#" @click.prevent>購物車</a>
@@ -44,6 +71,17 @@ async function onLogout(): Promise<void> {
           </template>
         </nav>
       </div>
+      <nav v-if="categories.tree.length > 0" class="store-categories" aria-label="商品分類">
+        <div class="container store-categories__inner">
+          <RouterLink
+            v-for="category in categories.tree"
+            :key="category.id"
+            :to="{ name: 'category', params: { slug: category.slug } }"
+          >
+            {{ category.name }}
+          </RouterLink>
+        </div>
+      </nav>
     </header>
 
     <main class="store-main container">
@@ -127,6 +165,28 @@ async function onLogout(): Promise<void> {
   background: none;
   font: inherit;
   cursor: pointer;
+}
+
+.store-categories {
+  border-top: 1px solid var(--color-border);
+}
+
+/* 分類多時橫向捲動，不換行 */
+.store-categories__inner {
+  display: flex;
+  gap: var(--space-4);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.store-categories a {
+  padding: var(--space-2) 0;
+  font-size: var(--font-size-sm);
+}
+
+.store-categories a:hover,
+.store-categories a.router-link-active {
+  color: var(--color-primary);
 }
 
 .store-main {

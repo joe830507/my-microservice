@@ -8,11 +8,14 @@ import apiClient from '@/api/http'
 import { installAuthInterceptors } from '@/features/auth/interceptors'
 import { REFRESH_TOKEN_KEY, useAuthStore } from '@/features/auth/store'
 import { me } from '@/features/auth/__tests__/fixtures'
+import { categoryTree } from '@/features/catalog/__tests__/fixtures'
 import { installAuthGuard } from '@/router'
 
 import StoreLayout from '../StoreLayout.vue'
 
-const server = setupServer()
+const server = setupServer(
+  http.get('*/categories/tree', () => HttpResponse.json({ roots: categoryTree })),
+)
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 afterAll(() => server.close())
@@ -41,6 +44,8 @@ async function mountLayout(path = '/') {
         component: StoreLayout,
         children: [
           { path: '', name: 'home', component: Page },
+          { path: 'search', name: 'search', component: Page },
+          { path: 'c/:slug', name: 'category', component: Page },
           { path: 'login', name: 'login', component: Page },
           { path: 'register', name: 'register', component: Page },
           { path: 'secret', name: 'secret', component: Page, meta: { requiresAuth: true } },
@@ -56,6 +61,42 @@ async function mountLayout(path = '/') {
 }
 
 describe('StoreLayout', () => {
+  it('分類列：顯示頂層分類，連到分類頁', async () => {
+    const { wrapper } = await mountLayout()
+    await flushPromises()
+
+    const links = wrapper
+      .findAll('.store-categories a')
+      .map((a) => [a.text(), a.attributes('href')])
+    expect(links).toEqual([
+      ['鞋子', '/c/shoes'],
+      ['包包', '/c/bags'],
+    ])
+  })
+
+  it('搜尋框：送出後到 /search?q=，空白關鍵字去掉', async () => {
+    const { wrapper, router } = await mountLayout()
+
+    await wrapper.find('input[type="search"]').setValue('  運動鞋 ')
+    await wrapper.find('form[role="search"]').trigger('submit')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('search')
+    expect(router.currentRoute.value.query.q).toBe('運動鞋')
+
+    await wrapper.find('input[type="search"]').setValue('   ')
+    await wrapper.find('form[role="search"]').trigger('submit')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query).toEqual({})
+  })
+
+  it('在搜尋頁：搜尋框顯示目前的關鍵字', async () => {
+    const { wrapper } = await mountLayout('/search?q=%E9%9E%8B')
+
+    expect((wrapper.find('input[type="search"]').element as HTMLInputElement).value).toBe('鞋')
+  })
+
   it('shows header, content area and footer', async () => {
     const { wrapper } = await mountLayout()
 

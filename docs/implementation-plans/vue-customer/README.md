@@ -3,7 +3,7 @@
 > 建立日期：2026-11-10
 > 分支：之後另開 `feature/vue-customer`
 > 位置：`frontend/vue-customer`（目前只有 `.gitkeep`）
-> 狀態：進行中（Step 0–3 完成）
+> 狀態：進行中（Step 0–4 完成）
 
 顧客用的商店前台：瀏覽商品、購物車、註冊登入、下單、付款（模擬金流）、查詢自己的訂單。後台是 [vue-management](../vue-management/README.md)。
 
@@ -15,7 +15,7 @@
 | [1](step-01-project-setup.md) | 建立專案、Vite proxy、版面骨架                               | 完成   |
 | [2](step-02-http-layer.md) | HTTP 層與登入狀態（沿用後台的做法）                          | 完成   |
 | [3](step-03-auth-pages.md) | 註冊、登入、登出                                             | 完成   |
-| 4    | 商品列表：分類、搜尋、篩選、排序、分頁                       | 未開始 |
+| [4](step-04-product-list.md) | 商品列表：分類、搜尋、篩選、排序、分頁                       | 完成   |
 | 5    | 商品詳情：圖片、價格、庫存、加入購物車                       | 未開始 |
 | 6    | 購物車（存在瀏覽器）                                         | 未開始 |
 | 7    | 結帳、建立訂單                                               | 未開始 |
@@ -117,15 +117,6 @@ frontend/vue-customer/
 ---
 
 ## 還沒開始的 step
-
-### Step 4：商品列表
-
-- 首頁：分類入口、最新上架的商品
-- 分類頁 `/c/:slug`：用 `GET /categories/slug/{slug}` 找分類，列出該分類與子分類的商品
-- 搜尋 `/search?q=`、篩選（價格區間）、排序（最新、價格）、分頁，條件放在 URL query（`useRouteQuery`）
-- 商品卡片：主圖（沒有主圖顯示預設圖）、名稱、價格；有原價時顯示原價與折扣
-
-**測試**：URL 條件轉成 API 參數；分類 slug 不存在顯示 404；沒有主圖用預設圖；原價與折扣的顯示；空結果的畫面。
 
 ### Step 5：商品詳情
 
