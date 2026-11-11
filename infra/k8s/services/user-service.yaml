@@ -67,10 +67,10 @@ spec:
                 secretKeyRef:
                   name: user-redis
                   key: password
-            # 只為了在第一次啟動時建立管理員（BootstrapAdminInitializer 只在 dev profile 啟用）。
-            # dev profile 在這個專案只有管理員設定（application-dev.yml）；正式環境需要另外的建立管理員方式
-            - name: SPRING_PROFILES_ACTIVE
-              value: dev
+            # 啟動時建立第一個管理員（SEC-12）：註冊只能建立 CUSTOMER，沒有這個就沒有任何方式取得管理員。
+            # 用設定開關開啟，不再為了這件事把整個服務切成 dev profile。建好之後把這個改成 "false"，並換掉 Secret 的密碼
+            - name: BOOTSTRAP_ADMIN_ENABLED
+              value: "true"
             - name: BOOTSTRAP_ADMIN_EMAIL
               valueFrom:
                 secretKeyRef:

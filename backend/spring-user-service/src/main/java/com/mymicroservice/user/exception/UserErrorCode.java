@@ -26,6 +26,8 @@ public enum UserErrorCode implements ErrorCode {
     TOO_MANY_LOGIN_ATTEMPTS(HttpStatus.TOO_MANY_REQUESTS, "too many failed login attempts, please try again later."),
     // 不存在、已過期、已撤銷或被重複使用，一律回此錯誤，前端收到後要求重新登入
     REFRESH_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "refresh token is invalid or expired."),
+    // refresh、logout 靠 cookie 證明身分，一定要帶自訂標頭 X-Requested-With（擋 CSRF，SEC-06）
+    CSRF_CHECK_FAILED(HttpStatus.FORBIDDEN, "missing X-Requested-With header."),
 
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "user not found.");

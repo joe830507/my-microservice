@@ -1,0 +1,294 @@
+# 出去（Egress）的限制（SEC-02 的後續）：network-policies.yaml 只擋「進來」，這份擋「出去」。
+# 被入侵的 Pod 因此不能往外連（外洩資料、下載工具），也不能橫向連到不相干的服務。
+#
+# 先全部拒絕出去，再逐一開放：DNS，加上每個元件實際需要連的對象。
+# 連線的兩端都要放行：這裡開放「出去」，network-policies.yaml 對應的「進來」也要有（兩邊對得上才通）。
+# kubelet 的探針從節點發出，不受這裡的限制。
+#
+# 改動這份清單後要用對照組實測（見 docs/implementation-plans/backend-deployment-implementation-plan.md）：
+# 從該 Pod 連「應該通」與「不該通」的目標，包含叢集外的位址。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+spec:
+  podSelector: {}
+  policyTypes: ["Egress"]
+---
+# 所有 Pod 都可以查 DNS（只到 kube-system 的 CoreDNS，不能自己指定外部的 DNS 伺服器）
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+spec:
+  podSelector: {}
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# 前端 nginx：只連 Gateway
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontends-egress
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: ["vue-customer", "vue-management"]
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+# Gateway：轉發給五個服務，限流用 gateway-redis
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: api-gateway
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: user-service
+      ports:
+        - protocol: TCP
+          port: 8084
+    - to:
+        - podSelector:
+            matchLabels:
+              app: product-service
+      ports:
+        - protocol: TCP
+          port: 8081
+    - to:
+        - podSelector:
+            matchLabels:
+              app: inventory-service
+      ports:
+        - protocol: TCP
+          port: 8083
+    - to:
+        - podSelector:
+            matchLabels:
+              app: order-service
+      ports:
+        - protocol: TCP
+          port: 8082
+    - to:
+        - podSelector:
+            matchLabels:
+              app: payment-service
+      ports:
+        - protocol: TCP
+          port: 8085
+    - to:
+        - podSelector:
+            matchLabels:
+              app: gateway-redis
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+# user-service：自己的資料庫與 Redis
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-user-service-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: user-service
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: user-db
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              app: user-redis
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+# product-service：自己的資料庫與 Redis、物件儲存的 S3
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-product-service-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: product-service
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: product-db
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              app: product-redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    - to:
+        - podSelector:
+            matchLabels:
+              app: object-storage
+      ports:
+        - protocol: TCP
+          port: 8333
+---
+# inventory-service：只有自己的資料庫
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-inventory-service-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: inventory-service
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: inventory-db
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# order-service：自己的資料庫，查商品、預扣庫存
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-order-service-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: order-service
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: order-db
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              app: product-service
+      ports:
+        - protocol: TCP
+          port: 8081
+    - to:
+        - podSelector:
+            matchLabels:
+              app: inventory-service
+      ports:
+        - protocol: TCP
+          port: 8083
+---
+# payment-service：自己的資料庫，查訂單、通知已付款
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-payment-service-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: payment-service
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: payment-db
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              app: order-service
+      ports:
+        - protocol: TCP
+          port: 8082
+---
+# 物件儲存的初始化 Job：連物件儲存建立 bucket（S3、master、filer 與它們的 gRPC）
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-object-storage-init-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: object-storage-init
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: object-storage
+      ports:
+        - protocol: TCP
+          port: 8333
+        - protocol: TCP
+          port: 9333
+        - protocol: TCP
+          port: 19333
+        - protocol: TCP
+          port: 8888
+        - protocol: TCP
+          port: 18888
+---
+# 物件儲存本身（SeaweedFS 的 master、volume、filer 互相連）：只到自己這一組 Pod
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-object-storage-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: object-storage
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: object-storage
+# 資料庫與 Redis 不需要連任何地方：只有 default-deny-egress 與 DNS

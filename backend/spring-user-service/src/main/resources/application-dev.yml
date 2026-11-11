@@ -1,7 +1,9 @@
 # 本機開發用設定，啟動時加 --spring.profiles.active=dev
 app:
-  # dev 啟動時自動建立的 ADMIN（BootstrapAdminInitializer），email 已存在就跳過
+  # 本機開發自動開啟啟動時建立 ADMIN（BootstrapAdminInitializer）；email 已存在就跳過
+  # 非 dev 環境（例如 K8s）用環境變數 BOOTSTRAP_ADMIN_ENABLED=true 開啟，見 application.yml
   bootstrap-admin:
+    enabled: true
     email: ${BOOTSTRAP_ADMIN_EMAIL:admin@example.com}
     # 不給預設值：密碼不寫進 yml；沒設定環境變數時啟動會失敗並指出 password 欄位
     password: ${BOOTSTRAP_ADMIN_PASSWORD:}

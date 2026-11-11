@@ -5,7 +5,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import App from '@/App.vue'
-import { REFRESH_TOKEN_KEY, useAuthStore } from '@/features/auth/store'
+import { SESSION_HINT_KEY, useAuthStore } from '@/features/auth/store'
 import { me } from '@/features/auth/__tests__/fixtures'
 import { product } from '@/features/products/__tests__/fixtures'
 import { menuItems, routes } from '@/router'
@@ -21,7 +21,7 @@ beforeEach(() => {
   // 已登入的狀態
   const auth = useAuthStore()
   auth.accessToken = 'access-1'
-  auth.refreshToken = 'refresh-1'
+  auth.hasSession = true
   auth.user = me()
 })
 
@@ -81,7 +81,7 @@ describe('AdminLayout', () => {
     const logoutBodies: unknown[] = []
     server.use(
       http.post('*/auth/logout', async ({ request }) => {
-        logoutBodies.push(await request.json())
+        logoutBodies.push(request.headers.get('X-Requested-With'))
         return new HttpResponse(null, { status: 204 })
       }),
     )
@@ -90,8 +90,8 @@ describe('AdminLayout', () => {
     await wrapper.find('.admin-user button').trigger('click')
 
     await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('login'))
-    expect(logoutBodies).toEqual([{ refreshToken: 'refresh-1' }])
+    expect(logoutBodies).toEqual(['XMLHttpRequest'])
     expect(useAuthStore().isAuthenticated).toBe(false)
-    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBeNull()
+    expect(localStorage.getItem(SESSION_HINT_KEY)).toBeNull()
   })
 })

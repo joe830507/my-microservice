@@ -3,6 +3,7 @@ package com.mymicroservice.order.service;
 import java.util.UUID;
 
 import com.mymicroservice.order.dtos.CreateOrderReqDto;
+import com.mymicroservice.order.dtos.CreateOrderResult;
 import com.mymicroservice.order.dtos.GetOrdersReqDto;
 import com.mymicroservice.order.dtos.GetOrdersResDto;
 import com.mymicroservice.order.dtos.InternalOrderResDto;
@@ -10,7 +11,8 @@ import com.mymicroservice.order.dtos.OrderResDto;
 
 public interface OrderService {
 
-    public OrderResDto createOrder(UUID userId, CreateOrderReqDto createOrderReqDto);
+    // idempotencyKey：選填；同一個使用者用同一個 key 重送，回同一張訂單（CreateOrderResult.created = false）
+    public CreateOrderResult createOrder(UUID userId, CreateOrderReqDto createOrderReqDto, String idempotencyKey);
 
     public OrderResDto getOrder(UUID orderId, UUID userId, boolean admin);
 

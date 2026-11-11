@@ -45,12 +45,16 @@ storage:
     - image/jpeg
     - image/png
     - image/webp
+# API 文件（springdoc）：預設關閉（SEC-09）。Swagger UI 與 /v3/api-docs 會公開所有 API 的細節，只在本機開發用環境變數
+# SPRINGDOC_ENABLED=true 開啟；Gateway 本來就不轉發這些路徑，所以對外也看不到
 springdoc:
   # 不把 @RestControllerAdvice 的所有錯誤碼套到每支 API，改由各 API 的 @ApiResponses 明確標示
   override-with-generic-response: false
   api-docs:
+    enabled: ${SPRINGDOC_ENABLED:false}
     path: /v3/api-docs
   swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:false}
     path: /swagger-ui.html
     # 依 API 路徑與 HTTP 方法排序，方便尋找
     operations-sorter: method

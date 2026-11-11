@@ -21,12 +21,14 @@ import com.mymicroservice.common.web.RequireRoles;
 import com.mymicroservice.common.web.UserContext;
 import com.mymicroservice.common.web.UserContextHeaders;
 import com.mymicroservice.order.dtos.CreateOrderReqDto;
+import com.mymicroservice.order.dtos.CreateOrderResult;
 import com.mymicroservice.order.dtos.GetOrdersReqDto;
 import com.mymicroservice.order.dtos.GetOrdersResDto;
 import com.mymicroservice.order.dtos.OrderResDto;
 import com.mymicroservice.order.service.OrderService;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 
 // order-service 不驗 JWT，信任 Gateway 帶來的 X-User-Id、X-User-Roles
@@ -37,10 +39,17 @@ public class OrderController {
     private final OrderService orderService;
 
     // 建立訂單：查商品快照、預扣庫存、存成 PENDING_PAYMENT；回 201 與 Location
+    // Idempotency-Key（選填，SEC-10）：同一個使用者用同一個 key 重送相同內容，回同一張訂單（200，帶 Idempotent-Replayed: true），
+    // 不會建立第二張或再預扣一次庫存；同一個 key 搭配不同內容回 422 IDEMPOTENCY_KEY_REUSED
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<OrderResDto> createOrder(@CurrentUserId UUID userId,
+            @RequestHeader(value = "Idempotency-Key", required = false) @Pattern(regexp = "^[A-Za-z0-9_-]{8,64}$", message = "must be 8 to 64 characters: letters, digits, '-' or '_'") String idempotencyKey,
             @RequestBody @Valid CreateOrderReqDto createOrderReqDto) {
-        OrderResDto order = orderService.createOrder(userId, createOrderReqDto);
+        CreateOrderResult result = orderService.createOrder(userId, createOrderReqDto, idempotencyKey);
+        OrderResDto order = result.order();
+        if (!result.created()) {
+            return ResponseEntity.ok().header("Idempotent-Replayed", "true").body(order);
+        }
         return ResponseEntity.created(URI.create("/api/v1/orders/" + order.id())).body(order);
     }
 

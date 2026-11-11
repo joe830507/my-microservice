@@ -63,7 +63,7 @@ async function logoutAll(): Promise<void> {
     <h2>安全性</h2>
     <p class="account__hint">
       登出所有裝置會讓這個帳號在每一台裝置上都需要重新登入，包含目前這台。
-      其他裝置已經取得的登入憑證可能還會在最多約 15 分鐘內有效。
+      其他裝置已經取得的登入憑證可能還會在最多約 5 分鐘內有效。
     </p>
 
     <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>

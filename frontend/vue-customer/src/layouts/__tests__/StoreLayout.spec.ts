@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import apiClient from '@/api/http'
 import { installAuthInterceptors } from '@/features/auth/interceptors'
-import { REFRESH_TOKEN_KEY, useAuthStore } from '@/features/auth/store'
+import { SESSION_HINT_KEY, useAuthStore } from '@/features/auth/store'
 import { me } from '@/features/auth/__tests__/fixtures'
 import { useCartStore } from '@/features/cart/store'
 import { categoryTree } from '@/features/catalog/__tests__/fixtures'
@@ -146,10 +146,10 @@ describe('StoreLayout', () => {
 
   it('已登入：顯示名稱與登出，登出後回到未登入的樣子', async () => {
     server.use(http.post('*/auth/logout', () => new HttpResponse(null, { status: 204 })))
-    localStorage.setItem(REFRESH_TOKEN_KEY, 'refresh-1')
+    localStorage.setItem(SESSION_HINT_KEY, '1')
     const { wrapper, auth } = await mountLayout()
     auth.accessToken = 'access-1'
-    auth.refreshToken = 'refresh-1'
+    auth.hasSession = true
     auth.user = me()
     await flushPromises()
 
@@ -161,7 +161,7 @@ describe('StoreLayout', () => {
     await flushPromises()
 
     expect(auth.isAuthenticated).toBe(false)
-    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBeNull()
+    expect(localStorage.getItem(SESSION_HINT_KEY)).toBeNull()
     expect(wrapper.find('.store-nav__user').exists()).toBe(false)
     expect(wrapper.text()).toContain('登入')
   })
@@ -170,7 +170,7 @@ describe('StoreLayout', () => {
     server.use(http.post('*/auth/logout', () => new HttpResponse(null, { status: 204 })))
     const { wrapper, router, auth } = await mountLayout()
     auth.accessToken = 'access-1'
-    auth.refreshToken = 'refresh-1'
+    auth.hasSession = true
     auth.user = me()
     await router.push('/secret')
     await flushPromises()

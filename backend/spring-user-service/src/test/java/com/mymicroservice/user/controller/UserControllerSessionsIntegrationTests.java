@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.jayway.jsonpath.JsonPath;
+import com.mymicroservice.user.RefreshCookies;
 import com.mymicroservice.common.web.UserContextHeaders;
 import com.mymicroservice.user.TestcontainersConfiguration;
 
@@ -135,22 +136,17 @@ class UserControllerSessionsIntegrationTests {
     }
 
     private String login(String email) throws Exception {
-        String response = mockMvc.perform(post("/api/v1/auth/login")
+        return RefreshCookies.tokenOf(mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"email": "%s", "password": "%s"}
                         """.formatted(email, PASSWORD)))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return JsonPath.read(response, "$.refreshToken");
+                .andReturn());
     }
 
     private ResultActions refresh(String refreshToken) throws Exception {
-        return mockMvc.perform(post("/api/v1/auth/refresh")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {"refreshToken": "%s"}
-                        """.formatted(refreshToken)));
+        return mockMvc.perform(RefreshCookies.postWithToken("/api/v1/auth/refresh", refreshToken));
     }
 
     private int activeTokenCount(UUID userId) {

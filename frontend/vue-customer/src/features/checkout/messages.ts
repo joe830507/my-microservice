@@ -5,7 +5,7 @@ export interface CreateOrderFailure {
   message: string
   // 商品狀態可能已經變了：畫面要重新查商品，更新「無法購買」的標示
   refresh: boolean
-  // 不確定訂單有沒有建立（沒收到回應）：提示使用者先到「我的訂單」確認
+  // 不確定訂單有沒有建立（沒收到回應）：可以再送一次（同一個 Idempotency-Key，不會重複下單），也可以先到「我的訂單」確認
   uncertain: boolean
 }
 
@@ -61,13 +61,13 @@ export function createOrderFailure(error: unknown, lines: CartLine[]): CreateOrd
     case 'INVENTORY_SERVICE_UNAVAILABLE':
     case 'TOO_MANY_REQUESTS':
       return { ...base, message: '系統目前忙碌，訂單尚未建立，請稍後再試' }
-    // 沒有收到回應：請求可能已經送到後端並建立了訂單，直接再送一次會變成兩張
+    // 沒有收到回應：請求可能已經送到後端並建立了訂單；重送帶同一個 Idempotency-Key，後端會回原本那張而不是建立第二張
     case ClientErrorCode.NETWORK_ERROR:
     case ClientErrorCode.TIMEOUT:
       return {
         ...base,
         uncertain: true,
-        message: '無法確認訂單是否已建立，請先到「我的訂單」查看，確認沒有這張訂單再重新送出',
+        message: '無法確認訂單是否已建立，可以再按一次「送出訂單」（同一次結帳不會重複下單），或先到「我的訂單」查看',
       }
     default:
       return { ...base, message: apiError.detail }

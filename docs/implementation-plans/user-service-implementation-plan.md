@@ -135,7 +135,7 @@
 | `iss` | 例如 `user-service`，Gateway 會檢查 |
 | `sub` | userId（不要放 email，email 可能會改） |
 | `roles` | 角色陣列 |
-| `exp` | access token 有效時間短，例如 15 分鐘 |
+| `exp` | access token 有效時間短，預設 5 分鐘（`jwt.access-token-ttl`） |
 
 ### 金鑰來源
 
@@ -422,7 +422,7 @@ set -a; . secrets/dev.env; set +a
 | 回應 | 一律 204；token 不存在、已撤銷、已過期也一樣，不洩漏 token 狀態 |
 | 範圍 | 只撤銷這一個 token，其他裝置不受影響 |
 | 寬限期 | 登出不寫 `replaced_by`，被登出的 token 沒有寬限期；輪替後登出新 token，舊 token 也因「新 token 已失效」而失去寬限 |
-| access token | 無法撤銷，到期（最多 15 分鐘）前仍有效；前端登出時自行丟掉 |
+| access token | 無法撤銷，到期（最多 5 分鐘）前仍有效；前端登出時自行丟掉 |
 
 - 被登出的 token 之後又被拿來 refresh，會被當成重複使用而撤銷該使用者**所有** token。正常前端登出後不會再送，出現就代表 token 外流
 
@@ -454,7 +454,7 @@ set -a; . secrets/dev.env; set +a
 | 路徑 | 放在 `/users/me` 而不是 `/auth`：Gateway 對 `/api/v1/auth/**` 不要求 JWT，這支 API 需要可信任的 `X-User-Id`（`@CurrentUserId`） |
 | 行為 | `revokeAllActiveByUserId`，撤銷目前使用者所有有效的 refresh token；回 204 |
 | 寬限期 | 撤銷不寫 `replaced_by`；剛輪替掉的舊 token 也因新 token 已被撤銷而失去寬限 |
-| access token | 無法撤銷，各裝置在到期（最多 15 分鐘）後無法再換發 |
+| access token | 無法撤銷，各裝置在到期（最多 5 分鐘）後無法再換發 |
 | 沒有 token | 一樣回 204 |
 
 ### JWKS 金鑰輪替

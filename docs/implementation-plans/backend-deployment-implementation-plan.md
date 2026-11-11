@@ -17,6 +17,7 @@
 | `infra/k8s/data/` | 5 個 PostgreSQL（StatefulSet，DB per service）、3 個 Redis、物件儲存（SeaweedFS）與建立 bucket 的 Job。本機／示範用，正式環境建議用託管服務 |
 | `infra/k8s/services/` | 6 個後端服務的 Deployment 與 Service（ClusterIP） |
 | `infra/k8s/network-policies.yaml` | 預設拒絕進入，再逐一開放需要的連線（SEC-02） |
+| `infra/k8s/network-policies-egress.yaml` | 預設拒絕出去，只開放 DNS 與每個元件實際需要的對象；資料庫與 Redis 完全不能往外連 |
 | `infra/k8s/scripts/create-secrets.sh` | 產生所有 Secret（隨機值，只存在叢集裡） |
 | `infra/k8s/scripts/kind-up.sh`、`kind-config.yaml` | 建立本機 kind 叢集並安裝 Calico |
 | `infra/k8s/kustomization.yaml` | 把以上加上兩個前端的 `k8s/` 全部放進 namespace `my-microservice` |
@@ -107,17 +108,16 @@ Spring 的 relaxed binding 讓 `SPRING_DATASOURCE_URL`、`SPRING_DATA_REDIS_HOST
 2. **Calico 在這台機器上起不來**：容器建立失敗 `mkdir /sys/kernel/security: read-only file system`（WSL2 核心沒有 securityfs）。這個掛載只在 eBPF 模式用來偵測核心 lockdown，我們用 iptables 模式用不到，所以 `kind-up.sh` 套用 manifest 時用 `sed` 移除（volume 與 volumeMount 各 3 行）。Calico 版本固定 `v3.33.0`（`CALICO_VERSION` 可覆蓋）
 3. **kubelet 預設拒絕在 cgroup v1 上執行**（這台機器的 Docker 是 cgroup v1）：`kind-config.yaml` 設 `failCgroupV1: false`。長期要把 Docker／WSL 切到 cgroup v2
 4. **SeaweedFS 在 K8s 上傳失敗（`No writable volumes`）**：它以 `-ip=object-storage` 宣告位址，內部元件（volume server 的 8080／18080）和初始化 Job 都用這個名字連，但 ClusterIP Service 只轉發有列出的埠。解法：Service 改成 **headless**，名字直接解析到 Pod IP，所有埠都通（NetworkPolicy 仍然限制誰連得進來）。初始化 Job 另外需要 master、master gRPC、filer、filer gRPC 的埠，`allow-object-storage-admin` 只開放給 `object-storage-init`
-5. **管理員帳號**：`BootstrapAdminInitializer` 只在 `dev` profile 啟用，非 dev 環境沒有任何方式建立第一個管理員。目前 user-service 在叢集裡用 `dev` profile（`application-dev.yml` 只有管理員設定）。見 known-issues 的 SEC-12
+5. **管理員帳號**：`BootstrapAdminInitializer` 原本綁在 `dev` profile；現在改由 `app.bootstrap-admin.enabled` 控制，叢集裡用 `BOOTSTRAP_ADMIN_ENABLED=true`，不再使用 `dev` profile（SEC-12）
 6. **Windows 的 `mvnw` 是 CRLF**：見上面的 `.gitattributes`
 7. **kind 節點不共用本機的映像庫**：`postgres`、`redis`、`seaweedfs` 要從 Docker Hub 拉（第一次部署要等幾分鐘），自己建的映像檔要 `kind load`
 
 ## 還沒做的
 
-- **出去（Egress）的限制**：只限制了進入，服務連到哪裡沒有限制
 - **Ingress、TLS、HSTS**：目前用 `port-forward` 連進去；前端的 Service 是 ClusterIP。加 Ingress 時，`allow-frontends` 可以改成只允許 Ingress 所在的 namespace，Gateway 的 `GATEWAY_TRUSTED_PROXIES` 要改成 2，Ingress 要能連到物件儲存讓瀏覽器讀圖與直傳
 - **圖片網址是 `localhost:8333`**：只在本機有效。正式環境要換成對外的網域（`STORAGE_UPLOAD_ENDPOINT`、`STORAGE_PUBLIC_BASE_URL`，以及兩個前端 ConfigMap 的 `STORAGE_PUBLIC_ORIGIN`，CSP 會用到）
 - **資料庫與 Redis 的高可用、備份**：單一副本、本機磁碟區
 - **映像檔倉庫、CI、映像檔掃描、簽章**
-- **`SEC-01`（`mock-callback`）沒有處理**：它仍然可以經由 Gateway 呼叫
+- **`SEC-01`（`mock-callback`）**：已改成設定開關、預設關閉，但 K8s 上為了示範與 E2E 仍設為開啟；接真的金流時要移除
 - 服務啟動順序：沒有 initContainer 等資料庫，靠重啟等待
 - 測試沒有跑在映像檔建置裡（Testcontainers 需要 Docker），應該在 CI 先跑

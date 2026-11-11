@@ -23,8 +23,7 @@ export interface TokenRes {
   tokenType: string
   // access token 剩餘有效秒數
   expiresIn: number
-  // 每次 refresh 都會換新，舊的立即失效
-  refreshToken: string
+  // refresh token 不在 body：後端放在 HttpOnly cookie（JavaScript 讀不到）；這是它剩餘的有效秒數
   refreshExpiresIn: number
 }
 

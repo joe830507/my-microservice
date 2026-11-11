@@ -8,7 +8,7 @@ export interface Session {
   request: APIRequestContext
   // access token：給 API 呼叫用
   token: string
-  // refresh token：給瀏覽器用（放進 localStorage，見 ui.ts 的 startSignedIn）
+  // refresh token：後端放在 HttpOnly cookie，這裡從 Set-Cookie 取出，給瀏覽器用（見 ui.ts 的 startSignedIn）
   refreshToken: string
 }
 
@@ -34,11 +34,12 @@ export async function login(
       await new Promise((resolve) => setTimeout(resolve, 7_000))
       continue
     }
-    const body = await json<{ accessToken: string; refreshToken: string }>(
-      response,
-      `登入 ${email}`,
-    )
-    return { request, token: body.accessToken, refreshToken: body.refreshToken }
+    const body = await json<{ accessToken: string }>(response, `登入 ${email}`)
+    const cookie = /(?:^|\n)refresh_token=([^;\n]+)/.exec(response.headers()['set-cookie'] ?? '')
+    if (!cookie) {
+      throw new Error(`登入 ${email} 的回應沒有 refresh_token cookie`)
+    }
+    return { request, token: body.accessToken, refreshToken: cookie[1] }
   }
 }
 
@@ -230,11 +231,23 @@ export async function ensureCustomer(
   email: string,
   password: string,
 ): Promise<void> {
-  const response = await request.post(`${API}/auth/register`, {
-    data: { email, password, displayName: 'E2E 顧客' },
-  })
-  if (!response.ok() && response.status() !== 409) {
-    throw new Error(`註冊 ${email} 失敗：HTTP ${response.status()} ${await response.text()}`)
+  // 已經有這個帳號就不再註冊：Gateway 的註冊限流很嚴（每分鐘約 3 次，SEC-04），固定顧客只需要註冊一次
+  const existing = await request.post(`${API}/auth/login`, { data: { email, password } })
+  if (existing.ok()) {
+    return
+  }
+  for (let attempt = 0; ; attempt++) {
+    const response = await request.post(`${API}/auth/register`, {
+      data: { email, password, displayName: 'E2E 顧客' },
+    })
+    if (response.status() === 429 && attempt < 5) {
+      await new Promise((resolve) => setTimeout(resolve, 21_000))
+      continue
+    }
+    if (!response.ok() && response.status() !== 409) {
+      throw new Error(`註冊 ${email} 失敗：HTTP ${response.status()} ${await response.text()}`)
+    }
+    return
   }
 }
 

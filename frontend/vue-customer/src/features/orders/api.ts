@@ -2,9 +2,12 @@ import apiClient from '@/api/http'
 import type { CreateOrderReq, Order, OrderPage, OrderQueryParams } from './types'
 
 // 成功回 201：訂單為 PENDING_PAYMENT，庫存同時預扣；付款期限由後端的 payment-timeout 決定
-// 沒有冪等 key：網路重送會建立兩張訂單，所以前端要防止重複送出（見之後再處理）
-export async function createOrder(req: CreateOrderReq): Promise<Order> {
-  const { data } = await apiClient.post<Order>('/orders', req)
+// idempotencyKey：同一次結帳重送時帶同一個 key，後端回原本那一張訂單（200），不會建立第二張；
+// 同一個 key 搭配不同的商品內容會被拒絕（422 IDEMPOTENCY_KEY_REUSED）
+export async function createOrder(req: CreateOrderReq, idempotencyKey?: string): Promise<Order> {
+  const { data } = await apiClient.post<Order>('/orders', req, {
+    headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+  })
   return data
 }
 

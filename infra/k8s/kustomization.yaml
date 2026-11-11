@@ -16,6 +16,7 @@ resources:
   - ../../frontend/vue-customer/k8s
   - ../../frontend/vue-management/k8s
   - network-policies.yaml
+  - network-policies-egress.yaml
 labels:
   - pairs:
       app.kubernetes.io/part-of: my-microservice

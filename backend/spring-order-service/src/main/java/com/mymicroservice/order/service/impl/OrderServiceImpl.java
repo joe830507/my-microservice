@@ -1,15 +1,21 @@
 package com.mymicroservice.order.service.impl;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -22,6 +28,7 @@ import com.mymicroservice.order.clients.InventoryClient.ReserveResult;
 import com.mymicroservice.order.clients.ProductClient;
 import com.mymicroservice.order.clients.ProductClient.Product;
 import com.mymicroservice.order.dtos.CreateOrderReqDto;
+import com.mymicroservice.order.dtos.CreateOrderResult;
 import com.mymicroservice.order.dtos.GetOrdersReqDto;
 import com.mymicroservice.order.dtos.GetOrdersResDto;
 import com.mymicroservice.order.dtos.InternalOrderResDto;
@@ -55,14 +62,28 @@ public class OrderServiceImpl implements OrderService {
     }
 
     // 不加 @Transactional：呼叫 product、inventory 時不能佔著 DB 連線；只有最後存檔在交易內（repository 自己的交易）
+    // 0. 有 Idempotency-Key 而且之前建過：直接回那一張（不查商品、不預扣，商品之後被下架也一樣回原本的訂單）
     // 1. 查商品  2. 預扣庫存  3. 存訂單；預扣之後的步驟失敗都要釋放，不能讓庫存被扣住
     @Override
-    public OrderResDto createOrder(UUID userId, CreateOrderReqDto createOrderReqDto) {
+    public CreateOrderResult createOrder(UUID userId, CreateOrderReqDto createOrderReqDto, String idempotencyKey) {
         Map<UUID, Integer> quantities = mergeByProduct(createOrderReqDto.items());
+        String requestHash = requestHash(quantities);
+
+        if (idempotencyKey != null) {
+            Optional<Order> replay = findReplay(userId, idempotencyKey, requestHash);
+            if (replay.isPresent()) {
+                return new CreateOrderResult(OrderResDto.from(replay.get()), false);
+            }
+        }
+
         Map<UUID, Product> products = loadPurchasableProducts(quantities);
 
         UUID orderId = UuidV7.generate();
         Order order = buildOrder(orderId, userId, quantities, products);
+        if (idempotencyKey != null) {
+            order.setIdempotencyKey(idempotencyKey);
+            order.setIdempotencyHash(requestHash);
+        }
         reserveStock(order);
 
         try {
@@ -72,9 +93,41 @@ public class OrderServiceImpl implements OrderService {
             if (!inventoryClient.release(orderId)) {
                 log.error("order {} was not saved and its reservation could not be released", orderId);
             }
+            // 同一個 key 的另一個請求搶先存檔（唯一約束擋下這一個）：這個請求預扣的庫存已經釋放，回搶先的那一張
+            if (idempotencyKey != null && exception instanceof DataIntegrityViolationException) {
+                Optional<Order> winner = findReplay(userId, idempotencyKey, requestHash);
+                if (winner.isPresent()) {
+                    return new CreateOrderResult(OrderResDto.from(winner.get()), false);
+                }
+            }
             throw exception;
         }
-        return OrderResDto.from(order);
+        return new CreateOrderResult(OrderResDto.from(order), true);
+    }
+
+    // 同一個使用者、同一個 key 的既有訂單；內容和這次不一樣就拒絕
+    private Optional<Order> findReplay(UUID userId, String idempotencyKey, String requestHash) {
+        Optional<Order> existing = orderRepository.findWithItemsByUserIdAndIdempotencyKey(userId, idempotencyKey);
+        existing.ifPresent(order -> {
+            if (!requestHash.equals(order.getIdempotencyHash())) {
+                throw new AppException(OrderErrorCode.IDEMPOTENCY_KEY_REUSED);
+            }
+        });
+        return existing;
+    }
+
+    // 請求內容的指紋：商品與數量（重複的商品已經合併），依商品 id 排序，所以品項順序不同也算同一份內容
+    private static String requestHash(Map<UUID, Integer> quantities) {
+        String canonical = quantities.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> entry.getKey() + ":" + entry.getValue())
+                .collect(Collectors.joining(";"));
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 
     // 只能看自己的；ADMIN 可以看全部
