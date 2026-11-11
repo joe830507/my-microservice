@@ -44,6 +44,9 @@ spring:
 app:
   events:
     schema: product_service
+search:
+  elasticsearch:
+    endpoint: ${ELASTICSEARCH_ENDPOINT:http://localhost:9200}
 # 商品圖片的物件儲存；本機是 infra/docker-compose.yml 的 object-storage（SeaweedFS）
 # 帳密只用在本機，和 infra/seaweedfs/s3.json 一致；正式環境用環境變數覆蓋
 storage:

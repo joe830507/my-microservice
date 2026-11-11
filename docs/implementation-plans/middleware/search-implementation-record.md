@@ -3,14 +3,15 @@
 > 日期：2026-11-11
 > 分支：`feature/search-phase-d`（從階段 C 後續計畫分支切出）
 > 對應：[實作計畫](search-implementation-plan.md)、[roadmap](middleware-roadmap.md)
-> 狀態：D1 完成（含完整 reactor）；D2–D7 尚未開始
+> 狀態：D1、D2 完成；D3–D7 尚未開始
 
 ## 內容
 
 | Step | 內容與狀態 |
 |---|---|
 | D1 | 單節點 Elasticsearch／SmartCN 映像、Compose、kind、NetworkPolicy、中文分詞與召回實驗已完成；完整 reactor 通過 |
-| D2–D7 | 待實作；目前商店搜尋仍使用既有 SQL |
+| D2 | ES Java client、商品索引 mapping、索引與別名管理、`_meta` 更新、商品快照轉換及 `external_gte` 寫入已完成；真實 ES Testcontainers 驗收通過 |
+| D3–D7 | 待實作；目前商店搜尋仍使用既有 SQL |
 
 ## 規則與版本
 
@@ -40,6 +41,20 @@ powershell -NoProfile -File infra/k8s/scripts/verify-phase-d.ps1
 - 真實 product-service Pod 可連 ES:9200；未授權 busybox Pod 連線失敗。腳本在 finally 清除測試 Pod 及 port-forward。
 - 證據：[本機分詞與搜尋](evidence/phase-d/d1-analysis.json)、[kind 分詞與搜尋](evidence/phase-d/d1-kind-analysis.json)、[網路對照](evidence/phase-d/d1-network.txt)。JSON 與文字證據均為無 BOM UTF-8。
 
+## D2 索引管理
+
+- ES Java client 使用 Spring Boot BOM 管理的 `elasticsearch-java` `9.4.5`，連線採 ES 9 對應的 REST 5 transport；Testcontainers Elasticsearch 模組為 `2.0.5`。商品文件轉換時將建立時間轉成 ISO-8601 字串，避免額外引入 JSON 依賴；ES client 使用自己的 Jackson 2 mapper，不共用應用程式的 Jackson 3 mapper。
+- `search.elasticsearch.endpoint` 由 `ELASTICSEARCH_ENDPOINT` 覆寫，預設 `http://localhost:9200`。索引設定在 `search/products-index.json`：單 shard、replica 0、SmartCN 分析器、SKU 小寫 normalizer、指定欄位與 `dynamic: strict`；`_meta` 初始為 `schemaVersion=1`、`built=false`。
+- `ProductIndexManager` 建立索引後可掛上 `products` write alias、讀取／更新 `_meta`，並使用 `external_gte` 依商品版本寫入。舊版本回 409 時回傳 `-1`（略過），同版本允許冪等覆寫；商品文件包含搜尋／排序欄位，品牌與描述 null 轉空字串。
+- 驗證使用真實 Elasticsearch 9.4.5 Testcontainers 映像，由 `infra/elasticsearch/Dockerfile` 建置（SmartCN 外掛已包含）：
+
+```powershell
+& "$env:USERPROFILE\.m2\wrapper\dists\apache-maven-3.10.0\2aaba761688b1a6ea5a46e7e5f4d5406ed7a75ee8da95e5e3079863a23461c9b\bin\mvn.cmd" -o -pl spring-product-service -am "-Dtest=ProductIndexManagerIntegrationTests" "-Dsurefire.failIfNoSpecifiedTests=false" test
+```
+
+- 2026-11-11 20:55:19 完成，三項測試全數通過，Maven reactor 的 common、observability、product-service 均成功，耗時 21.430 秒。涵蓋建立索引／alias／built metadata、舊版本拒絕與相同及較新版本寫入、strict mapping 拒絕未知欄位。因本次 shell 呼叫 `mvnw.cmd` 時出現 `icm` bootstrap 錯誤，改用 wrapper 已下載的 Maven 3.10.0 執行同一組離線目標；上方為實際命令，其他環境可用 `mvnw.cmd` 執行相同參數。
+- 首次測試發現 ES client 的 Jackson 2 mapper 不會直接序列化 `Instant`；商品文件改在轉換階段輸出 ISO-8601 字串，不額外引入 mapper 依賴，以上真實 ES 測試確認寫入與讀回成功。
+
 | 範例 | smartcn | standard |
 |---|---|---|
 | 無線藍牙耳機 | 無、線、藍、牙、耳、機 | 無、線、藍、牙、耳、機 |
@@ -56,9 +71,9 @@ powershell -NoProfile -File infra/k8s/scripts/verify-phase-d.ps1
 ## 已知限制
 
 - SmartCN 對部分繁體中文仍逐字分詞；`name.char` 能補召回，但目前 OR 子句可能過度召回。D5 相關性測試要覆蓋長句與共字負例，若要改變計畫中的查詢語意，應先記錄計畫變更並討論。
-- 本階段尚未接入 ES client、索引器、重建或查詢 API；D1 部署不代表 D2–D7 完成。
+- 尚未接入 Kafka 索引器、全量重建或搜尋 API；D2 完成不代表 D3–D7 完成。
 - 未實際啟動 Kibana，僅確認 profile 與映像版本設定；D1 的分詞驗證直接使用 ES HTTP API。
 
 ## 最不確定、希望審查者重點看的地方
 
-繁體中文逐字分詞與 OR 查詢的誤召回；512Mi heap 在後續重建與雙副本索引器的負載下是否足夠。這兩項目前只有小型實驗，尚不能代表正式搜尋品質或容量。
+繁體中文逐字分詞與 OR 查詢的誤召回；512Mi heap 在後續重建與雙副本索引器的負載下是否足夠；ES external version 409 以 `-1` 表示略過是否適合後續 listener 的指標與日誌整合。前兩項目前只有小型實驗，容量尚未實測。
