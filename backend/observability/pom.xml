@@ -36,6 +36,12 @@
 			<groupId>io.micrometer</groupId>
 			<artifactId>micrometer-registry-prometheus</artifactId>
 		</dependency>
+		<!-- 熔斷器與重試的指標（common 的 DownstreamCallers 偵測到就自動綁定） -->
+		<dependency>
+			<groupId>io.github.resilience4j</groupId>
+			<artifactId>resilience4j-micrometer</artifactId>
+			<version>2.4.0</version>
+		</dependency>
 		<!-- 把 Logback 的 log 送進 OpenTelemetry（logback-spring.xml 裡的 OTEL appender） -->
 		<dependency>
 			<groupId>io.opentelemetry.instrumentation</groupId>

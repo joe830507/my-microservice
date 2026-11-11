@@ -355,6 +355,8 @@ public class OrderServiceImpl implements OrderService {
             case RESERVED -> {
             }
             case OUT_OF_STOCK -> throw new AppException(OrderErrorCode.OUT_OF_STOCK, extractSkus(result.detail()));
+            // 熔斷打開，請求沒有送出：確定沒有預扣，不必釋放
+            case UNAVAILABLE -> throw new AppException(OrderErrorCode.INVENTORY_SERVICE_UNAVAILABLE);
             case UNKNOWN -> {
                 // 不知道有沒有扣成功：釋放（inventory 會留下紀錄，延遲送達的預扣也會被擋下）
                 if (!inventoryClient.release(order.getId())) {

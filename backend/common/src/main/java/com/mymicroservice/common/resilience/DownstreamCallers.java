@@ -19,6 +19,14 @@ public class DownstreamCallers {
         this.retries = retries;
     }
 
+    public CircuitBreakerRegistry circuitBreakers() {
+        return circuitBreakers;
+    }
+
+    public RetryRegistry retries() {
+        return retries;
+    }
+
     public DownstreamCaller create(String name, ResilienceProperties properties) {
         CircuitBreakerConfig breakerConfig = CircuitBreakerConfig.custom()
                 .slidingWindowType(CircuitBreakerConfig.SlidingWindowType.COUNT_BASED)
