@@ -2,7 +2,7 @@
 
 > 建立日期：2026-11-09
 > 分支：`feature/order-service`
-> 對應：[microservice-architecture.md](../architecture/microservice-architecture.md)「order-service」、「服務互動：下單流程」
+> 對應：[microservice-architecture.md](../../architecture/microservice-architecture.md)「order-service」、「服務互動：下單流程」
 > 狀態：Step 1–9 全部完成，並實際啟動驗證（2026-11-09）
 
 ## 進度
@@ -214,6 +214,6 @@ Gateway、user、product、inventory、order 五個服務都用真的程式啟�
 
 - 建單的冪等（前端連點兩次會建兩張單）：用 `Idempotency-Key` header
 - Resilience4j 的 retry、circuit breaker
-- ~~出貨（`SHIPPED`、`COMPLETED`）的後台 API~~：`ship`、`complete` 已完成，見 [vue-management Step 0](vue-management/step-00-backend-prereqs.md)
+- ~~出貨（`SHIPPED`、`COMPLETED`）的後台 API~~：`ship`、`complete` 已完成，見 [vue-management Step 0](../vue-management/step-00-backend-prereqs.md)
 - Kafka 導入後，付款與取消改成事件（見架構文件「之後：事件驅動」）
 - product 的批次查詢改到 `/internal/v1/products/batch`

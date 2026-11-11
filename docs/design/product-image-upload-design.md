@@ -12,7 +12,7 @@
 
 > 設計日期：2026-11-04
 > 對應：`product-service-middleware-evaluation.md` 第 4 點「物件儲存 + CDN」
-> 狀態：已實作（2026-11-09），步驟與驗證結果見 [product-image-upload-implementation-plan.md](../implementation-plans/product-image-upload-implementation-plan.md)
+> 狀態：已實作（2026-11-09），步驟與驗證結果見 [product-image-upload-implementation-plan.md](../implementation-plans/backend/product-image-upload-implementation-plan.md)
 
 ## 現況
 

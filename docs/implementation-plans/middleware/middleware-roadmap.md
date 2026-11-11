@@ -2,7 +2,7 @@
 
 > 建立日期：2026-11-11
 > 分支：`feature/middleware-roadmap`（只有這份計畫；每個階段實作時再各自開分支）
-> 對應：[product-service-middleware-evaluation.md](../design/product-service-middleware-evaluation.md)「建議導入順序」、[microservice-architecture.md](../architecture/microservice-architecture.md)「之後：事件驅動」
+> 對應：[product-service-middleware-evaluation.md](../../design/product-service-middleware-evaluation.md)「建議導入順序」、[microservice-architecture.md](../../architecture/microservice-architecture.md)「之後：事件驅動」
 > 狀態：階段 A（[observability-implementation-plan.md](observability-implementation-plan.md)）、B（[resilience-implementation-plan.md](resilience-implementation-plan.md)）完成；C 之後尚未開始
 
 從雛型的「同步 REST + 排程補償」走向「事件驅動 + 可觀測 + 可水平擴充」。每個階段都要能在本機 compose 與 kind 上跑起來並驗證，做法和之前一樣：每一步附測試，測試通過後單獨 commit。
@@ -53,7 +53,7 @@
 每個階段的共同收尾（不再每階段重複列出）：
 
 - `infra/docker-compose.yml`、`infra/k8s/` 加上新元件；埠一律綁 `127.0.0.1`；密碼放 Secret（`create-secrets.sh`）
-- `network-policies.yaml` 與 `network-policies-egress.yaml` 同步開放，並用對照組實測（見 [backend-deployment](backend-deployment-implementation-plan.md)）
+- `network-policies.yaml` 與 `network-policies-egress.yaml` 同步開放，並用對照組實測（見 [backend-deployment](../backend-deployment-implementation-plan.md)）
 - 更新 `docs/architecture/microservice-architecture.md`、`docs/README.md`、`docs/security/known-issues.md`（新元件的安全事項）
 - 兩個前端的 E2E 在本機與 kind 上都要通過
 

@@ -2,7 +2,7 @@
 
 > 建立日期：2026-11-09
 > 分支：`feature/api-gateway`
-> 對應：[microservice-architecture.md](../architecture/microservice-architecture.md)「api-gateway 路由」
+> 對應：[microservice-architecture.md](../../architecture/microservice-architecture.md)「api-gateway 路由」
 > 狀態：Step 1–5 全部完成，補上逾時並實際啟動驗證（2026-11-09）
 
 ## 進度

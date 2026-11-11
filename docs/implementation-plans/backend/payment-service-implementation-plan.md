@@ -2,7 +2,7 @@
 
 > 建立日期：2026-11-09
 > 分支：`feature/payment-service`
-> 對應：[microservice-architecture.md](../architecture/microservice-architecture.md)「payment-service」、「服務互動：下單流程」
+> 對應：[microservice-architecture.md](../../architecture/microservice-architecture.md)「payment-service」、「服務互動：下單流程」
 > 狀態：Step 1–6 全部完成，並實際啟動驗證完整下單流程（2026-11-09）
 
 ## 進度
