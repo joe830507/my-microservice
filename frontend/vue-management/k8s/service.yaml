@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: vue-management
+  labels:
+    app: vue-management
+spec:
+  # ClusterIP：只在叢集內可連。對外請用 Ingress（TLS 在那裡終結，並加 HSTS）；不要用 NodePort / LoadBalancer 直接曝露
+  type: ClusterIP
+  selector:
+    app: vue-management
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

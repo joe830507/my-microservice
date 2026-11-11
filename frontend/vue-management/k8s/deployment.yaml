@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vue-management
+  labels:
+    app: vue-management
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vue-management
+  template:
+    metadata:
+      labels:
+        app: vue-management
+    spec:
+      containers:
+        - name: vue-management
+          image: vue-management:0.1.0
+          # 本機 kind 用 kind load 載入映像檔，不從遠端拉；換成映像檔倉庫後改成 IfNotPresent 或 Always
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: vue-management
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          # 非 root、不可提權、拿掉所有 Linux capability；nginx-unprivileged 本來就是用非 root 執行
+          # 沒有開 readOnlyRootFilesystem：啟動時要把設定樣板展開寫進 /etc/nginx/conf.d
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault

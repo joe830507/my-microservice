@@ -3,7 +3,7 @@
 > 建立日期：2026-11-09
 > 分支：`feature/vue-management`
 > 位置：`frontend/vue-management`
-> 狀態：進行中（Step 10 完成；剩下部署與 E2E）
+> 狀態：進行中（Step 11 完成；剩下 E2E）
 
 ## 進度
 
@@ -20,7 +20,7 @@
 | [8](step-08-inventory.md) | 庫存（放在商品編輯頁）                                     | 完成                                               |
 | [9](step-09-orders.md) | 訂單管理                                                   | 完成                                               |
 | [10](step-10-users.md) | 使用者列表                                                 | 完成                                               |
-| 11   | 部署：Dockerfile、nginx、K8s                               | 未開始                                             |
+| [11](step-11-deployment.md) | 部署：Dockerfile、nginx、K8s                               | 完成：kind 上驗證；CSP 還沒在瀏覽器驗證            |
 | 12   | Playwright E2E（之後再做）                                 | 未開始                                             |
 
 每一步都附測試，測試通過後單獨 commit。
@@ -108,16 +108,6 @@ frontend/vue-management/
 ---
 
 ## 還沒開始的 step
-
-### Step 11：部署
-
-> vue-customer 已經做了第一套（Dockerfile、nginx、安全標頭、K8s），見 [vue-customer Step 11](../vue-customer/step-11-deployment.md)，這裡照著改：後台要加 `.env.production`、不需要商品圖片的 CSP 來源。
-
-- 多階段 Dockerfile：node build → nginx
-- nginx：SPA fallback（`try_files ... /index.html`），`/api` 轉發到 `http://api-gateway:8080`
-- K8s Deployment、Service
-
-**驗證**：在 kind 上實際登入並跑一次建立商品 → 上傳主圖 → 上架。
 
 ### Step 12：E2E（之後再做）
 

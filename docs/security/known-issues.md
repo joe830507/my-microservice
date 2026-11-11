@@ -72,7 +72,7 @@
 - refresh token 存在 localStorage：一旦出現 XSS 就會被竊取。目前前端沒有 `v-html`、`innerHTML`、`eval`，商品說明等外部內容都用文字插值輸出，`npm audit --omit=dev` 為 0 個漏洞，所以現況風險低，但沒有第二道防線
 - 還沒有 `Content-Security-Policy`、`X-Frame-Options`（或 `frame-ancestors`）、`X-Content-Type-Options: nosniff`、`Referrer-Policy`
 - **處理方向**：Step 11 的 nginx 設定加上這些標頭；之後考慮把 refresh token 改成 `HttpOnly` cookie（會牽涉 CSRF 與後端改動）。
-- **進度（2026-11-11）**：[vue-customer Step 11](../implementation-plans/vue-customer/step-11-deployment.md) 的 nginx 已加上 CSP（嚴格：只允許同源，圖片另外允許物件儲存）、`nosniff`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`，並用 Docker 與 kind 驗證每個回應都帶標頭。**還沒有在瀏覽器裡驗證 CSP 不會擋掉頁面或圖片**；HSTS 要在 TLS 終結處（Ingress）加；後台（vue-management）還沒有部署設定；refresh token 還在 localStorage。
+- **進度（2026-11-11）**：[vue-customer Step 11](../implementation-plans/vue-customer/step-11-deployment.md) 的 nginx 已加上 CSP（嚴格：只允許同源，圖片另外允許物件儲存）、`nosniff`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`，並用 Docker 與 kind 驗證每個回應都帶標頭。**還沒有在瀏覽器裡驗證 CSP 不會擋掉頁面或圖片**；HSTS 要在 TLS 終結處（Ingress）加；後台（vue-management）也已套用同一套（[Step 11](../implementation-plans/vue-management/step-11-deployment.md)，CSP 的 `connect-src` 另外允許物件儲存的來源，因為圖片是瀏覽器直傳）；refresh token 還在 localStorage。
 
 ## SEC-07 登出所有裝置後已發出的 access token 仍然有效
 
