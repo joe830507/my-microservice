@@ -133,15 +133,19 @@
 - Kafka 的認證（SASL/SCRAM）與 ACL：先靠 NetworkPolicy 隔離，已記到 known-issues 的 SEC-13，對外環境前要補
 - 實作時的決定：新舊路徑曾以 `app.events.enabled` 旗標過渡，驗收通過後已全部移除；事件 payload 與版本規則見 [event-contracts.md](../../architecture/event-contracts.md)
 
-## 階段 D：搜尋（Elasticsearch）
+## 階段 D：搜尋（Elasticsearch）（詳細計畫見 [search-implementation-plan.md](search-implementation-plan.md)）
 
-| Step | 內容                                                                                                                        | 驗收                                       |
-| ---- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| D1   | infra：Elasticsearch（單一節點）加中文分詞器（IK 或官方 `analysis-smartcn`，實作時依版本支援決定）；Kibana 只在本機開發用 | 中文斷詞結果合理                           |
-| D2   | 索引設計：只放 `ACTIVE` 的商品；用 alias（`products` → `products-v1`），之後換 mapping 時建新索引再切 alias          | —                                         |
-| D3   | product-service 消費 `product.events` 更新索引（依 `version` 或 `updatedAt` 丟掉較舊的事件）                          | 後台改商品、上下架後，搜尋結果在幾秒內反映 |
-| D4   | 重建索引的工具（從 DB 全量匯入新索引、切 alias）                                                                            | 刪掉索引後可以完整重建                     |
-| D5   | 商店搜尋 API 改查 ES（相關性排序、分頁）；ES 無法連線時退回原本的 SQL 查詢                                                  | 停掉 ES 時搜尋仍可用（品質較差）           |
+目標：商店前台的關鍵字搜尋改用 Elasticsearch（中文斷詞、相關性排序）；ES 掛掉時退回 SQL。後台列表與沒有關鍵字的列表維持 SQL。
+
+| Step | 內容 | 驗收 |
+| ---- | ---- | ---- |
+| D1 | infra：單節點 Elasticsearch（自訂映像加 `analysis-smartcn`）、NetworkPolicy、Kibana 只在本機開發 profile；分詞實驗 | 沒有授權的 Pod 連不到 ES；中文斷詞結果合理 |
+| D2 | 索引管理：索引以時間命名、別名 `products` 指向目前使用的索引（換 mapping 時建新索引再切別名）；**索引全部狀態的商品，查詢時過濾 `ACTIVE`**；以 ES 外部版本寫入 | 較舊的版本不會蓋掉較新的 |
+| D3 | product-service 消費 `product.events` 更新索引（商品 `version` 當 ES 外部版本）；ES 暫時故障不進 DLT | 後台改商品、上下架後，搜尋結果在幾秒內反映 |
+| D4 | 重建索引的工具（從 DB 全量匯入新索引、切別名、補灌），也是第一次建立索引的方式 | 刪掉索引後可以完整重建 |
+| D5 | 商店搜尋 API：**有關鍵字時**改查 ES（相關性排序、分頁，結果回 DB 補資料）；ES 無法使用時退回原本的 SQL 查詢 | 停掉 ES 時搜尋仍可用（品質較差） |
+| D6 | 指標、儀表板、告警與文件 | 看得到退回次數與索引延遲 |
+| D7 | kind 部署驗收與 E2E | 停機恢復、前端搜尋、告警實測 |
 
 ## 階段 E：通知（notification-service）
 

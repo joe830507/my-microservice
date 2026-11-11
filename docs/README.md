@@ -37,6 +37,7 @@
 | [observability-implementation-plan.md](implementation-plans/middleware/observability-implementation-plan.md) | 完成（中介軟體階段 A）：指標、追蹤、log 用 OTLP 送到 Grafana LGTM；儀表板、告警規則；本機與 kind 都驗證 |
 | [resilience-implementation-plan.md](implementation-plans/middleware/resilience-implementation-plan.md) | 完成（中介軟體階段 B）：重試與熔斷、Gateway 熔斷、排程分散式鎖（ShedLock）、2 個副本、優雅關閉；kind 上實測 |
 | [event-implementation-plan.md](implementation-plans/middleware/event-implementation-plan.md) | 完成（中介軟體階段 C）：Kafka + Outbox、消費端去重與 DLT、付款與庫存改事件、商品與使用者事件；kind 停機恢復與 trace、告警實測 |
+| [search-implementation-plan.md](implementation-plans/middleware/search-implementation-plan.md) | 規劃中（中介軟體階段 D）：Elasticsearch 搜尋的詳細計畫、索引與查詢設計、步驟 D1–D7，以及給實作者的規範 |
 
 ## 設計與評估
 
