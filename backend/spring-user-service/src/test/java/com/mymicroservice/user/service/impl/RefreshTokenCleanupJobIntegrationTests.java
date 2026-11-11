@@ -24,6 +24,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.jayway.jsonpath.JsonPath;
+import com.mymicroservice.user.RefreshCookies;
 import com.mymicroservice.user.TestcontainersConfiguration;
 
 // 排程清除過期 refresh token；直接呼叫 run()，不等 cron 觸發
@@ -120,25 +121,19 @@ class RefreshTokenCleanupJobIntegrationTests {
     }
 
     private String login(String email) throws Exception {
-        String response = mockMvc.perform(post("/api/v1/auth/login")
+        return RefreshCookies.tokenOf(mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"email": "%s", "password": "%s"}
                         """.formatted(email, PASSWORD)))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return JsonPath.read(response, "$.refreshToken");
+                .andReturn());
     }
 
     private String refresh(String refreshToken) throws Exception {
-        String response = mockMvc.perform(post("/api/v1/auth/refresh")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {"refreshToken": "%s"}
-                        """.formatted(refreshToken)))
+        return RefreshCookies.tokenOf(mockMvc.perform(RefreshCookies.postWithToken("/api/v1/auth/refresh", refreshToken))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return JsonPath.read(response, "$.refreshToken");
+                .andReturn());
     }
 
     // sqlExpression 由測試自己寫死，不是外部輸入

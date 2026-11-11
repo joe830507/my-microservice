@@ -2,6 +2,7 @@ package com.mymicroservice.user.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -14,13 +15,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -32,10 +29,12 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.jayway.jsonpath.JsonPath;
+import com.mymicroservice.user.RefreshCookies;
 import com.mymicroservice.user.TestcontainersConfiguration;
 import com.mymicroservice.user.dtos.token.RefreshReqDto;
 import com.mymicroservice.user.dtos.token.TokenResDto;
@@ -83,13 +82,21 @@ class AuthControllerRefreshIntegrationTests {
     // ---------- 登入時簽發 ----------
 
     @Test
-    void login_returnsRefreshTokenAndItsTtl() throws Exception {
+    void login_sendsRefreshTokenOnlyInAnHttpOnlyCookie() throws Exception {
         register("alice@example.com");
 
-        login("alice@example.com")
+        MvcResult result = login("alice@example.com")
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
-                .andExpect(jsonPath("$.refreshExpiresIn").value(jwtProperties.refreshTokenTtl().toSeconds()));
+                // refresh token 不在 body（JavaScript 拿不到）
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(jsonPath("$.refreshExpiresIn").value(jwtProperties.refreshTokenTtl().toSeconds()))
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andReturn();
+
+        String cookie = result.getResponse().getHeader("Set-Cookie");
+        assertThat(cookie).startsWith("refresh_token=" + RefreshCookies.tokenOf(result) + ";");
+        assertThat(cookie).contains("HttpOnly", "Secure", "SameSite=Strict", "Path=/api/v1/auth",
+                "Max-Age=" + jwtProperties.refreshTokenTtl().toSeconds());
     }
 
     @Test
@@ -125,18 +132,20 @@ class AuthControllerRefreshIntegrationTests {
         UUID userId = register("alice@example.com");
         String oldRefreshToken = loginForRefreshToken("alice@example.com");
 
-        String response = refresh(oldRefreshToken)
+        MvcResult result = refresh(oldRefreshToken)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.expiresIn").value(jwtProperties.accessTokenTtl().toSeconds()))
                 .andExpect(jsonPath("$.refreshExpiresIn").value(jwtProperties.refreshTokenTtl().toSeconds()))
-                .andReturn().getResponse().getContentAsString();
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andReturn();
+        String response = result.getResponse().getContentAsString();
 
         Jwt jwt = jwtDecoder.decode(JsonPath.read(response, "$.accessToken"));
         assertThat(jwt.getSubject()).isEqualTo(userId.toString());
         assertThat(jwt.getClaimAsStringList("roles")).containsExactly("CUSTOMER");
 
-        String newRefreshToken = JsonPath.read(response, "$.refreshToken");
+        String newRefreshToken = RefreshCookies.tokenOf(result);
         assertThat(newRefreshToken).isNotEqualTo(oldRefreshToken);
 
         // 舊的已撤銷，只剩新的有效
@@ -151,8 +160,8 @@ class AuthControllerRefreshIntegrationTests {
         String token = loginForRefreshToken("alice@example.com");
 
         for (int i = 0; i < 3; i++) {
-            token = JsonPath.read(refresh(token).andExpect(status().isOk())
-                    .andReturn().getResponse().getContentAsString(), "$.refreshToken");
+            token = RefreshCookies.tokenOf(refresh(token).andExpect(status().isOk())
+                    .andReturn());
         }
     }
 
@@ -178,8 +187,8 @@ class AuthControllerRefreshIntegrationTests {
         String otherDevice = loginForRefreshToken("alice@example.com");
 
         // 合法使用者先換發一次，拿到新的
-        String rotated = JsonPath.read(refresh(stolen).andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString(), "$.refreshToken");
+        String rotated = RefreshCookies.tokenOf(refresh(stolen).andExpect(status().isOk())
+                .andReturn());
         ageRevocationBeyondGrace(stolen);
 
         // 攻擊者在寬限期過後拿舊的再用一次
@@ -218,9 +227,9 @@ class AuthControllerRefreshIntegrationTests {
         String otherDevice = loginForRefreshToken("alice@example.com");
 
         String firstRotation = refreshForToken(original);
-        String secondRotation = JsonPath.read(refresh(original)
+        String secondRotation = RefreshCookies.tokenOf(refresh(original)
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString(), "$.refreshToken");
+                .andReturn());
 
         assertThat(secondRotation).isNotEqualTo(firstRotation);
         // 兩個分頁各自拿到的新 token、另一個裝置的 token 都有效
@@ -358,21 +367,44 @@ class AuthControllerRefreshIntegrationTests {
                 .andExpect(jsonPath("$.code").value("REFRESH_TOKEN_INVALID"));
     }
 
-    // ---------- 欄位驗證 ----------
+    // ---------- cookie 與 CSRF 檢查 ----------
 
-    static Stream<Arguments> invalidBodies() {
-        return Stream.of(
-                Arguments.of("缺少 refreshToken", "{}"),
-                Arguments.of("refreshToken 空白", "{\"refreshToken\": \" \"}"),
-                Arguments.of("refreshToken 過長", "{\"refreshToken\": \"" + "a".repeat(101) + "\"}"));
+    @Test
+    void refresh_withoutCookie_returns401() throws Exception {
+        mockMvc.perform(post(REFRESH_URL).header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("REFRESH_TOKEN_INVALID"));
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("invalidBodies")
-    void refresh_invalidBody_returns400(String caseName, String body) throws Exception {
-        mockMvc.perform(post(REFRESH_URL).contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    @Test
+    void refresh_blankCookie_returns401() throws Exception {
+        mockMvc.perform(RefreshCookies.postWithToken(REFRESH_URL, " "))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("REFRESH_TOKEN_INVALID"));
+    }
+
+    @Test
+    void refresh_withoutRequestedWithHeader_returns403AndKeepsTheToken() throws Exception {
+        register("alice@example.com");
+        String token = loginForRefreshToken("alice@example.com");
+
+        mockMvc.perform(post(REFRESH_URL).cookie(new jakarta.servlet.http.Cookie("refresh_token", token)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CSRF_CHECK_FAILED"));
+
+        // 被擋下的請求不能動到 token
+        assertThat(revokedAtOf(token)).isNull();
+    }
+
+    @Test
+    void refresh_tokenInBodyIsIgnored() throws Exception {
+        register("alice@example.com");
+        String token = loginForRefreshToken("alice@example.com");
+
+        mockMvc.perform(post(REFRESH_URL).header("X-Requested-With", "XMLHttpRequest")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\": \"" + token + "\"}"))
+                .andExpect(status().isUnauthorized());
     }
 
     // ---------- helpers ----------
@@ -397,21 +429,16 @@ class AuthControllerRefreshIntegrationTests {
     }
 
     private String loginForRefreshToken(String email) throws Exception {
-        String response = login(email).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        return JsonPath.read(response, "$.refreshToken");
+        return RefreshCookies.tokenOf(login(email).andExpect(status().isOk()).andReturn());
     }
 
     private ResultActions refresh(String refreshToken) throws Exception {
-        return mockMvc.perform(post(REFRESH_URL)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {"refreshToken": "%s"}
-                        """.formatted(refreshToken)));
+        return mockMvc.perform(RefreshCookies.postWithToken(REFRESH_URL, refreshToken));
     }
 
     private String refreshForToken(String refreshToken) throws Exception {
-        return JsonPath.read(refresh(refreshToken).andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString(), "$.refreshToken");
+        return RefreshCookies.tokenOf(refresh(refreshToken).andExpect(status().isOk())
+                .andReturn());
     }
 
     // 直接呼叫 service，讓多個執行緒在同一時間點出發

@@ -34,6 +34,9 @@ jwt:
   access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:5m}
   refresh-token-ttl: 14d
   refresh-token-reuse-grace: 10s
+  # refresh token 的 cookie 是否加 Secure（SEC-06）：只在 HTTPS 送。預設開啟；瀏覽器把 localhost 視為安全來源，本機純 HTTP 也收得到。
+  # 用區域網路 IP 之類的純 HTTP 位址測試時才設 REFRESH_COOKIE_SECURE=false
+  refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}
 app:
   # 啟動時建立第一個管理員（SEC-12）：註冊只能建立 CUSTOMER，沒有這個就沒有任何方式取得管理員。預設關閉；
   # 本機的 dev profile 自動開啟（application-dev.yml），其他環境（例如 K8s）用環境變數 BOOTSTRAP_ADMIN_ENABLED=true，
