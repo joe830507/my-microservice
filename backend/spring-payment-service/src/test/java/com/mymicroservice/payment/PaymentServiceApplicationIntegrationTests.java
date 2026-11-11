@@ -51,7 +51,7 @@ class PaymentServiceApplicationIntegrationTests {
                 WHERE table_schema = 'payment_service' AND table_name <> 'flyway_schema_history'
                 """, String.class);
 
-        assertThat(tables).containsExactly("payment", "shedlock");
+        assertThat(tables).containsExactlyInAnyOrder("payment", "shedlock");
     }
 
     @Test
