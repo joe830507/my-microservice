@@ -1,6 +1,6 @@
 package com.mymicroservice.common.events;
 
-import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.TraceFlags;
@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.internals.RecordHeader;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -31,6 +32,9 @@ public class OutboxRelay {
     private final TransactionTemplate transactions;
     private final OutboxMetrics metrics;
     private final String schema;
+    // 使用 Spring 管理的 SDK；GlobalOpenTelemetry 未必已註冊，可能只回傳 no-op。
+    @Autowired(required = false)
+    private OpenTelemetry openTelemetry = OpenTelemetry.noop();
 
     public OutboxRelay(JdbcTemplate jdbc, KafkaTemplate<String, String> kafka,
             TransactionTemplate transactions, OutboxMetrics metrics,
@@ -98,7 +102,7 @@ public class OutboxRelay {
             if (fields.length == 4 && "00".equals(fields[0])) {
                 SpanContext parent = SpanContext.createFromRemoteParent(fields[1], fields[2],
                         TraceFlags.fromHex(fields[3], 0), TraceState.getDefault());
-                relaySpan = GlobalOpenTelemetry.getTracer("my-microservice.outbox")
+                relaySpan = openTelemetry.getTracer("my-microservice.outbox")
                         .spanBuilder("outbox publish").setParent(Context.root().with(Span.wrap(parent))).startSpan();
                 scope = relaySpan.makeCurrent();
             }

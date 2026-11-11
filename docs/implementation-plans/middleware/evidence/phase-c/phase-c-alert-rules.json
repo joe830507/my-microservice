@@ -1,0 +1,638 @@
+{
+    "status":  "success",
+    "data":  {
+                 "groups":  [
+                                {
+                                    "name":  "my-microservice",
+                                    "file":  "my-microservice",
+                                    "folderUid":  "cg3z4cjwinls0c",
+                                    "rules":  [
+                                                  {
+                                                      "state":  "inactive",
+                                                      "name":  "a??a?? 5xx e?¡Âea?c??a??e??",
+                                                      "query":  "sum by (service_name) (rate(http_server_requests_milliseconds_count{uri!~\"/actuator.*\",status=~\"5..\"}[5m])) / sum by (service_name) (rate(http_server_requests_milliseconds_count{uri!~\"/actuator.*\"}[5m]))",
+                                                      "queriedDatasourceUIDs":  [
+                                                                                    "prometheus"
+                                                                                ],
+                                                      "duration":  300,
+                                                      "annotations":  {
+                                                                          "summary":  "{{ $labels.service_name }} c?? 5xx e?\u0085e?? 5%i??a??co? 5 a??e??i??"
+                                                                      },
+                                                      "alerts":  [
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a??a?? 5xx e?¡Âea?c??a??e??",
+                                                                                        "datasource_uid":  "prometheus",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "ref_id":  "A",
+                                                                                        "severity":  "critical"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "datasource_uid":  "prometheus",
+                                                                                             "ref_id":  "A",
+                                                                                             "summary":  "[no value] c?? 5xx e?\u0085e?? 5%i??a??co? 5 a??e??i??"
+                                                                                         },
+                                                                         "state":  "Normal (NoData)",
+                                                                         "activeAt":  "2026-11-11T11:44:00Z",
+                                                                         "value":  ""
+                                                                     }
+                                                                 ],
+                                                      "totals":  {
+                                                                     "normal":  1
+                                                                 },
+                                                      "totalsFiltered":  {
+                                                                             "normal":  1
+                                                                         },
+                                                      "uid":  "mm-5xx-rate",
+                                                      "folderUid":  "cg3z4cjwinls0c",
+                                                      "labels":  {
+                                                                     "severity":  "critical"
+                                                                 },
+                                                      "health":  "ok",
+                                                      "type":  "alerting",
+                                                      "lastEvaluation":  "2026-11-11T11:54:00Z",
+                                                      "evaluationTime":  0.003521163,
+                                                      "isPaused":  false,
+                                                      "provenance":  "file"
+                                                  },
+                                                  {
+                                                      "state":  "inactive",
+                                                      "name":  "a??a??a??e?2a??e??i??p95 \u003e 2 c¡±?i??",
+                                                      "query":  "histogram_quantile(0.95, sum by (le, service_name) (rate(http_server_requests_milliseconds_bucket{uri!~\"/actuator.*\"}[5m])))",
+                                                      "queriedDatasourceUIDs":  [
+                                                                                    "prometheus"
+                                                                                ],
+                                                      "duration":  300,
+                                                      "annotations":  {
+                                                                          "summary":  "{{ $labels.service_name }} c?? p95 a??e?2e?\u0085e?? 2 c¡±?i??a??co? 5 a??e??i??"
+                                                                      },
+                                                      "alerts":  [
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a??a??a??e?2a??e??i??p95 \u003e 2 c¡±?i??",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "order-service",
+                                                                                        "severity":  "warning"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "order-service c?? p95 a??e?2e?\u0085e?? 2 c¡±?i??a??co? 5 a??e??i??"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:45:00Z",
+                                                                         "value":  ""
+                                                                     },
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a??a??a??e?2a??e??i??p95 \u003e 2 c¡±?i??",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "product-service",
+                                                                                        "severity":  "warning"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "product-service c?? p95 a??e?2e?\u0085e?? 2 c¡±?i??a??co? 5 a??e??i??"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:45:00Z",
+                                                                         "value":  ""
+                                                                     },
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a??a??a??e?2a??e??i??p95 \u003e 2 c¡±?i??",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "inventory-service",
+                                                                                        "severity":  "warning"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "inventory-service c?? p95 a??e?2e?\u0085e?? 2 c¡±?i??a??co? 5 a??e??i??"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:49:00Z",
+                                                                         "value":  ""
+                                                                     },
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a??a??a??e?2a??e??i??p95 \u003e 2 c¡±?i??",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "user-service",
+                                                                                        "severity":  "warning"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "user-service c?? p95 a??e?2e?\u0085e?? 2 c¡±?i??a??co? 5 a??e??i??"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:45:00Z",
+                                                                         "value":  ""
+                                                                     }
+                                                                 ],
+                                                      "totals":  {
+                                                                     "normal":  4
+                                                                 },
+                                                      "totalsFiltered":  {
+                                                                             "normal":  4
+                                                                         },
+                                                      "uid":  "mm-p95-latency",
+                                                      "folderUid":  "cg3z4cjwinls0c",
+                                                      "labels":  {
+                                                                     "severity":  "warning"
+                                                                 },
+                                                      "health":  "ok",
+                                                      "type":  "alerting",
+                                                      "lastEvaluation":  "2026-11-11T11:54:00Z",
+                                                      "evaluationTime":  0.003747023,
+                                                      "isPaused":  false,
+                                                      "provenance":  "file"
+                                                  },
+                                                  {
+                                                      "state":  "inactive",
+                                                      "name":  "a??c¡L?a?¡Pe!?a?¡Óa??",
+                                                      "query":  "sum by (service_name, code_namespace) (increase(tasks_scheduled_execution_milliseconds_count{outcome!=\"SUCCESS\"}[10m]))",
+                                                      "queriedDatasourceUIDs":  [
+                                                                                    "prometheus"
+                                                                                ],
+                                                      "annotations":  {
+                                                                          "summary":  "{{ $labels.service_name }} c??a??c¡L?a?¡Óa??i??e|? logi??"
+                                                                      },
+                                                      "alerts":  [
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a??c¡L?a?¡Pe!?a?¡Óa??",
+                                                                                        "datasource_uid":  "prometheus",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "ref_id":  "A",
+                                                                                        "severity":  "warning"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "datasource_uid":  "prometheus",
+                                                                                             "ref_id":  "A",
+                                                                                             "summary":  "[no value] c??a??c¡L?a?¡Óa??i??e|? logi??"
+                                                                                         },
+                                                                         "state":  "Normal (NoData)",
+                                                                         "activeAt":  "2026-11-11T11:44:00Z",
+                                                                         "value":  ""
+                                                                     }
+                                                                 ],
+                                                      "totals":  {
+                                                                     "normal":  1
+                                                                 },
+                                                      "totalsFiltered":  {
+                                                                             "normal":  1
+                                                                         },
+                                                      "uid":  "mm-scheduled-job-failed",
+                                                      "folderUid":  "cg3z4cjwinls0c",
+                                                      "labels":  {
+                                                                     "severity":  "warning"
+                                                                 },
+                                                      "health":  "ok",
+                                                      "type":  "alerting",
+                                                      "lastEvaluation":  "2026-11-11T11:53:00Z",
+                                                      "evaluationTime":  0.002190944,
+                                                      "isPaused":  false,
+                                                      "provenance":  "file"
+                                                  },
+                                                  {
+                                                      "state":  "inactive",
+                                                      "name":  "a??a??a2?a??a??a?¡Óa??a¡L?",
+                                                      "query":  "time() - max by (service_name) (timestamp(process_cpu_usage))",
+                                                      "queriedDatasourceUIDs":  [
+                                                                                    "prometheus"
+                                                                                ],
+                                                      "duration":  60,
+                                                      "annotations":  {
+                                                                          "summary":  "{{ $labels.service_name }} e?\u0085e?? 2 a??e??a2?a??e€?a??a¡L?i??a??a??a??ao?i??a??a?¢X collector c??e€¢Gc¡P?a?¡Pao?i??"
+                                                                      },
+                                                      "alerts":  [
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a??a??a2?a??a??a?¡Óa??a¡L?",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "api-gateway",
+                                                                                        "severity":  "critical"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "api-gateway e?\u0085e?? 2 a??e??a2?a??e€?a??a¡L?i??a??a??a??ao?i??a??a?¢X collector c??e€¢Gc¡P?a?¡Pao?i??"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:44:00Z",
+                                                                         "value":  ""
+                                                                     },
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a??a??a2?a??a??a?¡Óa??a¡L?",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "inventory-service",
+                                                                                        "severity":  "critical"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "inventory-service e?\u0085e?? 2 a??e??a2?a??e€?a??a¡L?i??a??a??a??ao?i??a??a?¢X collector c??e€¢Gc¡P?a?¡Pao?i??"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:44:00Z",
+                                                                         "value":  ""
+                                                                     },
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a??a??a2?a??a??a?¡Óa??a¡L?",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "order-service",
+                                                                                        "severity":  "critical"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "order-service e?\u0085e?? 2 a??e??a2?a??e€?a??a¡L?i??a??a??a??ao?i??a??a?¢X collector c??e€¢Gc¡P?a?¡Pao?i??"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:44:00Z",
+                                                                         "value":  ""
+                                                                     },
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a??a??a2?a??a??a?¡Óa??a¡L?",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "payment-service",
+                                                                                        "severity":  "critical"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "payment-service e?\u0085e?? 2 a??e??a2?a??e€?a??a¡L?i??a??a??a??ao?i??a??a?¢X collector c??e€¢Gc¡P?a?¡Pao?i??"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:44:00Z",
+                                                                         "value":  ""
+                                                                     },
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a??a??a2?a??a??a?¡Óa??a¡L?",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "product-service",
+                                                                                        "severity":  "critical"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "product-service e?\u0085e?? 2 a??e??a2?a??e€?a??a¡L?i??a??a??a??ao?i??a??a?¢X collector c??e€¢Gc¡P?a?¡Pao?i??"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:44:00Z",
+                                                                         "value":  ""
+                                                                     },
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a??a??a2?a??a??a?¡Óa??a¡L?",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "user-service",
+                                                                                        "severity":  "critical"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "user-service e?\u0085e?? 2 a??e??a2?a??e€?a??a¡L?i??a??a??a??ao?i??a??a?¢X collector c??e€¢Gc¡P?a?¡Pao?i??"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:44:00Z",
+                                                                         "value":  ""
+                                                                     }
+                                                                 ],
+                                                      "totals":  {
+                                                                     "normal":  6
+                                                                 },
+                                                      "totalsFiltered":  {
+                                                                             "normal":  6
+                                                                         },
+                                                      "uid":  "mm-no-metrics",
+                                                      "folderUid":  "cg3z4cjwinls0c",
+                                                      "labels":  {
+                                                                     "severity":  "critical"
+                                                                 },
+                                                      "health":  "ok",
+                                                      "type":  "alerting",
+                                                      "lastEvaluation":  "2026-11-11T11:54:00Z",
+                                                      "evaluationTime":  0.002710841,
+                                                      "isPaused":  false,
+                                                      "provenance":  "file"
+                                                  },
+                                                  {
+                                                      "state":  "inactive",
+                                                      "name":  "c??a?¡Pa?¡La??e??",
+                                                      "query":  "max by (name) (resilience4j_circuitbreaker_state{state=\"open\"})",
+                                                      "queriedDatasourceUIDs":  [
+                                                                                    "prometheus"
+                                                                                ],
+                                                      "duration":  60,
+                                                      "annotations":  {
+                                                                          "summary":  "{{ $labels.name }} c??c??a?¡Pa?¡La??e??e?\u0085e?? 1 a??e??i??a¡M?a¡M¡Me€¢Ga¡M?a¡M?a??e€?a??i??a??a??e¢F?c?¡¦a?¢Da??c£g?"
+                                                                      },
+                                                      "alerts":  [
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "c??a?¡Pa?¡La??e??",
+                                                                                        "datasource_uid":  "prometheus",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "ref_id":  "A",
+                                                                                        "severity":  "critical"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "datasource_uid":  "prometheus",
+                                                                                             "ref_id":  "A",
+                                                                                             "summary":  "[no value] c??c??a?¡Pa?¡La??e??e?\u0085e?? 1 a??e??i??a¡M?a¡M¡Me€¢Ga¡M?a¡M?a??e€?a??i??a??a??e¢F?c?¡¦a?¢Da??c£g?"
+                                                                                         },
+                                                                         "state":  "Normal (NoData)",
+                                                                         "activeAt":  "2026-11-11T11:44:00Z",
+                                                                         "value":  ""
+                                                                     }
+                                                                 ],
+                                                      "totals":  {
+                                                                     "normal":  1
+                                                                 },
+                                                      "totalsFiltered":  {
+                                                                             "normal":  1
+                                                                         },
+                                                      "uid":  "mm-circuit-open",
+                                                      "folderUid":  "cg3z4cjwinls0c",
+                                                      "labels":  {
+                                                                     "severity":  "critical"
+                                                                 },
+                                                      "health":  "ok",
+                                                      "type":  "alerting",
+                                                      "lastEvaluation":  "2026-11-11T11:54:00Z",
+                                                      "evaluationTime":  0.002264263,
+                                                      "isPaused":  false,
+                                                      "provenance":  "file"
+                                                  },
+                                                  {
+                                                      "state":  "inactive",
+                                                      "name":  "a?¡Âa??a?¡Ma¢X?a?? 2",
+                                                      "query":  "count by (service_name) (count by (service_name, instance) (last_over_time(process_cpu_usage[1m])))",
+                                                      "queriedDatasourceUIDs":  [
+                                                                                    "prometheus"
+                                                                                ],
+                                                      "duration":  180,
+                                                      "annotations":  {
+                                                                          "summary":  "{{ $labels.service_name }} c??a?¡Âa??a¢X?a?? 2 a€?e?\u0085e?? 3 a??e??i??Pod a??ao?a??a?¡¦a?¢Xa?!a??i??"
+                                                                      },
+                                                      "alerts":  [
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a?¡Âa??a?¡Ma¢X?a?? 2",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "inventory-service",
+                                                                                        "severity":  "warning"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "inventory-service c??a?¡Âa??a¢X?a?? 2 a€?e?\u0085e?? 3 a??e??i??Pod a??ao?a??a?¡¦a?¢Xa?!a??i??"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:44:00Z",
+                                                                         "value":  ""
+                                                                     },
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a?¡Âa??a?¡Ma¢X?a?? 2",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "product-service",
+                                                                                        "severity":  "warning"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "product-service c??a?¡Âa??a¢X?a?? 2 a€?e?\u0085e?? 3 a??e??i??Pod a??ao?a??a?¡¦a?¢Xa?!a??i??"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:44:00Z",
+                                                                         "value":  ""
+                                                                     },
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a?¡Âa??a?¡Ma¢X?a?? 2",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "api-gateway",
+                                                                                        "severity":  "warning"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "api-gateway c??a?¡Âa??a¢X?a?? 2 a€?e?\u0085e?? 3 a??e??i??Pod a??ao?a??a?¡¦a?¢Xa?!a??i??"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:45:00Z",
+                                                                         "value":  ""
+                                                                     },
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a?¡Âa??a?¡Ma¢X?a?? 2",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "order-service",
+                                                                                        "severity":  "warning"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "order-service c??a?¡Âa??a¢X?a?? 2 a€?e?\u0085e?? 3 a??e??i??Pod a??ao?a??a?¡¦a?¢Xa?!a??i??"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:45:00Z",
+                                                                         "value":  ""
+                                                                     },
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a?¡Âa??a?¡Ma¢X?a?? 2",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "payment-service",
+                                                                                        "severity":  "warning"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "payment-service c??a?¡Âa??a¢X?a?? 2 a€?e?\u0085e?? 3 a??e??i??Pod a??ao?a??a?¡¦a?¢Xa?!a??i??"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:45:00Z",
+                                                                         "value":  ""
+                                                                     },
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "a?¡Âa??a?¡Ma¢X?a?? 2",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "user-service",
+                                                                                        "severity":  "warning"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "user-service c??a?¡Âa??a¢X?a?? 2 a€?e?\u0085e?? 3 a??e??i??Pod a??ao?a??a?¡¦a?¢Xa?!a??i??"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:45:00Z",
+                                                                         "value":  ""
+                                                                     }
+                                                                 ],
+                                                      "totals":  {
+                                                                     "normal":  6
+                                                                 },
+                                                      "totalsFiltered":  {
+                                                                             "normal":  6
+                                                                         },
+                                                      "uid":  "mm-replicas-low",
+                                                      "folderUid":  "cg3z4cjwinls0c",
+                                                      "labels":  {
+                                                                     "severity":  "warning"
+                                                                 },
+                                                      "health":  "ok",
+                                                      "type":  "alerting",
+                                                      "lastEvaluation":  "2026-11-11T11:53:00Z",
+                                                      "evaluationTime":  0.002898906,
+                                                      "isPaused":  false,
+                                                      "provenance":  "file"
+                                                  },
+                                                  {
+                                                      "state":  "inactive",
+                                                      "name":  "e??a?¢Ge¢F?a??a??a??",
+                                                      "query":  "sum(increase(reservations_total{result=\"rejected\"}[10m]))",
+                                                      "queriedDatasourceUIDs":  [
+                                                                                    "prometheus"
+                                                                                ],
+                                                      "annotations":  {
+                                                                          "summary":  "10 a??e??a\u0085¡±e?\u0085e?? 20 a?!e??a?¢Ge¢F?a??i??ao?a-?a¡M?e?3a??e¢F?a?¡P"
+                                                                      },
+                                                      "alerts":  [
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "e??a?¢Ge¢F?a??a??a??",
+                                                                                        "datasource_uid":  "prometheus",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "ref_id":  "A",
+                                                                                        "severity":  "warning"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "datasource_uid":  "prometheus",
+                                                                                             "ref_id":  "A",
+                                                                                             "summary":  "10 a??e??a\u0085¡±e?\u0085e?? 20 a?!e??a?¢Ge¢F?a??i??ao?a-?a¡M?e?3a??e¢F?a?¡P"
+                                                                                         },
+                                                                         "state":  "Normal (NoData)",
+                                                                         "activeAt":  "2026-11-11T11:44:00Z",
+                                                                         "value":  ""
+                                                                     }
+                                                                 ],
+                                                      "totals":  {
+                                                                     "normal":  1
+                                                                 },
+                                                      "totalsFiltered":  {
+                                                                             "normal":  1
+                                                                         },
+                                                      "uid":  "mm-reservation-rejected",
+                                                      "folderUid":  "cg3z4cjwinls0c",
+                                                      "labels":  {
+                                                                     "severity":  "warning"
+                                                                 },
+                                                      "health":  "ok",
+                                                      "type":  "alerting",
+                                                      "lastEvaluation":  "2026-11-11T11:53:00Z",
+                                                      "evaluationTime":  0.002092224,
+                                                      "isPaused":  false,
+                                                      "provenance":  "file"
+                                                  },
+                                                  {
+                                                      "state":  "firing",
+                                                      "name":  "Kafka consumer lag a??e??",
+                                                      "query":  "max by (service_name) (kafka_consumer_fetch_manager_records_lag_max)",
+                                                      "queriedDatasourceUIDs":  [
+                                                                                    "prometheus"
+                                                                                ],
+                                                      "duration":  300,
+                                                      "annotations":  {
+                                                                          "summary":  "{{ $labels.service_name }} c?? Kafka consumer lag a??co?e?\u0085e?? 1000 c-?"
+                                                                      },
+                                                      "activeAt":  "2026-11-11T11:54:00Z",
+                                                      "alerts":  [
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "Kafka consumer lag a??e??",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "order-service",
+                                                                                        "severity":  "warning"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "order-service c?? Kafka consumer lag a??co?e?\u0085e?? 1000 c-?"
+                                                                                         },
+                                                                         "state":  "Alerting",
+                                                                         "activeAt":  "2026-11-11T11:54:00Z",
+                                                                         "value":  "1e+00"
+                                                                     },
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "Kafka consumer lag a??e??",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "service_name":  "inventory-service",
+                                                                                        "severity":  "warning"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "inventory-service c?? Kafka consumer lag a??co?e?\u0085e?? 1000 c-?"
+                                                                                         },
+                                                                         "state":  "Normal",
+                                                                         "activeAt":  "2026-11-11T11:44:00Z",
+                                                                         "value":  ""
+                                                                     }
+                                                                 ],
+                                                      "totals":  {
+                                                                     "alerting":  1,
+                                                                     "normal":  1
+                                                                 },
+                                                      "totalsFiltered":  {
+                                                                             "alerting":  1,
+                                                                             "normal":  1
+                                                                         },
+                                                      "uid":  "mm-kafka-consumer-lag",
+                                                      "folderUid":  "cg3z4cjwinls0c",
+                                                      "labels":  {
+                                                                     "severity":  "warning"
+                                                                 },
+                                                      "health":  "ok",
+                                                      "type":  "alerting",
+                                                      "lastEvaluation":  "2026-11-11T11:54:00Z",
+                                                      "evaluationTime":  0.002218743,
+                                                      "isPaused":  false,
+                                                      "provenance":  "file"
+                                                  },
+                                                  {
+                                                      "state":  "firing",
+                                                      "name":  "Kafka ao?a??e€2a\u0085¢D DLT",
+                                                      "query":  "sum(increase(events_dlt_published_total[5m]))",
+                                                      "queriedDatasourceUIDs":  [
+                                                                                    "prometheus"
+                                                                                ],
+                                                      "annotations":  {
+                                                                          "summary":  "ao?a??e€2a\u0085¢D dead-letter topici??e??aa¢Fa?¢Da??e2?c?¡Âe?¡Âea?"
+                                                                      },
+                                                      "activeAt":  "2026-11-11T11:53:00Z",
+                                                      "alerts":  [
+                                                                     {
+                                                                         "labels":  {
+                                                                                        "alertname":  "Kafka ao?a??e€2a\u0085¢D DLT",
+                                                                                        "grafana_folder":  "my-microservice",
+                                                                                        "severity":  "critical"
+                                                                                    },
+                                                                         "annotations":  {
+                                                                                             "summary":  "ao?a??e€2a\u0085¢D dead-letter topici??e??aa¢Fa?¢Da??e2?c?¡Âe?¡Âea?"
+                                                                                         },
+                                                                         "state":  "Alerting",
+                                                                         "activeAt":  "2026-11-11T11:53:00Z",
+                                                                         "value":  "1e+00"
+                                                                     }
+                                                                 ],
+                                                      "totals":  {
+                                                                     "alerting":  1
+                                                                 },
+                                                      "totalsFiltered":  {
+                                                                             "alerting":  1
+                                                                         },
+                                                      "uid":  "mm-kafka-dlt",
+                                                      "folderUid":  "cg3z4cjwinls0c",
+                                                      "labels":  {
+                                                                     "severity":  "critical"
+                                                                 },
+                                                      "health":  "ok",
+                                                      "type":  "alerting",
+                                                      "lastEvaluation":  "2026-11-11T11:54:00Z",
+                                                      "evaluationTime":  0.002671578,
+                                                      "isPaused":  false,
+                                                      "provenance":  "file"
+                                                  }
+                                              ],
+                                    "totals":  {
+                                                   "firing":  2,
+                                                   "inactive":  7
+                                               },
+                                    "interval":  60,
+                                    "lastEvaluation":  "2026-11-11T11:54:00Z",
+                                    "evaluationTime":  0.002671578
+                                }
+                            ],
+                 "totals":  {
+                                "firing":  2,
+                                "inactive":  7
+                            }
+             }
+}

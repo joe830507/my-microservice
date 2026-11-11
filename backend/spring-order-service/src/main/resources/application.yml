@@ -27,7 +27,8 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     template:
-      observation-enabled: true
+      # OutboxRelay 建立 span 並保存 W3C header，避免 template observation 覆寫。
+      observation-enabled: false
     listener:
       observation-enabled: true
   # 指標、追蹤、log 的共用設定（common 以外的 observability 模組，階段 A）

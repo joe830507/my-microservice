@@ -35,7 +35,7 @@ public class PaymentEventListener {
 
     @KafkaListener(topics = "payment.events", groupId = "order-service")
     public void consume(ConsumerRecord<String, String> record) throws Exception {
-        resilient.consume("payment.events", record.key(), record.value(), () -> {
+        resilient.consume(record, () -> {
             EventEnvelope<?> event = objectMapper.readValue(record.value(), EventEnvelope.class);
             UUID orderId = UUID.fromString(event.aggregateId());
             // 去重紀錄、訂單狀態與 markPaid 產生的 outbox 事件共用交易。

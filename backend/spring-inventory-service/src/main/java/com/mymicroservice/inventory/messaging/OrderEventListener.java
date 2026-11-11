@@ -31,7 +31,7 @@ public class OrderEventListener {
 
     @KafkaListener(topics = "order.events", groupId = "inventory-service")
     public void consume(ConsumerRecord<String, String> record) throws Exception {
-        resilient.consume("order.events", record.key(), record.value(), () -> {
+        resilient.consume(record, () -> {
             EventEnvelope<?> event = objectMapper.readValue(record.value(), EventEnvelope.class);
             UUID orderId = UUID.fromString(event.aggregateId());
             // 庫存預留以 orderId 操作；事件去重與確認／釋放預留須一起提交。

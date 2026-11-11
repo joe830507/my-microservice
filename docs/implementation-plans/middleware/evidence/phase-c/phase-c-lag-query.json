@@ -1,0 +1,26 @@
+{
+    "status":  "success",
+    "data":  {
+                 "resultType":  "vector",
+                 "result":  [
+                                {
+                                    "metric":  {
+                                                   "service_name":  "order-service"
+                                               },
+                                    "value":  [
+                                                  1794397904.501,
+                                                  "4986"
+                                              ]
+                                },
+                                {
+                                    "metric":  {
+                                                   "service_name":  "inventory-service"
+                                               },
+                                    "value":  [
+                                                  1794397904.501,
+                                                  "0"
+                                              ]
+                                }
+                            ]
+             }
+}

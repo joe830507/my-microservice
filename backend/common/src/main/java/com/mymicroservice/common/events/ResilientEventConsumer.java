@@ -8,6 +8,14 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "app.events.enabled", havingValue = "true")
 public class ResilientEventConsumer {
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private io.opentelemetry.api.OpenTelemetry openTelemetry = io.opentelemetry.api.OpenTelemetry.noop();
+
+    public void consume(org.apache.kafka.clients.consumer.ConsumerRecord<String, String> record,
+            EventWork work) throws Exception {
+        EventTrace.consume(openTelemetry, record,
+                () -> consume(record.topic(), record.key(), record.value(), work));
+    }
     public void consume(String topic, String key, String payload, EventWork work) throws Exception {
         try {
             work.run();
