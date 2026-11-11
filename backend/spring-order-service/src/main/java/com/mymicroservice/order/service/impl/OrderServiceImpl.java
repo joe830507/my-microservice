@@ -160,6 +160,35 @@ public class OrderServiceImpl implements OrderService {
         return OrderResDto.from(findVisibleOrder(orderId, userId, admin));
     }
 
+    // 只有 PAID 可以出貨；已經出貨的回 200（冪等，重複按出貨不會出錯）；其他狀態回 409
+    // 只呼叫 ADMIN，所以不檢查擁有者；不需要呼叫其他服務
+    @Override
+    public OrderResDto shipOrder(UUID orderId) {
+        findOrderWithItems(orderId);
+
+        boolean shipped = orderRepository.markShippedIfPaid(orderId, Instant.now(),
+                auditorAware.getCurrentAuditor().orElseThrow()) == 1;
+        Order order = findOrderWithItems(orderId);
+        if (!shipped && order.getStatus() != OrderStatus.SHIPPED) {
+            throw new AppException(OrderErrorCode.ORDER_NOT_SHIPPABLE, orderId, order.getStatus());
+        }
+        return OrderResDto.from(order);
+    }
+
+    // 只有 SHIPPED 可以完成；已經完成的回 200（冪等）；其他狀態回 409
+    @Override
+    public OrderResDto completeOrder(UUID orderId) {
+        findOrderWithItems(orderId);
+
+        boolean completed = orderRepository.markCompletedIfShipped(orderId, Instant.now(),
+                auditorAware.getCurrentAuditor().orElseThrow()) == 1;
+        Order order = findOrderWithItems(orderId);
+        if (!completed && order.getStatus() != OrderStatus.COMPLETED) {
+            throw new AppException(OrderErrorCode.ORDER_NOT_COMPLETABLE, orderId, order.getStatus());
+        }
+        return OrderResDto.from(order);
+    }
+
     // 和使用者取消一樣：條件式 UPDATE 保證和付款通知同時發生時只有一個成功
     @Override
     public boolean expireUnpaidOrder(UUID orderId) {
@@ -197,6 +226,11 @@ public class OrderServiceImpl implements OrderService {
     private Order findVisibleOrder(UUID orderId, UUID userId, boolean admin) {
         return orderRepository.findWithItemsById(orderId)
                 .filter(order -> admin || order.getUserId().equals(userId))
+                .orElseThrow(() -> new AppException(OrderErrorCode.ORDER_NOT_FOUND, orderId));
+    }
+
+    private Order findOrderWithItems(UUID orderId) {
+        return orderRepository.findWithItemsById(orderId)
                 .orElseThrow(() -> new AppException(OrderErrorCode.ORDER_NOT_FOUND, orderId));
     }
 

@@ -18,6 +18,12 @@ public interface OrderService {
 
     public OrderResDto cancelOrder(UUID orderId, UUID userId, boolean admin);
 
+    // 後台出貨（ADMIN）：PAID → SHIPPED
+    public OrderResDto shipOrder(UUID orderId);
+
+    // 後台完成訂單（ADMIN）：SHIPPED → COMPLETED
+    public OrderResDto completeOrder(UUID orderId);
+
     public InternalOrderResDto getInternalOrder(UUID orderId);
 
     public InternalOrderResDto markPaid(UUID orderId);

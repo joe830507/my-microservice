@@ -48,11 +48,13 @@ class AdminEndpointsAuthorizationIntegrationTests {
         jdbcTemplate.execute("TRUNCATE product_service.product CASCADE");
     }
 
-    // 所有寫入的 API：method、路徑、body（body 內容不重要，權限在參數驗證之前檢查）
+    // 限 ADMIN 的 API（所有寫入，加上後台分類列表）：method、路徑、body（body 內容不重要，權限在參數驗證之前檢查）
     static Stream<Arguments> adminEndpoints() {
         String products = "/api/v1/products/" + ID;
         String images = products + "/images";
         return Stream.of(
+                // 後台的分類列表（含停用）；其他讀取 API 公開
+                Arguments.of("GET", "/api/v1/categories", null),
                 Arguments.of("POST", "/api/v1/categories", "{}"),
                 Arguments.of("PUT", "/api/v1/categories/" + ID, "{}"),
                 Arguments.of("DELETE", "/api/v1/categories/" + ID, null),

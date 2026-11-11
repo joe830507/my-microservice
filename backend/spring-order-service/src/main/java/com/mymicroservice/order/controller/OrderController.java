@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mymicroservice.common.web.CurrentUserId;
+import com.mymicroservice.common.web.RequireRoles;
 import com.mymicroservice.common.web.UserContext;
 import com.mymicroservice.common.web.UserContextHeaders;
 import com.mymicroservice.order.dtos.CreateOrderReqDto;
@@ -69,6 +70,22 @@ public class OrderController {
             @RequestHeader(value = UserContextHeaders.USER_ROLES, required = false) String roles,
             @PathVariable UUID id) {
         return orderService.cancelOrder(id, userId, isAdmin(roles));
+    }
+
+    // 後台出貨：只限 PAID；已經出貨的回 200；限 ADMIN
+    @RequireRoles("ADMIN")
+    @PostMapping(value = "/{id}/ship", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.OK)
+    public OrderResDto shipOrder(@PathVariable UUID id) {
+        return orderService.shipOrder(id);
+    }
+
+    // 後台完成訂單：只限 SHIPPED；已經完成的回 200；限 ADMIN
+    @RequireRoles("ADMIN")
+    @PostMapping(value = "/{id}/complete", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.OK)
+    public OrderResDto completeOrder(@PathVariable UUID id) {
+        return orderService.completeOrder(id);
     }
 
     private static boolean isAdmin(String roles) {

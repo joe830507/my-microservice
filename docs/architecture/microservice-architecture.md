@@ -21,7 +21,7 @@
 | 服務 | 職責 | 狀態 |
 |---|---|---|
 | `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、限流 | 已實作；細節見 [api-gateway-implementation-plan.md](../implementation-plans/api-gateway-implementation-plan.md) |
-| `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取、圖片上傳到物件儲存）；讀取公開，新增、修改、刪除限 ADMIN |
+| `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取、圖片上傳到物件儲存）；讀取公開，新增、修改、刪除限 ADMIN；後台的分類列表 `GET /api/v1/categories`（含停用的分類）也限 ADMIN |
 | `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 已實作 |
 | `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](../implementation-plans/inventory-service-implementation-plan.md) |
 | `spring-order-service` | 訂單、商品快照、訂單狀態 | 已實作；步驟見 [order-service-implementation-plan.md](../implementation-plans/order-service-implementation-plan.md) |
@@ -133,6 +133,8 @@ backend/
 | GET | `/api/v1/orders/{id}` | 訂單詳情，只能看自己的 |
 | GET | `/api/v1/orders` | 自己的訂單列表；ADMIN 可查全部 |
 | POST | `/api/v1/orders/{id}/cancel` | 取消，只限尚未付款的訂單 |
+| POST | `/api/v1/orders/{id}/ship` | 後台出貨（ADMIN），只限 `PAID`；已出貨的回 200 |
+| POST | `/api/v1/orders/{id}/complete` | 後台完成訂單（ADMIN），只限 `SHIPPED`；已完成的回 200 |
 | GET | `/internal/v1/orders/{id}` | 給 payment-service 查金額與狀態 |
 | POST | `/internal/v1/orders/{id}/paid` | payment-service 通知付款成功 |
 
