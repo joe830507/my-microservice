@@ -41,6 +41,13 @@ jwt:
   # 用區域網路 IP 之類的純 HTTP 位址測試時才設 REFRESH_COOKIE_SECURE=false
   refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}
 app:
+  # 排程的分散式鎖（ShedLock，階段 B4）：鎖放在自己的 PostgreSQL；
+  # at-least-for 要大於副本之間的時鐘差、小於 cron 的間隔（這裡所有排程至少相隔 15 秒以上）
+  scheduling:
+    lock:
+      table: user_service.shedlock
+      at-most-for: PT5M
+      at-least-for: PT10S
   # 啟動時建立第一個管理員（SEC-12）：註冊只能建立 CUSTOMER，沒有這個就沒有任何方式取得管理員。預設關閉；
   # 本機的 dev profile 自動開啟（application-dev.yml），其他環境（例如 K8s）用環境變數 BOOTSTRAP_ADMIN_ENABLED=true，
   # 並提供 BOOTSTRAP_ADMIN_EMAIL、BOOTSTRAP_ADMIN_PASSWORD（來自 Secret）。建好之後關掉開關並換掉 Secret 裡的密碼

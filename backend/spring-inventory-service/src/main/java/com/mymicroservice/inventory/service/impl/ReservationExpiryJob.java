@@ -12,6 +12,7 @@ import com.mymicroservice.inventory.properties.ReservationExpiryProperties;
 import com.mymicroservice.inventory.repositories.ReservationRepository;
 import com.mymicroservice.inventory.service.ReservationService;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,6 +29,9 @@ public class ReservationExpiryJob {
     private final ReservationExpiryProperties properties;
 
     // 不加 @Transactional：每筆用 ReservationService.release 自己的交易，一筆失敗不影響其他筆
+    // 多個副本時每一輪只有一個執行（ShedLock，見 common 的 SchedulingLockAutoConfiguration）
+    @SchedulerLock(name = "reservationExpiry", lockAtMostFor = "${app.scheduling.lock.at-most-for:PT5M}",
+            lockAtLeastFor = "${app.scheduling.lock.at-least-for:PT10S}")
     @Scheduled(cron = "${app.reservation-expiry.cron}", zone = "UTC")
     public void run() {
         Instant cutoff = Instant.now().minus(properties.ttl());

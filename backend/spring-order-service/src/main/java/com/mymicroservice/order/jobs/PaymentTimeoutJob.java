@@ -12,6 +12,7 @@ import com.mymicroservice.order.properties.PaymentTimeoutProperties;
 import com.mymicroservice.order.repositories.OrderRepository;
 import com.mymicroservice.order.service.OrderService;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -26,6 +27,9 @@ public class PaymentTimeoutJob {
     private final PaymentTimeoutProperties properties;
 
     // 不加 @Transactional：每張訂單各自處理，一張失敗不影響其他張
+    // 多個副本時每一輪只有一個執行（ShedLock，見 common 的 SchedulingLockAutoConfiguration）
+    @SchedulerLock(name = "paymentTimeout", lockAtMostFor = "${app.scheduling.lock.at-most-for:PT5M}",
+            lockAtLeastFor = "${app.scheduling.lock.at-least-for:PT10S}")
     @Scheduled(cron = "${app.payment-timeout.cron}", zone = "UTC")
     public void run() {
         Instant cutoff = Instant.now().minus(properties.timeout());

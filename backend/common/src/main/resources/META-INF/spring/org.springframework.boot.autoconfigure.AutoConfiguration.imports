@@ -1,2 +1,3 @@
 com.mymicroservice.common.CommonAutoConfiguration
 com.mymicroservice.common.resilience.ResilienceAutoConfiguration
+com.mymicroservice.common.scheduling.SchedulingLockAutoConfiguration

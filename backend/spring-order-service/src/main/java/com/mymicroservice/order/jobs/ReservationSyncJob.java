@@ -12,6 +12,7 @@ import com.mymicroservice.order.properties.ReservationSyncProperties;
 import com.mymicroservice.order.repositories.OrderRepository;
 import com.mymicroservice.order.service.OrderService;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -26,6 +27,9 @@ public class ReservationSyncJob {
     private final OrderService orderService;
     private final ReservationSyncProperties properties;
 
+    // 多個副本時每一輪只有一個執行（ShedLock，見 common 的 SchedulingLockAutoConfiguration）
+    @SchedulerLock(name = "reservationSync", lockAtMostFor = "${app.scheduling.lock.at-most-for:PT5M}",
+            lockAtLeastFor = "${app.scheduling.lock.at-least-for:PT10S}")
     @Scheduled(cron = "${app.reservation-sync.cron}", zone = "UTC")
     public void run() {
         Instant cutoff = Instant.now().minus(properties.minAge());

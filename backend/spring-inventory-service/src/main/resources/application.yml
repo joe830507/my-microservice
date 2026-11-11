@@ -26,6 +26,13 @@ spring:
         format_sql: true
     show-sql: false
 app:
+  # 排程的分散式鎖（ShedLock，階段 B4）：鎖放在自己的 PostgreSQL；
+  # at-least-for 要大於副本之間的時鐘差、小於 cron 的間隔（這裡所有排程至少相隔 15 秒以上）
+  scheduling:
+    lock:
+      table: inventory_service.shedlock
+      at-most-for: PT5M
+      at-least-for: PT10S
   # 每 5 分鐘釋放建立超過 1 小時仍是 RESERVED 的預扣（ReservationExpiryJob）
   # ttl 必須比 order-service 的付款期限（30 分鐘）長
   reservation-expiry:

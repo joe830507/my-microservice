@@ -13,6 +13,7 @@ resources:
   - services/order-service.yaml
   - services/payment-service.yaml
   - services/api-gateway.yaml
+  - services/pod-disruption-budgets.yaml
   - ../observability
   - ../../frontend/vue-customer/k8s
   - ../../frontend/vue-management/k8s

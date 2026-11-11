@@ -12,6 +12,7 @@ import com.mymicroservice.payment.properties.OrderNotificationRetryProperties;
 import com.mymicroservice.payment.repositories.PaymentRepository;
 import com.mymicroservice.payment.service.PaymentService;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -26,6 +27,9 @@ public class OrderNotificationRetryJob {
     private final PaymentService paymentService;
     private final OrderNotificationRetryProperties properties;
 
+    // 多個副本時每一輪只有一個執行（ShedLock，見 common 的 SchedulingLockAutoConfiguration）
+    @SchedulerLock(name = "orderNotificationRetry", lockAtMostFor = "${app.scheduling.lock.at-most-for:PT5M}",
+            lockAtLeastFor = "${app.scheduling.lock.at-least-for:PT10S}")
     @Scheduled(cron = "${app.order-notification-retry.cron}", zone = "UTC")
     public void run() {
         Instant cutoff = Instant.now().minus(properties.minAge());

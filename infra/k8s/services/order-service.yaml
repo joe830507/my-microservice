@@ -21,8 +21,14 @@ metadata:
   labels:
     app: order-service
 spec:
-  # 只有 1 個副本：定時工作（逾時取消、預扣釋放、通知重試）沒有分散式鎖，多個副本會重複執行
-  replicas: 1
+  # 2 個副本（階段 B5）：定時工作用 ShedLock 保證每一輪只有一個副本執行；
+  # 滾動更新時先起新的、就緒後才關舊的（maxUnavailable: 0），過程中不會少於 2 個
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: order-service
@@ -31,6 +37,14 @@ spec:
       labels:
         app: order-service
     spec:
+      # 兩個副本盡量放在不同節點（kind 只有一個節點時無法分開，所以用 ScheduleAnyway 而不是 DoNotSchedule）
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: order-service
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001

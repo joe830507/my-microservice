@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.mymicroservice.user.properties.RefreshTokenCleanupProperties;
 import com.mymicroservice.user.repositories.RefreshTokenRepository;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -22,6 +23,9 @@ public class RefreshTokenCleanupJob {
     private final RefreshTokenCleanupProperties properties;
 
     // cron 寫在設定檔；@Scheduled 只能用 placeholder 讀取，所以和 RefreshTokenCleanupProperties 指向同一個 key
+    // 多個副本時每一輪只有一個執行（ShedLock，見 common 的 SchedulingLockAutoConfiguration）
+    @SchedulerLock(name = "refreshTokenCleanup", lockAtMostFor = "${app.scheduling.lock.at-most-for:PT5M}",
+            lockAtLeastFor = "${app.scheduling.lock.at-least-for:PT10S}")
     @Scheduled(cron = "${app.refresh-token-cleanup.cron}", zone = "UTC")
     @Transactional
     public void run() {
