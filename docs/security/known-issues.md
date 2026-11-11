@@ -10,18 +10,18 @@
 
 | 編號 | 問題 | 嚴重度 | 狀態 | 預計處理 |
 | ---- | ---- | ------ | ---- | -------- |
-| [SEC-01](#sec-01-顧客可以自己把訂單標成付款成功) | 顧客可以自己把訂單標成付款成功 | 高 | 未處理 | 接真的金流前 |
-| [SEC-02](#sec-02-繞過-gateway-直連服務可以偽造任何人的身分) | 繞過 Gateway 直連服務可以偽造任何人的身分 | 高 | **K8s 上已處理並實測**（NetworkPolicy）；本機開發環境仍然如此 | — |
-| [SEC-03](#sec-03-開發環境的預設設定不能帶上線) | 開發環境的預設設定不能帶上線 | 高 | **K8s 上已處理**（隨機 Secret、Redis 密碼）；compose 與 repo 裡的開發用設定未改 | compose 的埠綁定 |
-| [SEC-04](#sec-04-註冊沒有頻率限制) | 註冊沒有頻率限制，且可列舉 Email | 中 | 未處理 | 待排 |
-| [SEC-05](#sec-05-登入鎖定依-email可被用來鎖住別人) | 登入鎖定依 Email，可被用來鎖住別人 | 中 | 未處理 | 待評估 |
-| [SEC-06](#sec-06-前端缺少瀏覽器端防護) | 前端缺少瀏覽器端防護（CSP、標頭；refresh token 在 localStorage） | 中 | **部分處理**：標頭已加，CSP 已在真實 Chrome 驗證；token 仍在 localStorage | Step 11 |
-| [SEC-07](#sec-07-登出所有裝置後已發出的-access-token-仍然有效) | 登出所有裝置後已發出的 access token 仍然有效 | 中（設計限制） | 已在畫面說明 | — |
-| [SEC-08](#sec-08-錯誤訊息洩漏內部資訊) | 錯誤訊息洩漏內部類別名稱等資訊 | 低 | 未處理 | 待排 |
-| [SEC-09](#sec-09-服務直連的-actuator-與-swagger) | 服務直連的 actuator 公開、Swagger 預設開啟 | 低 | 未處理 | Step 11 |
-| [SEC-10](#sec-10-建單沒有冪等-key) | 建單沒有冪等 key | 低 | 未處理 | 見 vue-customer「之後再處理」 |
+| [SEC-01](#sec-01-顧客可以自己把訂單標成付款成功) | 顧客可以自己把訂單標成付款成功 | 高 | **已處理**：預設關閉的設定開關（`PAYMENT_MOCK_CALLBACK_ENABLED`） | `feature/security-hardening` |
+| [SEC-02](#sec-02-繞過-gateway-直連服務可以偽造任何人的身分) | 繞過 Gateway 直連服務可以偽造任何人的身分 | 高 | **已處理並實測**：K8s 的進入與**出去**限制（NetworkPolicy）；本機直接啟動的開發環境沒有隔離 | — |
+| [SEC-03](#sec-03-開發環境的預設設定不能帶上線) | 開發環境的預設設定不能帶上線 | 高 | **已處理**：K8s 隨機 Secret；compose 埠綁定 127.0.0.1；repo 內的測試用金鑰標明僅限測試 | — |
+| [SEC-04](#sec-04-註冊沒有頻率限制) | 註冊沒有頻率限制，且可列舉 Email | 中 | **已處理**：Gateway 對註冊依來源 IP 限流 | — |
+| [SEC-05](#sec-05-登入鎖定依-email可被用來鎖住別人) | 登入鎖定依 Email，可被用來鎖住別人 | 中 | **已處理**：兩層鎖定（Email + IP，再加 Email 總次數） | — |
+| [SEC-06](#sec-06-前端缺少瀏覽器端防護) | 前端缺少瀏覽器端防護（CSP、標頭；refresh token 在 localStorage） | 中 | **已處理**：refresh token 改放 HttpOnly cookie；CSP 與標頭先前已加 | — |
+| [SEC-07](#sec-07-登出所有裝置後已發出的-access-token-仍然有效) | 登出所有裝置後已發出的 access token 仍然有效 | 中（設計限制） | **已處理**：access token 縮短為 5 分鐘（無狀態 JWT 的限制仍在） | — |
+| [SEC-08](#sec-08-錯誤訊息洩漏內部資訊) | 錯誤訊息洩漏內部類別名稱等資訊 | 低 | **已處理** | — |
+| [SEC-09](#sec-09-服務直連的-actuator-與-swagger) | 服務直連的 actuator 公開、Swagger 預設開啟 | 低 | **已處理**：springdoc 預設關閉 | — |
+| [SEC-10](#sec-10-建單沒有冪等-key) | 建單沒有冪等 key | 低 | **已處理**：`POST /orders` 支援 `Idempotency-Key`，結帳頁會帶 | — |
 | [SEC-11](#sec-11-productsbatch-洩漏非上架商品的內容) | `/products/batch` 洩漏非上架商品的內容 | 中 | **已修正** | `0139c00` |
-| [SEC-12](#sec-12-非-dev-環境沒有建立管理員的方式) | 非 dev 環境沒有建立管理員的方式 | 中 | 未處理（K8s 上暫用 dev profile） | 待排 |
+| [SEC-12](#sec-12-非-dev-環境沒有建立管理員的方式) | 非 dev 環境沒有建立管理員的方式 | 中 | **已處理**：由設定開關 `app.bootstrap-admin.enabled` 控制 | — |
 
 ---
 
@@ -31,6 +31,7 @@
 - **驗證**：以一般顧客帳號實際走過：建單 → 建立付款 → `mock-callback` `SUCCESS` → 0.08 秒後訂單 `PAID`。
 - **成因**：雛型階段用它模擬第三方金流的回呼，payment-service 的程式碼註解已寫明「之後會移除這支 API」。
 - **處理方向**：接真的金流前移除；真實金流的回呼要由第三方伺服器呼叫，並驗證簽章，不經過使用者身分。在此之前任何對外環境都不能開放這支 API（例如 Gateway 不轉發 `/payments/*/mock-callback`，或用設定開關只在開發環境啟用）。
+- **處理結果（2026-11-11）**：`mock-callback` 搬到 `MockPaymentController`，用 `@ConditionalOnProperty(payment.mock-callback.enabled)` 控制，**預設關閉**（`PAYMENT_MOCK_CALLBACK_ENABLED`，未開啟時 `POST /payments/{id}/mock-callback` 回 404，有測試）。開啟時啟動會記 warn。K8s 的 `payment-service.yaml` 目前設為 `"true"`（沒有真的金流，示範與 E2E 需要它）；**接真的金流時要拿掉並移除這支 API**。本機啟動 payment-service 跑 E2E 要設 `PAYMENT_MOCK_CALLBACK_ENABLED=true`。
 
 ## SEC-02 繞過 Gateway 直連服務可以偽造任何人的身分
 
@@ -46,6 +47,7 @@
   - 加 `NetworkPolicy`：只允許 api-gateway 連進各服務，服務之間只開需要的方向（order → product / inventory、payment → order）
   - 長期可以讓服務自己驗 JWT，或在服務之間改用 mTLS，就不再只靠網路隔離
 - 本機的 `docker-compose` 與直接啟動，所有服務都在 localhost 上，開發時可以接受。
+- **處理結果（2026-11-11）**：加上出去（Egress）限制 `infra/k8s/network-policies-egress.yaml`：預設拒絕出去，只開放 DNS（到 CoreDNS）與每個元件實際需要的對象（Gateway → 五個服務與 gateway-redis；服務 → 自己的資料庫、Redis、被呼叫的服務；前端 → Gateway）；資料庫與 Redis 完全不能往外連。**在 Calico 上用對照組實測 22 組連線**（含叢集外位址 `1.1.1.1:443` 一律被擋、同一個位址從沒有政策的 namespace 連得通），全部符合預期；重新部署後兩個前端的 E2E 全數通過。本機直接啟動的開發環境仍然沒有隔離。
 
 ## SEC-03 開發環境的預設設定不能帶上線
 
@@ -58,18 +60,21 @@
   - compose 的埠改成 `127.0.0.1:5432:5432`
   - 正式環境的資料庫密碼、物件儲存密鑰、JWT 金鑰都用 K8s `Secret`，不寫進 repo
   - 確認正式環境沒有沿用測試用的 JWT 金鑰與物件儲存密鑰（沿用等於金鑰已公開）
+- **處理結果（2026-11-11）**：`infra/docker-compose.yml` 所有埠改綁 `127.0.0.1`（實際重建容器並用 `docker compose ps` 確認）。repo 內 commit 的 `infra/seaweedfs/s3.json`、`backend/spring-product-service/src/test/resources/seaweedfs/s3.json` 與 user-service 的測試用 JWT 金鑰是**開發與測試專用的公開值**：K8s 部署的物件儲存金鑰與 JWT 金鑰都是 `create-secrets.sh` 隨機產生，不使用它們（部署時從映像檔與 Secret 檢查過）；任何對外環境不可沿用這些值。本機 compose 的資料庫密碼 `postgres` 仍是預設，因為現在只綁本機。
 
 ## SEC-04 註冊沒有頻率限制
 
 - **現象**：連續呼叫 15 次 `POST /auth/register`，全部成功（201）。登入有限制（第 6 次錯誤起回 429），註冊沒有。
 - **風險**：可以大量灌垃圾帳號；`EMAIL_ALREADY_EXISTS` 的回應也能列舉哪些 Email 已經註冊。
 - **處理方向**：Gateway 對 `/auth/register` 加和登入同樣的依 IP 限流；列舉 Email 是註冊流程的固有取捨，要避免的話得改成「一律回成功、寄信確認」，需要有寄信功能後再評估。
+- **處理結果（2026-11-11）**：Gateway 新增路由 `user-service-register`，對 `POST /auth/register` 依來源 IP 限流（`gateway.register-rate-limit`：一次最多 3 個，之後每 20 秒 1 個），與登入各自計數（4 個整合測試）。Email 列舉的取捨維持不變（需要寄信功能後再評估）。
 
 ## SEC-05 登入鎖定依 Email，可被用來鎖住別人
 
 - **現象**：user-service 依 Email 限制登入錯誤次數（連續 5 次錯誤後回 429 `TOO_MANY_LOGIN_ATTEMPTS`）。任何人只要知道某個 Email，連續打錯就能讓那個帳號暫時無法登入。
 - **性質**：常見的取捨（防暴力破解 vs. 可被用來拒絕服務），不一定要改。
 - **處理方向**：評估鎖定時間是否夠短、是否改成「Email + IP」的組合、或鎖定時要求額外驗證。
+- **處理結果（2026-11-11）**：改成兩層。(1) **Email + 來源 IP**：同一組在時間窗內失敗 5 次就鎖住那一組，攻擊者只鎖得到自己；(2) **Email 總次數**：不分來源累計 30 次才全部鎖住，擋分散在很多 IP 的暴力猜密碼。來源 IP 由 Gateway 用 `X-Client-Ip` 帶給 user-service（用戶端自己帶的會被清掉）。登入成功只清除（Email + IP）那一組，總次數不清。
 
 ## SEC-06 前端缺少瀏覽器端防護
 
@@ -77,6 +82,7 @@
 - 還沒有 `Content-Security-Policy`、`X-Frame-Options`（或 `frame-ancestors`）、`X-Content-Type-Options: nosniff`、`Referrer-Policy`
 - **處理方向**：Step 11 的 nginx 設定加上這些標頭；之後考慮把 refresh token 改成 `HttpOnly` cookie（會牽涉 CSRF 與後端改動）。
 - **進度（2026-11-11）**：[vue-customer Step 11](../implementation-plans/vue-customer/step-11-deployment.md) 的 nginx 已加上 CSP（嚴格：只允許同源，圖片另外允許物件儲存）、`nosniff`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`，並用 Docker 與 kind 驗證每個回應都帶標頭。**CSP 已在真實 Chrome 驗證**（2026-11-11，兩個前端的 Playwright E2E 對著 nginx 映像檔跑：商店與後台完整流程都沒有 CSP 違規，包含後台的圖片直傳；故意塞入內嵌腳本與外部圖片，瀏覽器確實擋下並回報）；HSTS 要在 TLS 終結處（Ingress）加；後台（vue-management）也已套用同一套（[Step 11](../implementation-plans/vue-management/step-11-deployment.md)，CSP 的 `connect-src` 另外允許物件儲存的來源，因為圖片是瀏覽器直傳）；refresh token 還在 localStorage。
+- **處理結果（2026-11-11）**：refresh token 改放 **HttpOnly、SameSite=Strict、Secure、Path=/api/v1/auth 的 cookie**，登入與 refresh 的 body 不再有它，兩個前端也不再把它存進 localStorage（只留一個「登入過」的提示，不是 token）；JavaScript 與 XSS 讀不到。因為 cookie 是瀏覽器自動帶的，refresh 與 logout 另外要求自訂標頭 `X-Requested-With`（缺少回 403 `CSRF_CHECK_FAILED`），加上 SameSite=Strict 兩層擋 CSRF。登出會要求瀏覽器刪除 cookie。後端與兩個前端的單元／整合測試已改寫，兩個 E2E 都改成注入 cookie，並新增 E2E 驗證「cookie 是 HttpOnly、`document.cookie` 與 localStorage 都看不到」。`Secure` 預設開啟（瀏覽器把 localhost 視為安全來源）；用區域網路 IP 之類的純 HTTP 位址時設 `REFRESH_COOKIE_SECURE=false`。
 
 ## SEC-07 登出所有裝置後已發出的 access token 仍然有效
 
@@ -84,24 +90,28 @@
 - **性質**：無狀態 JWT 的限制。帳號頁已經明確告知使用者。
 - **處理方向**：縮短 access token 時效，或之後加 token 黑名單（Redis）；目前不處理。
 - **已驗證**：撤銷之後用舊的 refresh token 換新 token，立刻回 401 `REFRESH_TOKEN_INVALID`。
+- **處理結果（2026-11-11）**：`access-token-ttl` 由 15 分鐘縮短為 5 分鐘（`JWT_ACCESS_TOKEN_TTL` 可覆蓋），畫面上的說明同步更新。前端本來就會自動 refresh，使用者沒有感覺。黑名單（立即撤銷）沒有做。
 
 ## SEC-08 錯誤訊息洩漏內部資訊
 
 - **現象**：不合法參數的 400 錯誤，`detail` 會帶 Spring 的原始訊息，例如 `GET /orders?status=HACKED` 會顯示 `com.mymicroservice.order.enums.OrderStatus` 這個類別名稱；`GET /products/not-a-uuid` 的 400 也是原始訊息，而且沒有 `code` 欄位（不像其他錯誤是統一的 ProblemDetail + `code`）。
 - **風險**：洩漏內部套件與類別名稱，對攻擊者有一點參考價值；也讓錯誤格式不一致。
 - **處理方向**：在共用的 `GlobalExceptionHandler` 處理 `MethodArgumentTypeMismatchException`，回統一的 `VALIDATION_FAILED` 與不含內部類別名稱的訊息。前端目前把 400 當成「找不到」，不依賴這個訊息。
+- **處理結果（2026-11-11）**：`GlobalExceptionHandler` 把綁定與型別錯誤統一成 `VALIDATION_FAILED`，訊息只有 `<欄位>: invalid value`，不含內部類別名稱；Spring 內建處理的錯誤（例如 405）也補上 `code`（4 個單元測試）。
 
 ## SEC-09 服務直連的 actuator 與 Swagger
 
 - 直連各服務的 `/actuator/health` 是公開的（只有 health，目前可以接受）；經 Gateway 的 `/actuator/*`、`/v3/api-docs`、`/swagger-ui*` 對匿名者回 401，沒有問題
 - springdoc 預設開啟，product-service 啟動日誌也有警告
 - **處理方向**：正式環境設 `springdoc.api-docs.enabled=false`、`springdoc.swagger-ui.enabled=false`；actuator 只開放 K8s 探針需要的 health，並且不對外。
+- **處理結果（2026-11-11）**：五個有 springdoc 的服務都預設關閉（`SPRINGDOC_ENABLED=true` 才開，本機看 Swagger 時設）。actuator 只開放 health 的狀況不變，K8s 的 NetworkPolicy 已經讓它不能從外部連到。
 
 ## SEC-10 建單沒有冪等 key
 
 - **現象**：`POST /orders` 沒有 `Idempotency-Key`，連點或網路重送會建立兩張訂單（各自預扣庫存）。
 - **現況**：前端送出中停用按鈕、成功後 `replace` 導頁，並在「沒收到回應」時提示使用者先到「我的訂單」確認；後端沒有防護。
 - **處理方向**：見 [vue-customer 計畫](../implementation-plans/vue-customer/README.md) 的「之後再處理」。
+- **處理結果（2026-11-11）**：`POST /orders` 支援選填的 `Idempotency-Key`（8–64 字元的英數、`-`、`_`）。同一個使用者、同一個 key、相同內容重送：回原本那張訂單（200 與 `Idempotent-Replayed: true`），**不查商品也不再預扣庫存**；同一個 key 搭配不同內容回 422 `IDEMPOTENCY_KEY_REUSED`；不同使用者可以用同一個 key。內容的指紋是合併後依商品排序的商品與數量。併發的重送由 `(user_id, idempotency_key)` 的唯一索引擋下：輸的請求釋放自己預扣的庫存並回傳贏的那一張（13 個整合測試，含併發）。結帳頁每次結帳帶一個 key，「沒收到回應」時保留它，使用者再按一次送出是安全的（不會變成兩張）。
 
 ## SEC-11 `/products/batch` 洩漏非上架商品的內容
 
@@ -114,6 +124,7 @@
 - **現象**：`BootstrapAdminInitializer`（啟動時建立第一個管理員）標了 `@Profile("dev")`，只在 `dev` profile 啟用。其他 profile 沒有任何方式建立 ADMIN：註冊只能建立 `CUSTOMER`。
 - **現況**：K8s 上 user-service 暫時用 `SPRING_PROFILES_ACTIVE=dev`，管理員的帳密來自 Secret `bootstrap-admin`（隨機密碼）。`application-dev.yml` 目前只有管理員相關設定，所以實際影響只是名稱誤導，但之後 dev profile 加了別的開發用設定就會一起帶進叢集。
 - **處理方向**：把建立管理員改成由設定開關控制（例如 `app.bootstrap-admin.enabled`）而不是綁在 `dev` profile；建立後要有輪替或停用的作法（第一個管理員建好之後關掉開關、改密碼）。這是後端程式碼的修改，要補整合測試。
+- **處理結果（2026-11-11）**：`BootstrapAdminInitializer` 改由 `app.bootstrap-admin.enabled` 控制（預設關閉；`application-dev.yml` 開啟；K8s 設 `BOOTSTRAP_ADMIN_ENABLED=true` 並移除 `SPRING_PROFILES_ACTIVE=dev`）。建好第一個管理員後，把開關關掉並換掉 Secret 裡的密碼即可（已存在的帳號不受影響）。
 
 ---
 
@@ -128,7 +139,7 @@
 | JWT `alg=none`、竄改 `roles` 的 JWT | 401 |
 | 註冊時帶 `roles: ["ADMIN"]` | 忽略，實際只有 `CUSTOMER` |
 | 別人的訂單、付款、取消、付款回呼 | 一律 404，不透露是否存在 |
-| 登入限流 | 連續錯誤第 6 次起回 429 |
+| 登入限流 | 連續錯誤第 6 次起回 429（現在是依 Email + IP 計數，見 SEC-05） |
 | Gateway 的 `/actuator/*`、`/v3/api-docs`、`/swagger-ui*`（匿名） | 401 |
 | 匿名讀草稿、已下架、已封存商品（列表、詳情、圖片） | 404／不出現在列表 |
 | 前端 `v-html`、`innerHTML`、`eval` | 沒有使用 |
@@ -141,7 +152,6 @@
 - SQL injection 與（後台、前台）XSS 的模糊測試。商品關鍵字查詢有跳脫 `%`、`_`，也用 JPA 參數綁定，但沒有實際模糊測試
 - 圖片上傳的類型與內容檢查（presigned URL 有簽 `Content-Type` 與 `Content-Length`，但沒有試過偽造副檔名、內容與類型不符）
 - 後端 Maven 依賴的已知漏洞（只檢查了 vue-customer 的 npm 依賴）
-- Gateway 是否信任 `X-Forwarded-For`：若信任，依 IP 的登入限流可以被偽造 header 繞過
 - JWT 金鑰輪替流程的實際演練
 - vue-management（後台）的前端安全檢查
 - 密碼雜湊參數（bcrypt cost）、refresh token 的產生與儲存方式的審查
