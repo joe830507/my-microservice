@@ -119,6 +119,5 @@ Spring 的 relaxed binding 讓 `SPRING_DATASOURCE_URL`、`SPRING_DATA_REDIS_HOST
 - **資料庫與 Redis 的高可用、備份**：單一副本、本機磁碟區
 - **映像檔倉庫、CI、映像檔掃描、簽章**
 - **`SEC-01`（`mock-callback`）沒有處理**：它仍然可以經由 Gateway 呼叫
-- **瀏覽器端的 CSP 驗證**：同前端的 Step 11，Chrome 擴充功能沒有連上
 - 服務啟動順序：沒有 initContainer 等資料庫，靠重啟等待
 - 測試沒有跑在映像檔建置裡（Testcontainers 需要 Docker），應該在 CI 先跑

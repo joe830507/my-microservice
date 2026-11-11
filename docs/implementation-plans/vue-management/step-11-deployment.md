@@ -35,7 +35,7 @@
 
 ## 還沒做的
 
-- **沒有在瀏覽器裡驗證 CSP**（Chrome 擴充功能沒有連上）：頁面能不能正常載入、Element Plus 的元件（對話框、下拉選單、表格、訊息提示）有沒有被 `style-src 'self'` 擋住、圖片上傳在瀏覽器裡是否通過 `connect-src`。以上都是用 HTTP 呼叫驗證 API 與標頭，不是在瀏覽器點擊
+- **CSP 已在 [Step 12](step-12-e2e.md) 於真實 Chrome 驗證**：對著這個 nginx 映像檔跑 E2E，Element Plus 的元件、圖片直傳（`connect-src`）與圖片顯示（`img-src`）都沒有被擋；原本擔心的 `style-src 'self'` 沒有問題
 - 後端的 Dockerfile／K8s 設定與 `NetworkPolicy` 見 [後端部署](../backend-deployment-implementation-plan.md)
 - Ingress、TLS、HSTS、映像檔倉庫與 CI；和商店一起規劃網域（例如 `shop.example.com`、`admin.example.com`）
 - 後台不應該對外公開給所有人：之後在 Ingress 層限制來源（例如內網、VPN 或 IP allowlist），前端的登入檢查只是畫面，真正的權限在後端

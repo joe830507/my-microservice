@@ -3,7 +3,7 @@
 > 建立日期：2026-11-10
 > 分支：之後另開 `feature/vue-customer`
 > 位置：`frontend/vue-customer`（目前只有 `.gitkeep`）
-> 狀態：進行中（Step 0–11 完成）
+> 狀態：完成（Step 0–12）
 
 顧客用的商店前台：瀏覽商品、購物車、註冊登入、下單、付款（模擬金流）、查詢自己的訂單。後台是 [vue-management](../vue-management/README.md)。
 
@@ -23,7 +23,7 @@
 | [9](step-09-my-orders.md) | 我的訂單：列表、詳情、取消、繼續付款                         | 完成   |
 | [10](step-10-account.md) | 帳號頁：個人資料、登出所有裝置                               | 完成   |
 | [11](step-11-deployment.md) | 部署：Dockerfile、nginx、K8s                                 | 完成（kind 上驗證；CSP 還沒在瀏覽器驗證） |
-| 12   | Playwright E2E（之後再做）                                   | 未開始 |
+| [12](step-12-e2e.md) | Playwright E2E（真實後端、真實 Chrome）                        | 完成：主流程、瀏覽、購物車例外、訂單；含對著 nginx（CSP）的驗證 |
 
 每一步都附測試，測試通過後單獨 commit。文件的組織方式和 vue-management 一樣：開始一個 step 時，把它的段落搬到 `step-NN-<名稱>.md`，結果與遇到的問題記在那個檔案。
 
@@ -113,14 +113,6 @@ frontend/vue-customer/
 | 庫存 | `GET /inventory/{sku}` |
 | 訂單 | `POST /orders`、`GET /orders`（只有自己的）、`GET /orders/{id}`、`POST /orders/{id}/cancel` |
 | 付款 | `POST /payments`、`GET /payments/{id}`、`POST /payments/{id}/mock-callback` |
-
----
-
-## 還沒開始的 step
-
-### Step 12：E2E（之後再做）
-
-Playwright 搭配 compose：瀏覽 → 加入購物車 → 註冊 → 結帳 → 付款成功 → 我的訂單看到已付款；搭配後台出貨後，前台看到已出貨。
 
 ---
 
