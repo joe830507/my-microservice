@@ -1,7 +1,20 @@
 <script setup lang="ts">
+import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/features/auth/store'
 import { APP_TITLE } from '@/router'
 
-// 骨架階段：搜尋、購物車件數、帳號都是假的內容，分別在 Step 4、6、3 接上真的功能
+// 骨架階段：搜尋、購物車件數是假的內容，分別在 Step 4、6 接上真的功能
+const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
+
+async function onLogout(): Promise<void> {
+  await auth.logout()
+  // 留在需要登入的頁面會看到別人的資料或錯誤：回首頁（購物車不清空）
+  if (route.meta.requiresAuth) {
+    await router.push({ name: 'home' })
+  }
+}
 </script>
 
 <template>
@@ -14,7 +27,21 @@ import { APP_TITLE } from '@/router'
         </form>
         <nav class="store-nav" aria-label="主要導覽">
           <a class="store-nav__item" href="#" @click.prevent>購物車</a>
-          <a class="store-nav__item" href="#" @click.prevent>登入</a>
+          <template v-if="auth.isAuthenticated">
+            <span class="store-nav__user">{{ auth.user?.displayName }}</span>
+            <button type="button" class="store-nav__item store-nav__logout" @click="onLogout">
+              登出
+            </button>
+          </template>
+          <template v-else>
+            <RouterLink
+              class="store-nav__item"
+              :to="{ name: 'login', query: { redirect: route.fullPath } }"
+            >
+              登入
+            </RouterLink>
+            <RouterLink class="store-nav__item" :to="{ name: 'register' }">註冊</RouterLink>
+          </template>
         </nav>
       </div>
     </header>
@@ -84,6 +111,22 @@ import { APP_TITLE } from '@/router'
 
 .store-nav__item:hover {
   color: var(--color-primary);
+}
+
+.store-nav__user {
+  max-width: 8em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+
+.store-nav__logout {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
 }
 
 .store-main {

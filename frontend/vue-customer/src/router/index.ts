@@ -22,12 +22,17 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/layouts/StoreLayout.vue'),
     children: [
       { path: '', name: 'home', component: HomeView },
-      // 頁面內容在 Step 3 完成；先有路由，守衛才有地方可以導
       {
         path: 'login',
         name: 'login',
         component: () => import('@/features/auth/LoginView.vue'),
         meta: { title: '登入' },
+      },
+      {
+        path: 'register',
+        name: 'register',
+        component: () => import('@/features/auth/RegisterView.vue'),
+        meta: { title: '註冊' },
       },
       {
         path: ':pathMatch(.*)*',
@@ -51,8 +56,8 @@ export function installAuthGuard(router: Router): void {
       }
       return { name: 'login', query: { redirect: to.fullPath } }
     }
-    // 已登入還進登入頁：直接回首頁
-    if (to.name === 'login' && auth.isAuthenticated) {
+    // 已登入還進登入、註冊頁：直接回首頁
+    if ((to.name === 'login' || to.name === 'register') && auth.isAuthenticated) {
       return { name: 'home' }
     }
     return true

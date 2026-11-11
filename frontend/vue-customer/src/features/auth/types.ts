@@ -9,6 +9,14 @@ export interface LoginReq {
   password: string
 }
 
+export interface RegisterReq {
+  email: string
+  // 8–72 字元（bcrypt 只取前 72 bytes）
+  password: string
+  // 最多 50 字元
+  displayName: string
+}
+
 export interface TokenRes {
   accessToken: string
   // 固定為 Bearer

@@ -2,12 +2,14 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { ApiError } from '@/api/errors'
 import * as authApi from './api'
-import type { LoginReq, Me, TokenRes } from './types'
+import type { LoginReq, Me, RegisterReq, TokenRes } from './types'
 
 // auth 自己產生的錯誤代碼（不是後端回的）
 export const AuthErrorCode = {
   // 沒有 refresh token 可以換新：需要重新登入
   SESSION_EXPIRED: 'SESSION_EXPIRED',
+  // 註冊成功，但接著的自動登入失敗
+  REGISTERED_LOGIN_FAILED: 'REGISTERED_LOGIN_FAILED',
 } as const
 
 // refresh token 雛型階段放 localStorage（有 XSS 風險，之後考慮改成 httpOnly cookie）
@@ -71,6 +73,22 @@ export const useAuthStore = defineStore('auth', () => {
       // 取得使用者資料失敗：撤銷剛拿到的 refresh token，不留下半登入的狀態
       await logout()
       throw error
+    }
+  }
+
+  // 註冊成功後直接登入；登入失敗時帳號其實已經建立，用專用的錯誤代碼告訴呼叫端
+  async function register(req: RegisterReq): Promise<void> {
+    await authApi.register(req)
+    try {
+      await login({ email: req.email, password: req.password })
+    } catch (error) {
+      const status = error instanceof ApiError ? error.status : 0
+      throw new ApiError(
+        status,
+        AuthErrorCode.REGISTERED_LOGIN_FAILED,
+        '帳號已建立，但自動登入失敗，請到登入頁登入',
+        error,
+      )
     }
   }
 
@@ -144,6 +162,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     isAuthenticated,
     login,
+    register,
     logout,
     refreshAccessToken,
     restoreSession,

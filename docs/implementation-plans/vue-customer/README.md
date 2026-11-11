@@ -3,7 +3,7 @@
 > 建立日期：2026-11-10
 > 分支：之後另開 `feature/vue-customer`
 > 位置：`frontend/vue-customer`（目前只有 `.gitkeep`）
-> 狀態：進行中（Step 0–2 完成）
+> 狀態：進行中（Step 0–3 完成）
 
 顧客用的商店前台：瀏覽商品、購物車、註冊登入、下單、付款（模擬金流）、查詢自己的訂單。後台是 [vue-management](../vue-management/README.md)。
 
@@ -14,7 +14,7 @@
 | [0](step-00-backend-prereqs.md) | 後端前置問題：公開商品 API 只回上架中、列表帶主圖、分類含子分類 | 完成   |
 | [1](step-01-project-setup.md) | 建立專案、Vite proxy、版面骨架                               | 完成   |
 | [2](step-02-http-layer.md) | HTTP 層與登入狀態（沿用後台的做法）                          | 完成   |
-| 3    | 註冊、登入、登出                                             | 未開始 |
+| [3](step-03-auth-pages.md) | 註冊、登入、登出                                             | 完成   |
 | 4    | 商品列表：分類、搜尋、篩選、排序、分頁                       | 未開始 |
 | 5    | 商品詳情：圖片、價格、庫存、加入購物車                       | 未開始 |
 | 6    | 購物車（存在瀏覽器）                                         | 未開始 |
@@ -117,15 +117,6 @@ frontend/vue-customer/
 ---
 
 ## 還沒開始的 step
-
-### Step 3：註冊、登入、登出
-
-- 註冊頁：Email、密碼（8–72 字）、顯示名稱（最多 50 字），規則和後端 `RegisterReqDto` 一致；註冊成功直接登入
-- 登入頁：錯誤訊息依代碼（`INVALID_CREDENTIALS`、`USER_DISABLED`、`TOO_MANY_LOGIN_ATTEMPTS`、`TOO_MANY_REQUESTS`）
-- 登出：呼叫 `/auth/logout`；購物車保留
-- `redirect` 只接受站內路徑（沿用後台的 `safeRedirect`）
-
-**測試**：欄位驗證；`EMAIL_ALREADY_EXISTS` 顯示訊息；註冊後已登入並回到 `redirect`；登入限流提示；登出後需要登入的頁面被導到登入頁。
 
 ### Step 4：商品列表
 
