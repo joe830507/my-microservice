@@ -156,6 +156,19 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // 登出所有裝置：先讓伺服器撤銷所有 refresh token，成功後才清除本機狀態
+  // 撤銷失敗不清除：清了本機狀態，使用者會以為其他裝置也登出了，其實還登入著
+  async function logoutAll(): Promise<void> {
+    await authApi.revokeAllSessions()
+    // 本機的 refresh token 也已被撤銷，不必再呼叫 /auth/logout
+    clear()
+  }
+
+  // 重新取得使用者資料（帳號頁）；失敗時維持目前的資料，由呼叫端決定要不要提示
+  async function refreshUser(): Promise<void> {
+    user.value = await authApi.getMe()
+  }
+
   return {
     accessToken,
     refreshToken,
@@ -164,6 +177,8 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     logout,
+    logoutAll,
+    refreshUser,
     refreshAccessToken,
     restoreSession,
   }

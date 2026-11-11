@@ -3,7 +3,7 @@
 > 建立日期：2026-11-10
 > 分支：之後另開 `feature/vue-customer`
 > 位置：`frontend/vue-customer`（目前只有 `.gitkeep`）
-> 狀態：進行中（Step 0–9 完成）
+> 狀態：進行中（Step 0–10 完成）
 
 顧客用的商店前台：瀏覽商品、購物車、註冊登入、下單、付款（模擬金流）、查詢自己的訂單。後台是 [vue-management](../vue-management/README.md)。
 
@@ -21,7 +21,7 @@
 | [7](step-07-checkout.md) | 結帳、建立訂單                                               | 完成   |
 | [8](step-08-payment.md) | 付款（模擬金流）                                             | 完成   |
 | [9](step-09-my-orders.md) | 我的訂單：列表、詳情、取消、繼續付款                         | 完成   |
-| 10   | 帳號頁：個人資料、登出所有裝置                               | 未開始 |
+| [10](step-10-account.md) | 帳號頁：個人資料、登出所有裝置                               | 完成   |
 | 11   | 部署：Dockerfile、nginx、K8s                                 | 未開始 |
 | 12   | Playwright E2E（之後再做）                                   | 未開始 |
 
@@ -117,14 +117,6 @@ frontend/vue-customer/
 ---
 
 ## 還沒開始的 step
-
-### Step 10：帳號頁
-
-- `GET /users/me`：Email、顯示名稱、註冊時間
-- 「登出所有裝置」：`DELETE /users/me/sessions` 後清除本機狀態
-- 個人資料修改、改密碼：後端沒有 API，畫面不放（見「之後再處理」）
-
-**測試**：顯示資料；登出所有裝置後回到首頁且未登入。
 
 ### Step 11：部署
 

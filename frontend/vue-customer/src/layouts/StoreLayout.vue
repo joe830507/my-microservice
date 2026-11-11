@@ -63,7 +63,9 @@ async function onLogout(): Promise<void> {
             >
           </RouterLink>
           <template v-if="auth.isAuthenticated">
-            <span class="store-nav__user">{{ auth.user?.displayName }}</span>
+            <RouterLink class="store-nav__user" :to="{ name: 'account' }">{{
+              auth.user?.displayName
+            }}</RouterLink>
             <button type="button" class="store-nav__item store-nav__logout" @click="onLogout">
               登出
             </button>

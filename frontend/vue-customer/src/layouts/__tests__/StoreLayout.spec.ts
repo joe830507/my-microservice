@@ -47,6 +47,7 @@ async function mountLayout(path = '/') {
           { path: '', name: 'home', component: Page },
           { path: 'search', name: 'search', component: Page },
           { path: 'cart', name: 'cart', component: Page },
+          { path: 'account', name: 'account', component: Page },
           { path: 'c/:slug', name: 'category', component: Page },
           { path: 'login', name: 'login', component: Page },
           { path: 'register', name: 'register', component: Page },
@@ -153,6 +154,8 @@ describe('StoreLayout', () => {
     await flushPromises()
 
     expect(wrapper.find('.store-nav__user').text()).toBe('小明')
+    // 名稱連到帳號頁
+    expect(wrapper.find('.store-nav__user').attributes('href')).toBe('/account')
 
     await wrapper.find('.store-nav__logout').trigger('click')
     await flushPromises()

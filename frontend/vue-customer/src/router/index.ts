@@ -76,6 +76,12 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: '訂單詳情', requiresAuth: true },
       },
       {
+        path: 'account',
+        name: 'account',
+        component: () => import('@/features/account/AccountView.vue'),
+        meta: { title: '我的帳號', requiresAuth: true },
+      },
+      {
         path: 'login',
         name: 'login',
         component: () => import('@/features/auth/LoginView.vue'),
