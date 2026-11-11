@@ -1,0 +1,64 @@
+# 搜尋（Elasticsearch）實作紀錄（階段 D）
+
+> 日期：2026-11-11
+> 分支：`feature/search-phase-d`（從階段 C 後續計畫分支切出）
+> 對應：[實作計畫](search-implementation-plan.md)、[roadmap](middleware-roadmap.md)
+> 狀態：D1 完成（含完整 reactor）；D2–D7 尚未開始
+
+## 內容
+
+| Step | 內容與狀態 |
+|---|---|
+| D1 | 單節點 Elasticsearch／SmartCN 映像、Compose、kind、NetworkPolicy、中文分詞與召回實驗已完成；完整 reactor 通過 |
+| D2–D7 | 待實作；目前商店搜尋仍使用既有 SQL |
+
+## 規則與版本
+
+- 使用 `9.4.5`，與專案 Spring Boot `4.1.1` BOM 的 `elasticsearch-client.version` 完全一致。自訂映像 `my-microservice/elasticsearch:9.4.5-smartcn`，內建官方 `analysis-smartcn`，不在 Pod 啟動時下載。
+- 官方外掛說明：[Smart Chinese analysis plugin](https://www.elastic.co/docs/reference/elasticsearch/plugins/analysis-smartcn)。SmartCN 主要針對簡體中文，繁體中文品質需以實測評估。
+- 開發環境關閉認證及 TLS，以 loopback 埠與 NetworkPolicy 隔離；限制見 SEC-14。Kibana 只有 Compose 的 `dev-tools` profile，沒有 K8s 資源。
+- 固定 512Mi JVM heap、單節點、關閉開發環境磁碟水位檢查；`node.store.allow_mmap=false` 避免修改主機 sysctl 或使用 privileged initContainer。
+- K8s 的記憶體 request 1Gi／limit 1536Mi，資料存入 2Gi PVC；只允許 product-service 連 9200。D1 尚不修改商品程式或事件契約。
+
+## 驗證結果
+
+2026-11-11，本機 Docker Desktop 與 Calico kind（`kind-my-microservice`）：
+
+```powershell
+docker build -t my-microservice/elasticsearch:9.4.5-smartcn infra/elasticsearch
+docker compose -f infra/docker-compose.yml config --quiet
+docker compose -f infra/docker-compose.yml up -d --no-build elasticsearch
+kind load docker-image --name my-microservice my-microservice/elasticsearch:9.4.5-smartcn
+kubectl --context kind-my-microservice -n my-microservice apply -f infra/k8s/data/elasticsearch.yaml
+kubectl --context kind-my-microservice -n my-microservice apply -f infra/k8s/network-policies.yaml -f infra/k8s/network-policies-egress.yaml
+python infra/elasticsearch/verify-analysis.py
+powershell -NoProfile -File infra/k8s/scripts/verify-phase-d.ps1
+```
+
+- Compose 與 Kustomize 可解析，ES 在本機與 kind 都啟動成功；不需要 privileged 或修改 `vm.max_map_count`。
+- 本機與 kind 各 12 個查詢案例全數通過，包含計畫列出的 10 個中文／英文詞、大小寫不同的 SKU，以及無關名詞「宇宙火箭」。所有測試索引均在 finally 刪除。
+- 真實 product-service Pod 可連 ES:9200；未授權 busybox Pod 連線失敗。腳本在 finally 清除測試 Pod 及 port-forward。
+- 證據：[本機分詞與搜尋](evidence/phase-d/d1-analysis.json)、[kind 分詞與搜尋](evidence/phase-d/d1-kind-analysis.json)、[網路對照](evidence/phase-d/d1-network.txt)。JSON 與文字證據均為無 BOM UTF-8。
+
+| 範例 | smartcn | standard |
+|---|---|---|
+| 無線藍牙耳機 | 無、線、藍、牙、耳、機 | 無、線、藍、牙、耳、機 |
+| 輕量運動鞋 | 詳見原始證據 | 輕、量、運、動、鞋 |
+| Apple iPhone 15 手機殼 | 英文小寫；中文結果詳見證據 | apple、iphone、15、手、機、殼 |
+
+完整回歸：在 backend 執行 `mvnw.cmd -o clean test`，2026-11-11 20:35:51 結束，九模組全部 SUCCESS，耗時 7:12，包含真實 Kafka 與 PostgreSQL Testcontainers。[完整 reactor 摘要](evidence/phase-d/d1-reactor.txt)。
+
+## 遇到的問題
+
+- 初次測試以「完全不相關的宇宙火箭」當負例，因「不」與「不鏽鋼保溫杯」共字，在計畫指定的 OR 查詢下仍有結果。[初次實驗](evidence/phase-d/d1-analysis-initial.json)完整保留。驗收負例採獨立名詞「宇宙火箭」，沒有改動查詢、權重或放寬對計畫指定詞彙的斷言。
+- Windows PowerShell 5 讀取無 BOM 的中文腳本可能把下一行指令誤讀成註解；驗收腳本使用 UTF-8 BOM，**證據檔**仍維持無 BOM UTF-8。修正後已重新執行，確認 kind 分詞證據確實產出。
+
+## 已知限制
+
+- SmartCN 對部分繁體中文仍逐字分詞；`name.char` 能補召回，但目前 OR 子句可能過度召回。D5 相關性測試要覆蓋長句與共字負例，若要改變計畫中的查詢語意，應先記錄計畫變更並討論。
+- 本階段尚未接入 ES client、索引器、重建或查詢 API；D1 部署不代表 D2–D7 完成。
+- 未實際啟動 Kibana，僅確認 profile 與映像版本設定；D1 的分詞驗證直接使用 ES HTTP API。
+
+## 最不確定、希望審查者重點看的地方
+
+繁體中文逐字分詞與 OR 查詢的誤召回；512Mi heap 在後續重建與雙副本索引器的負載下是否足夠。這兩項目前只有小型實驗，尚不能代表正式搜尋品質或容量。

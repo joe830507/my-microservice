@@ -1,0 +1,323 @@
+{
+  "version": "9.4.5",
+  "analysis": [
+    {
+      "text": "無線藍牙耳機",
+      "tokens": {
+        "smartcn": [
+          "無",
+          "線",
+          "藍",
+          "牙",
+          "耳",
+          "機"
+        ],
+        "standard": [
+          "無",
+          "線",
+          "藍",
+          "牙",
+          "耳",
+          "機"
+        ]
+      }
+    },
+    {
+      "text": "藍牙耳機",
+      "tokens": {
+        "smartcn": [
+          "藍",
+          "牙",
+          "耳",
+          "機"
+        ],
+        "standard": [
+          "藍",
+          "牙",
+          "耳",
+          "機"
+        ]
+      }
+    },
+    {
+      "text": "耳機",
+      "tokens": {
+        "smartcn": [
+          "耳",
+          "機"
+        ],
+        "standard": [
+          "耳",
+          "機"
+        ]
+      }
+    },
+    {
+      "text": "藍牙",
+      "tokens": {
+        "smartcn": [
+          "藍",
+          "牙"
+        ],
+        "standard": [
+          "藍",
+          "牙"
+        ]
+      }
+    },
+    {
+      "text": "輕量運動鞋",
+      "tokens": {
+        "smartcn": [
+          "輕",
+          "量",
+          "運",
+          "動",
+          "鞋"
+        ],
+        "standard": [
+          "輕",
+          "量",
+          "運",
+          "動",
+          "鞋"
+        ]
+      }
+    },
+    {
+      "text": "運動鞋",
+      "tokens": {
+        "smartcn": [
+          "運",
+          "動",
+          "鞋"
+        ],
+        "standard": [
+          "運",
+          "動",
+          "鞋"
+        ]
+      }
+    },
+    {
+      "text": "鞋",
+      "tokens": {
+        "smartcn": [
+          "鞋"
+        ],
+        "standard": [
+          "鞋"
+        ]
+      }
+    },
+    {
+      "text": "Apple iPhone 15 手機殼",
+      "tokens": {
+        "smartcn": [
+          "appl",
+          "iphon",
+          "15",
+          "手",
+          "機",
+          "殼"
+        ],
+        "standard": [
+          "apple",
+          "iphone",
+          "15",
+          "手",
+          "機",
+          "殼"
+        ]
+      }
+    },
+    {
+      "text": "iphone",
+      "tokens": {
+        "smartcn": [
+          "iphon"
+        ],
+        "standard": [
+          "iphone"
+        ]
+      }
+    },
+    {
+      "text": "手機殼",
+      "tokens": {
+        "smartcn": [
+          "手",
+          "機",
+          "殼"
+        ],
+        "standard": [
+          "手",
+          "機",
+          "殼"
+        ]
+      }
+    },
+    {
+      "text": "手機",
+      "tokens": {
+        "smartcn": [
+          "手",
+          "機"
+        ],
+        "standard": [
+          "手",
+          "機"
+        ]
+      }
+    },
+    {
+      "text": "不鏽鋼保溫杯",
+      "tokens": {
+        "smartcn": [
+          "不",
+          "鏽",
+          "鋼",
+          "保",
+          "溫",
+          "杯"
+        ],
+        "standard": [
+          "不",
+          "鏽",
+          "鋼",
+          "保",
+          "溫",
+          "杯"
+        ]
+      }
+    },
+    {
+      "text": "保溫",
+      "tokens": {
+        "smartcn": [
+          "保",
+          "溫"
+        ],
+        "standard": [
+          "保",
+          "溫"
+        ]
+      }
+    },
+    {
+      "text": "不鏽鋼",
+      "tokens": {
+        "smartcn": [
+          "不",
+          "鏽",
+          "鋼"
+        ],
+        "standard": [
+          "不",
+          "鏽",
+          "鋼"
+        ]
+      }
+    }
+  ],
+  "queries": [
+    {
+      "keyword": "藍牙耳機",
+      "expectedId": "0",
+      "ids": [
+        "0",
+        "2"
+      ],
+      "passed": true
+    },
+    {
+      "keyword": "耳機",
+      "expectedId": "0",
+      "ids": [
+        "0",
+        "2"
+      ],
+      "passed": true
+    },
+    {
+      "keyword": "藍牙",
+      "expectedId": "0",
+      "ids": [
+        "0"
+      ],
+      "passed": true
+    },
+    {
+      "keyword": "運動鞋",
+      "expectedId": "1",
+      "ids": [
+        "1"
+      ],
+      "passed": true
+    },
+    {
+      "keyword": "鞋",
+      "expectedId": "1",
+      "ids": [
+        "1"
+      ],
+      "passed": true
+    },
+    {
+      "keyword": "iphone",
+      "expectedId": "2",
+      "ids": [
+        "2"
+      ],
+      "passed": true
+    },
+    {
+      "keyword": "手機殼",
+      "expectedId": "2",
+      "ids": [
+        "2",
+        "0"
+      ],
+      "passed": true
+    },
+    {
+      "keyword": "手機",
+      "expectedId": "2",
+      "ids": [
+        "2",
+        "0"
+      ],
+      "passed": true
+    },
+    {
+      "keyword": "保溫",
+      "expectedId": "3",
+      "ids": [
+        "3"
+      ],
+      "passed": true
+    },
+    {
+      "keyword": "不鏽鋼",
+      "expectedId": "3",
+      "ids": [
+        "3"
+      ],
+      "passed": true
+    },
+    {
+      "keyword": "phase-d-0",
+      "expectedId": "0",
+      "ids": [
+        "0"
+      ],
+      "passed": true
+    },
+    {
+      "keyword": "宇宙火箭",
+      "expectedId": null,
+      "ids": [],
+      "passed": true
+    }
+  ]
+}

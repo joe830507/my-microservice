@@ -8,6 +8,7 @@ resources:
   - data/redis.yaml
   - data/object-storage.yaml
   - data/kafka.yaml
+  - data/elasticsearch.yaml
   - services/user-service.yaml
   - services/product-service.yaml
   - services/inventory-service.yaml

@@ -3,7 +3,7 @@
 > 建立日期：2026-11-11
 > 分支：計畫在 `feature/middleware-roadmap`；每個階段實作時各自開分支（階段 C：`feature/event-driven-phase-c`）
 > 對應：[product-service-middleware-evaluation.md](../../design/product-service-middleware-evaluation.md)「建議導入順序」、[microservice-architecture.md](../../architecture/microservice-architecture.md)「之後：事件驅動」
-> 狀態：階段 A（[observability-implementation-plan.md](observability-implementation-plan.md)）、B（[resilience-implementation-plan.md](resilience-implementation-plan.md)）、C（[event-implementation-plan.md](event-implementation-plan.md)）完成；D–F 尚未開始
+> 狀態：階段 A（[observability-implementation-plan.md](observability-implementation-plan.md)）、B（[resilience-implementation-plan.md](resilience-implementation-plan.md)）、C（[event-implementation-plan.md](event-implementation-plan.md)）完成；D 進行中（D1 infra 與分詞驗收），E–F 尚未開始
 
 從雛型的「同步 REST + 排程補償」走向「事件驅動 + 可觀測 + 可水平擴充」。每個階段都要能在本機 compose 與 kind 上跑起來並驗證，做法和之前一樣：每一步附測試，測試通過後單獨 commit。
 
@@ -133,7 +133,7 @@
 - Kafka 的認證（SASL/SCRAM）與 ACL：先靠 NetworkPolicy 隔離，已記到 known-issues 的 SEC-13，對外環境前要補
 - 實作時的決定：新舊路徑曾以 `app.events.enabled` 旗標過渡，驗收通過後已全部移除；事件 payload 與版本規則見 [event-contracts.md](../../architecture/event-contracts.md)
 
-## 階段 D：搜尋（Elasticsearch）（詳細計畫見 [search-implementation-plan.md](search-implementation-plan.md)）
+## 階段 D：搜尋（Elasticsearch）（進行中，D1 驗收完成；見 [計畫](search-implementation-plan.md)與[實作紀錄](search-implementation-record.md)）
 
 目標：商店前台的關鍵字搜尋改用 Elasticsearch（中文斷詞、相關性排序）；ES 掛掉時退回 SQL。後台列表與沒有關鍵字的列表維持 SQL。
 
@@ -183,5 +183,5 @@
 
 - A：K8s 上的監控要自己放 `otel-lgtm`，還是用 Helm 的 kube-prometheus-stack（較貼近正式環境，但較重）
 - C：（已決定）事件格式用 JSON 加文件規格；Schema Registry（Avro／Protobuf）有需要再評估
-- D：Elasticsearch 或 OpenSearch（授權條款不同）
+- D：（已決定）Elasticsearch + 官方 analysis-smartcn；實驗與版本見搜尋實作紀錄
 - F：金流商的選擇

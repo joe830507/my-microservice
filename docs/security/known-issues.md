@@ -164,3 +164,8 @@
 ## SEC-13 Kafka 尚未啟用用戶端認證
 
 階段 C 的本機與 kind Kafka 使用明文 listener，服務來源以 NetworkPolicy 限制；叢集內已授權的 Pod 仍可直接連線，topic 沒有 ACL。這套設定只適用本機與隔離的示範叢集。對外或多租戶環境部署前，需啟用 TLS 與 SASL/SCRAM（或等效機制）、topic ACL，並把憑證放入 Secret。
+
+
+## SEC-14 Elasticsearch 尚未啟用認證與 TLS
+
+階段 D 的本機與 kind ES 使用明文 HTTP，未啟用用戶端認證。Compose 只綁 127.0.0.1:9200；kind 以 NetworkPolicy 只允許 product-service 連線。Kibana 僅供本機 dev-tools profile，未部署到 kind。這些設定限本機與隔離的示範環境；對外或多租戶環境前必須補 TLS、認證與最小權限帳號，憑證放入 Secret。Pod 標籤不是用戶端身分認證。

@@ -4,7 +4,7 @@
 > 分支：實作時開 `feature/search-phase-d`（從階段 C 合併後的 `main` 切出；階段 C 尚未合併時，從 `feature/event-driven-phase-c` 切出並做 stacked PR）
 > 對應：[middleware-roadmap.md](middleware-roadmap.md)「階段 D」、[product-service-middleware-evaluation.md](../../design/product-service-middleware-evaluation.md)「2. 全文檢索」
 > 前置：階段 C 完成（`product.events` 已經在發送，見[事件契約](../../architecture/event-contracts.md)）
-> 狀態：**規劃中，尚未開始實作**
+> 狀態：**實作中**；逐步結果見 [search-implementation-record.md](search-implementation-record.md)
 
 這份文件是給實作者（Codex 或任何人）照著做的**唯一依據**。分成兩半：前半說明「做什麼、為什麼這樣設計」，後半（[實作規範](#實作規範)）說明「怎麼做、哪些事不能做」。**開始實作前兩半都要讀完。** 遇到文件沒寫到、或發現文件有錯的地方，不要自己默默決定，先照[計畫變更](#計畫變更紀錄)的規則處理。
 

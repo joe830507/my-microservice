@@ -375,3 +375,21 @@ spec:
         - protocol: TCP
           port: 9092
 # 資料庫與 Redis 不需要連任何地方：只有 default-deny-egress 與 DNS
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-product-elasticsearch-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: product-service
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: elasticsearch
+      ports:
+        - protocol: TCP
+          port: 9200

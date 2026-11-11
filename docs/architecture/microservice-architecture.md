@@ -228,3 +228,8 @@ Kafka 使用單節點 KRaft。業務資料與事件在同一個 PostgreSQL 交�
 | 6 | payment-service | 把整個下單流程跑完 |
 
 開發時仍用 IDE 跑服務、用 compose 起 DB 與 Redis；K8s 用來驗證部署與服務之間的連線。
+
+
+## 階段 D：搜尋基礎設施（進行中）
+
+Elasticsearch 9.4.5 搭配官方 SmartCN 外掛，已加入 Compose 與 kind；只允許商品服務連線，Kibana 僅限本機開發 profile。目前完成 D1 分詞與網路驗收，商品列表仍走既有 SQL；事件索引器與搜尋切換將依 D2–D7 逐步導入。詳見 [搜尋實作紀錄](../implementation-plans/middleware/search-implementation-record.md)。

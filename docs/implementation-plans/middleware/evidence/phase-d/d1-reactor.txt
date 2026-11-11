@@ -1,0 +1,18 @@
+[INFO] Reactor Summary for backend 0.0.1-SNAPSHOT:
+[INFO]
+[INFO] common ............................................. SUCCESS [ 31.559 s]
+[INFO] observability ...................................... SUCCESS [  0.585 s]
+[INFO] product-service .................................... SUCCESS [03:02 min]
+[INFO] user-service ....................................... SUCCESS [01:07 min]
+[INFO] inventory-service .................................. SUCCESS [ 28.009 s]
+[INFO] order-service ...................................... SUCCESS [ 49.371 s]
+[INFO] payment-service .................................... SUCCESS [ 31.138 s]
+[INFO] api-gateway ........................................ SUCCESS [ 41.427 s]
+[INFO] backend ............................................ SUCCESS [  0.005 s]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  07:12 min
+[INFO] Finished at: 2026-11-11T20:35:51+08:00
+[INFO] ------------------------------------------------------------------------
+{'tests': 761, 'failures': 0, 'errors': 0, 'skipped': 0}
