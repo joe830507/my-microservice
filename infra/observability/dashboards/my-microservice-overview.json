@@ -1489,7 +1489,7 @@
     {
       "id": 34,
       "type": "row",
-      "title": "Notification",
+      "title": "通知（寄信）",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -1501,8 +1501,8 @@
     {
       "id": 35,
       "type": "timeseries",
-      "title": "Notification email outcomes per minute",
-      "description": "",
+      "title": "寄信結果（每分鐘，依範本與結果）",
+      "description": "result：sent、retry、failed、skipped",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1549,8 +1549,8 @@
     {
       "id": 36,
       "type": "timeseries",
-      "title": "SMTP average send duration",
-      "description": "",
+      "title": "SMTP 平均寄送耗時",
+      "description": "notification.email.send.duration 以毫秒匯出（notification_email_send_duration_milliseconds_*）",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1563,7 +1563,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (template) (rate(notification_email_send_duration_seconds_sum[5m])) / sum by (template) (rate(notification_email_send_duration_seconds_count[5m]))",
+          "expr": "sum by (template) (rate(notification_email_send_duration_milliseconds_sum[5m])) / sum by (template) (rate(notification_email_send_duration_milliseconds_count[5m]))",
           "legendFormat": "{{template}}",
           "refId": "A",
           "datasource": {
@@ -1574,7 +1574,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
+          "unit": "ms",
           "custom": {
             "fillOpacity": 0,
             "stacking": {
@@ -1597,7 +1597,7 @@
     {
       "id": 37,
       "type": "stat",
-      "title": "Pending notification emails",
+      "title": "待寄信件數",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -1647,7 +1647,7 @@
     {
       "id": 38,
       "type": "stat",
-      "title": "Oldest pending email (seconds)",
+      "title": "最舊待寄信件已等待（秒）",
       "description": "",
       "datasource": {
         "type": "prometheus",

@@ -610,13 +610,13 @@
         },
         {
           "uid": "mm-notification-failed",
-          "title": "Notification email permanently failed",
+          "title": "通知信件寄送失敗（FAILED）",
           "condition": "C",
           "for": "0s",
           "noDataState": "OK",
           "execErrState": "Error",
           "annotations": {
-            "summary": "Notification emails entered FAILED; inspect SMTP and last_error."
+            "summary": "有通知信件進入 FAILED；請檢查 SMTP 與 email_message.last_error。"
           },
           "labels": {
             "severity": "warning"
@@ -670,13 +670,13 @@
         },
         {
           "uid": "mm-notification-backlog",
-          "title": "Notification email backlog",
+          "title": "通知信件積壓",
           "condition": "C",
           "for": "5m",
           "noDataState": "OK",
           "execErrState": "Error",
           "annotations": {
-            "summary": "The oldest pending notification email is over 10 minutes old."
+            "summary": "最舊的待寄通知信件已超過 10 分鐘；請檢查 SMTP 與 notification-service。"
           },
           "labels": {
             "severity": "warning"
