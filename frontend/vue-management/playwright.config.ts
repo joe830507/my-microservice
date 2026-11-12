@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// E2E 對著「真的後端」跑：整套後端（Gateway :8080 與各服務）要先啟動，見 docs/implementation-plans/vue-management/step-12-e2e.md
+// E2E 對著「真的後端」跑：整套後端（Gateway :8080 與各服務）要先啟動，見 docs/implementation-plans/vue-management/README.md#step-12
 //
 // 兩種跑法：
 // - 預設：自己啟動 Vite dev server（:5183，/api 由 Vite proxy 轉給 Gateway），沒有 CSP。

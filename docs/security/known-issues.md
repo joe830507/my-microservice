@@ -82,7 +82,7 @@
 - refresh token 存在 localStorage：一旦出現 XSS 就會被竊取。目前前端沒有 `v-html`、`innerHTML`、`eval`，商品說明等外部內容都用文字插值輸出，`npm audit --omit=dev` 為 0 個漏洞，所以現況風險低，但沒有第二道防線
 - 還沒有 `Content-Security-Policy`、`X-Frame-Options`（或 `frame-ancestors`）、`X-Content-Type-Options: nosniff`、`Referrer-Policy`
 - **處理方向**：Step 11 的 nginx 設定加上這些標頭；之後考慮把 refresh token 改成 `HttpOnly` cookie（會牽涉 CSRF 與後端改動）。
-- **進度（2026-11-11）**：[vue-customer Step 11](../implementation-plans/vue-customer/step-11-deployment.md) 的 nginx 已加上 CSP（嚴格：只允許同源，圖片另外允許物件儲存）、`nosniff`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`，並用 Docker 與 kind 驗證每個回應都帶標頭。**CSP 已在真實 Chrome 驗證**（2026-11-11，兩個前端的 Playwright E2E 對著 nginx 映像檔跑：商店與後台完整流程都沒有 CSP 違規，包含後台的圖片直傳；故意塞入內嵌腳本與外部圖片，瀏覽器確實擋下並回報）；HSTS 要在 TLS 終結處（Ingress）加；後台（vue-management）也已套用同一套（[Step 11](../implementation-plans/vue-management/step-11-deployment.md)，CSP 的 `connect-src` 另外允許物件儲存的來源，因為圖片是瀏覽器直傳）；refresh token 還在 localStorage。
+- **進度（2026-11-11）**：[vue-customer Step 11](../implementation-plans/vue-customer/README.md#step-11) 的 nginx 已加上 CSP（嚴格：只允許同源，圖片另外允許物件儲存）、`nosniff`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`，並用 Docker 與 kind 驗證每個回應都帶標頭。**CSP 已在真實 Chrome 驗證**（2026-11-11，兩個前端的 Playwright E2E 對著 nginx 映像檔跑：商店與後台完整流程都沒有 CSP 違規，包含後台的圖片直傳；故意塞入內嵌腳本與外部圖片，瀏覽器確實擋下並回報）；HSTS 要在 TLS 終結處（Ingress）加；後台（vue-management）也已套用同一套（[Step 11](../implementation-plans/vue-management/README.md#step-11)，CSP 的 `connect-src` 另外允許物件儲存的來源，因為圖片是瀏覽器直傳）；refresh token 還在 localStorage。
 - **處理結果（2026-11-11）**：refresh token 改放 **HttpOnly、SameSite=Strict、Secure、Path=/api/v1/auth 的 cookie**，登入與 refresh 的 body 不再有它，兩個前端也不再把它存進 localStorage（只留一個「登入過」的提示，不是 token）；JavaScript 與 XSS 讀不到。因為 cookie 是瀏覽器自動帶的，refresh 與 logout 另外要求自訂標頭 `X-Requested-With`（缺少回 403 `CSRF_CHECK_FAILED`），加上 SameSite=Strict 兩層擋 CSRF。登出會要求瀏覽器刪除 cookie。後端與兩個前端的單元／整合測試已改寫，兩個 E2E 都改成注入 cookie，並新增 E2E 驗證「cookie 是 HttpOnly、`document.cookie` 與 localStorage 都看不到」。`Secure` 預設開啟（瀏覽器把 localhost 視為安全來源）；用區域網路 IP 之類的純 HTTP 位址時設 `REFRESH_COOKIE_SECURE=false`。
 
 ## SEC-07 登出所有裝置後已發出的 access token 仍然有效
@@ -117,7 +117,7 @@
 ## SEC-11 `/products/batch` 洩漏非上架商品的內容
 
 - **現象**：匿名者用草稿商品的 id 查 `GET /products/batch`，拿到完整的 SKU、名稱、價格。
-- **修正**：非 ADMIN 時，非 `ACTIVE` 的商品只回 `id` 與 `status`；commit `0139c00`（後端與整合測試）、`12aead5`（前端）。細節見 [vue-customer Step 0 的後續補強](../implementation-plans/vue-customer/step-00-backend-prereqs.md)。
+- **修正**：非 ADMIN 時，非 `ACTIVE` 的商品只回 `id` 與 `status`；commit `0139c00`（後端與整合測試）、`12aead5`（前端）。細節見 [vue-customer Step 0 的後續補強](../implementation-plans/vue-customer/README.md#step-00)。
 - **已用真的服務驗證**：匿名只拿到 `id`、`status`；ADMIN 照舊完整；order-service 建單不受影響。
 
 ## SEC-12 非 dev 環境沒有建立管理員的方式

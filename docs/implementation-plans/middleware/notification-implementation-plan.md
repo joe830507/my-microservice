@@ -4,7 +4,7 @@
 > 分支：實作時開 `feature/notification-phase-e`（從階段 D 合併後的 `main` 切出；階段 D 尚未合併時，從 `feature/search-phase-d` 切出並做 stacked PR）
 > 對應：[middleware-roadmap.md](middleware-roadmap.md)「階段 E」、[event-contracts.md](../../architecture/event-contracts.md)
 > 前置：階段 C 完成（`user.events`、`order.events`、`payment.events` 已經在發送）；階段 D 完成（本階段沿用其文件與驗收規範）
-> 狀態：E1–E6 已實作並驗收；E7（真實信箱驗證）暫緩，待使用者配合；結果記錄在 [notification-implementation-record.md](notification-implementation-record.md)，審查見 [phase-e-review.md](phase-e-review.md)
+> 狀態：E1–E6 已實作並驗收；E7（真實信箱驗證）暫緩，待使用者配合；結果記錄在 [notification-implementation-record.md](notification-implementation-record.md)，審查見 [階段 E 原始審查](notification-implementation-record.md#review-e)
 
 這份文件是給實作者（Codex 或任何人）照著做的**唯一依據**。分成兩半：前半說明「做什麼、為什麼這樣設計」，後半（[實作規範](#實作規範)）說明「怎麼做、哪些事不能做」。**開始實作前兩半都要讀完。** 遇到文件沒寫到、或發現文件有錯的地方，不要自己默默決定，先照[計畫變更](#計畫變更紀錄)的規則處理。
 
@@ -300,32 +300,19 @@ inventory-service 同時消費 `order.events`：**必須在 order-service 開始
 
 ## 實作規範
 
-這一節是整份文件最重要的部分之一。階段 C、D 的審查發現過一批「功能對、但做法和專案慣例不合」的問題，這次要避免。
+必讀：[中介軟體實作共用規範](implementation-guidelines.md)。以下保留本階段特殊要求；共用流程、提交、文件編碼、程式風格、migration 不可修改、測試與誠實回報原則不再重複。
 
 ### 流程
 
-1. **一次只做一個 Step**。做完、測試通過、更新文件進度後 **commit**，才開始下一個 Step。**不要**一口氣做完整個階段再一次提交
-2. Commit 訊息格式：`Phase E<N>: <英文簡述>`，例如 `Phase E3: emit order created and shipped events`。訊息本文簡述重點，結尾加上專案要求的 `Co-Authored-By` 行（與歷史 commit 一致）。**不要**使用 `fix(events):` 這類 conventional commit 格式
-3. 每個 commit 只包含該步驟的檔案。**不要**順手修改無關的檔案（例如 `.vscode/launch.json` 是使用者本機的設定，永遠不要提交）
-4. 不 push、不開 PR、不改 `main`，這些由使用者決定
-5. 開始前先讀：[middleware-roadmap.md](middleware-roadmap.md)、[event-implementation-plan.md](event-implementation-plan.md)、[event-contracts.md](../../architecture/event-contracts.md)、[search-implementation-plan.md](search-implementation-plan.md) 的實作規範與 [phase-d-review.md](phase-d-review.md)（上一階段審查的教訓），以及 inventory-service 的 `OrderEventListener`、common 的 outbox／consumer 元件與測試風格
-6. 完成後在實作紀錄最後列出「**最不確定、希望審查者重點看的地方**」
+- 開始前先讀：[middleware-roadmap.md](middleware-roadmap.md)、[event-implementation-plan.md](event-implementation-plan.md)、[event-contracts.md](../../architecture/event-contracts.md)、[search-implementation-plan.md](search-implementation-plan.md) 的實作規範與 [階段 D 原始審查](search-implementation-record.md#review-d)（上一階段審查的教訓），以及 inventory-service 的 `OrderEventListener`、common 的 outbox／consumer 元件與測試風格
 
 ### 實作紀錄與文件
 
-- 本文件是**計畫**，不要在裡面記實作結果。結果寫在新檔 `docs/implementation-plans/middleware/notification-implementation-record.md`，格式比照 [search-implementation-record.md](search-implementation-record.md)：標頭（日期、分支、對應、狀態）→ 內容表 → 規則說明 → 驗證結果 → 遇到的問題 → 已知限制 → 最不確定的地方
-- **所有文件用繁體中文**（程式識別字、指令、設定鍵名除外）
-- 驗證結果要有**可重現的證據**：指令、時間、數字。寫「測試通過」要附指令與結果；沒有親自驗證的項目標「待驗證」，不要寫成已完成。部署驗收的證據放 `evidence/phase-e/`
-- **證據檔一律存成 UTF-8（無 BOM）**。Windows PowerShell 的 `>`、`Out-File` 預設會產生 UTF-16，請指定無 BOM 的 UTF-8
-- 文件互相引用的地方要同步：每個 Step 完成時更新本計畫的進度、`docs/README.md` 的索引（**一個檔案只列一次**）、roadmap 的狀態。不要留下過時的敘述
-- 新的安全限制記到 `docs/security/known-issues.md`（編號接續 SEC-14）
+- 實作結果見 [notification-implementation-record.md](notification-implementation-record.md)，部署證據放 `evidence/phase-e/`；安全事項沿用既有 SEC 編號，新增才接續編號。
 - **證據檔內不得出現真實或看起來真實的 Email、密碼**；用測試帳號（如 `*@example.com`），Mailpit 截取的內容要確認沒有敏感資料
 
 ### 程式風格（跟著現有程式，不要自創）
 
-- **註解用繁體中文，寫「為什麼」，不要翻譯程式碼在做什麼**。類別或方法上方用 `//` 說明設計決定與取捨，風格參考 `OutboxRelay`、`ProductServiceImpl`
-- **用 `import`，不要在程式裡寫 `java.util.Map.of(...)` 這種全名**；import 依專案現有順序整理，不要留下沒用到的 import
-- **沒有用到的參數與欄位要刪掉**，不要為了「以後可能用」保留
 - 套件與命名比照現有：`messaging/`（listener）、`service/` 與 `service/impl/`、`entities/`、`repository/`；設定用 `@ConfigurationProperties` 的 record，不要散落的 `@Value`
 - 共用元件放 `common`，但 **`common` 不能出現任何單一服務的業務名詞**（例如訂單、通知的模板名稱）；本階段原則上**不需要**修改 `common`，如果需要先走[計畫變更](#計畫變更紀錄)
 - 日誌用 `@Slf4j`，**不要記錄事件的完整 payload、Email、顧客名稱或信件內容**（`UserRegistered` 的 payload 含 Email，見 `event-contracts.md` 的警語）
@@ -336,22 +323,17 @@ inventory-service 同時消費 `order.events`：**必須在 order-service 開始
 ### 資料庫與 migration
 
 - **已經存在的 migration 檔案絕對不改**（Flyway checksum）。notification 是新服務，編號從 `V1`；其他服務本階段**原則上不需要**新 migration，若發現需要先走計畫變更
-- migration 中的 SQL 要能在 PostgreSQL 18 執行，並寫明用了哪些 18 才有的功能
 - 時間用 `TIMESTAMPTZ`，金額用 `NUMERIC(12,2)`，主鍵用 UUID（應用端產生 UUIDv7，比照現有服務）
 
 ### 測試
 
 - 見[測試規範](#測試規範)。另外：**不要用 `Thread.sleep` 等時間**，用輪詢加逾時，失敗時要能看出等的是什麼
-- 測試要能在「離線 Maven + 本機已有映像」的環境執行
 - 測試資料不要依賴執行順序；每個測試自己準備、自己清理（資料表、Kafka topic、Mailpit 的信箱）
 - 避免重蹈階段 D 的覆轍：不要寫「預期不穩定」的時間精度斷言；有時間比較時，測試端與被測端使用相同精度
 
 ### 誠實回報
 
-- 做不到或沒做的，寫進「已知限制」或「待驗證」，不要含糊帶過
-- 計畫有錯或不合理，**先停下來記錄再改**（見下節），不要悄悄偏離
-- 不要為了讓測試通過而放寬斷言、跳過測試或加 `@Disabled`；真的要這樣做，在實作紀錄寫明理由與後續
-- 無法自動化驗證的項目（例如需要瀏覽器），明確標示由誰、如何驗證，不要用「不驗收」帶過而讓階段無法結案
+依[共用規範](implementation-guidelines.md)執行。
 
 ---
 

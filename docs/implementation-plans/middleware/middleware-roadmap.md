@@ -3,7 +3,7 @@
 > 建立日期：2026-11-11
 > 分支：計畫在 `feature/middleware-roadmap`；每個階段實作時各自開分支（階段 C：`feature/event-driven-phase-c`）
 > 對應：[product-service-middleware-evaluation.md](../../design/product-service-middleware-evaluation.md)「建議導入順序」、[microservice-architecture.md](../../architecture/microservice-architecture.md)「之後：事件驅動」
-> 狀態：階段 A–D 完成；階段 E 的 E1–E6 完成，E7（真實信箱驗證）暫緩；階段 F 尚未開始。
+> 狀態：階段 A–D 完成；階段 E 的 E1–E6 完成，E7（真實信箱驗證）暫緩；階段 F 不實作。
 
 從雛型的「同步 REST + 排程補償」走向「事件驅動 + 可觀測 + 可水平擴充」。每個階段都要能在本機 compose 與 kind 上跑起來並驗證，做法和之前一樣：每一步附測試，測試通過後單獨 commit。
 
@@ -123,7 +123,7 @@
 | C6 | `product.events`、`user.events` 先開始發送（還沒有消費者），給 D、E 使用 | 事件出現在 topic 裡，格式符合規格 | 完成：契約整合測試與實際 topic 檢查 |
 | C7 | 可觀測：Outbox relay 與 listener 明確傳遞 W3C context，trace 跨過 Kafka 不斷；指標加 consumer lag、outbox 待發送數量、DLT 數量 | 一張訂單的 trace 包含非同步的部分；lag 有告警 | 完成：Tempo 看到跨 Kafka 的 trace；lag 與 DLT 告警實測 firing |
 
-驗收證據在 [evidence/phase-c/](evidence/phase-c/)。
+驗收證據在 [evidence/phase-c/](evidence/phase-c)。
 
 注意：
 
@@ -137,33 +137,16 @@
 
 目標：商店前台的關鍵字搜尋改用 Elasticsearch（中文斷詞、相關性排序）；ES 掛掉時退回 SQL。後台列表與沒有關鍵字的列表維持 SQL。
 
-| Step | 內容 | 驗收 |
-| ---- | ---- | ---- |
-| D1 | infra：單節點 Elasticsearch（自訂映像加 `analysis-smartcn`）、NetworkPolicy、Kibana 只在本機開發 profile；分詞實驗 | 沒有授權的 Pod 連不到 ES；中文斷詞結果合理 |
-| D2 | **完成**：ES Java client、`products-index.json`、索引／別名／`_meta` 管理、商品文件轉換與 `external_gte` 版本寫入 | Testcontainers 實測建立索引、別名與 metadata；舊版拒絕、同版重寫、新版取代；strict mapping 拒絕未知欄位 |
-| D3 | **完成**：product-service 消費 `product.events` 更新索引（商品 `version` 當 ES 外部版本）；ES 暫時故障無限重試、不進 DLT；事件包含 `brand`、`createdAt` | Kafka＋ES Testcontainers 驗證亂序事件保留最新版、未知事件進 DLT、ES 停機後恢復並寫入 |
-| D4 | **完成**：從 DB 以 keyset 分頁全量匯入新索引、補灌近期更新、標記 built 後原子切換 alias；PostgreSQL advisory lock 防止多副本重複重建；支援背景啟動檢查及內部重建 API | PostgreSQL＋ES Testcontainers 驗證 500 筆分頁、補灌、bulk 失敗保留舊 alias、互斥、啟動修復及 `deleteOld` |
-| D5 | **完成**：商店搜尋 API 有關鍵字時查 ES（相關性排序、分頁、回 DB 補資料）；ES 無法使用時退回原本 SQL 查詢 | 真實 ES＋PostgreSQL 整合驗證搜尋、分頁及退回路徑 |
-| D6 | **完成**：搜尋指標、Grafana 儀表板、退回 SQL 告警與架構／事件／安全文件同步 | 儀表板可查看引擎用量、退回原因、ES 平均延遲、索引事件、重建量與過期命中；consumer lag 與熔斷沿用共用告警 |
-| D7 | **完成**：kind NetworkPolicy、重建、ES 停機退回與恢復、更新事件追索、告警 firing、完整 Maven reactor、Tempo trace、Gateway 搜尋及使用者人工操作前後台；人工操作無截圖 | 見實作紀錄及 `evidence/phase-d/` |
+D1–D7 已完成。步驟與驗收要求見[搜尋計畫](search-implementation-plan.md#步驟)，實測結果與限制見[搜尋紀錄](search-implementation-record.md)，原始證據在 [phase-d](evidence/phase-d)。前端驗收為使用者人工操作，無截圖，並非自動化 E2E。
 
 ## 階段 E：通知（notification-service）
 
-| Step | 內容                                                                                                               | 驗收                            |
-| ---- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
-詳細計畫見 [notification-implementation-plan.md](notification-implementation-plan.md)（步驟 E1–E7，與下表的差異見其「已定的決定」）。
+E1–E6 已實作並驗收；E7 真實信箱驗證暫緩，需使用者配合，**不是結案條件**。步驟、事件訂閱與驗收要求見[通知計畫](notification-implementation-plan.md#步驟)，結果與限制見[通知紀錄](notification-implementation-record.md)，原始證據在 [phase-e](evidence/phase-e)。
 
-| Step | 內容 | 驗收 |
-| ---- | ---- | ---- |
-| E1 | 基礎設施與服務骨架：Mailpit（compose/kind）、notification-db、notification-service、NetworkPolicy、SEC-15 | **完成**：notification 2/2、Mailpit 1/1 Ready；Flyway V1/V2 通過；SMTP/Kafka/DB 可達，product-service 被策略阻擋 |
-| E2 | 收件人資料：消費 `UserRegistered`、去重並 upsert 本地收件人資料 | **完成**：Kafka/PostgreSQL 整合測試 3 項通過，重複事件不重寫，欄位錯誤進 DLT |
-| E3 | 訂單事件契約：`OrderCreated`/`OrderShipped` outbox、inventory 向後相容 | **完成**：訂單事件原子發送與庫存 consumer 相容；order/inventory 整合測試通過 |
-| E4   | 發件匣與寄信：消費 `order.events`（下單、付款成功、出貨、取消）與 `payment.events` 的 `PaymentFailed`（**不消費 `PaymentSucceeded`**，付款成功信由 `OrderPaid` 觸發）；以 `eventId` 去重，同一事件不會寄兩封 | **實作與驗收完成**：kind 與 Testcontainers network 內的 Mailpit 均實際收信；範本、收件人、去重、併發派送與 `Message-ID` 原始 header 斷言通過 |
-| E5 | Bounded retry after email failure; skip after missing-recipient attempts; metrics, dashboard, and alerts | **實作與驗收完成**：Mailpit 停機恢復後 PENDING 自動重試至 SENT；FAILED 與 backlog 告警各觸發並解除 |
-| E6   | kind 部署驗收與 E2E（部署順序：inventory → order → notification） | **完成**：kind ordered rollout 每階段前後 Alertmanager 均無 active DLT/dead-letter alert；customer 與 management Playwright E2E、SMTP/notification/order 停機恢復、NetworkPolicy 正反向探測、FAILED/backlog firing/resolved、Tempo trace 皆有證據；完整 10 模組 Maven reactor 13 分 34 秒全綠。詳見實作紀錄與 `evidence/phase-e/e6-kind-validation.txt` |
-| E7   | 真實信箱驗證（暫緩，需使用者配合；不是結案條件） | 使用者提供信箱後，五種信在真實郵件客戶端正常顯示 |
-
-**暫緩（先有雛型，之後要補，不是不做）**：註冊改成寄信確認（解決 SEC-04 的 Email 列舉）；補寄「通知上線前」已存在使用者與訂單的收件人資料；真實 SMTP 的認證與 TLS。
+- 部署順序：inventory → order → notification；每階段前後檢查 DLT／dead-letter 告警。這是時間點檢查，不代表持續監測。
+- 前端驗收採 Playwright 自動化，未另做人工點擊；SMTP 成功須由 Mailpit 實際收信確認。
+- 事件去重避免重複入列；SMTP 寄送與資料庫提交並非原子操作，仍是至少一次送達，相同 `Message-ID` 不代表 exactly-once。
+- 暫緩但後續要補：註冊確認信（SEC-04）、通知上線前的歷史收件人／訂單資料、真實 SMTP 認證與 TLS。
 
 ## 階段 F：真的金流（不實作）
 
@@ -189,9 +172,19 @@
 | Service mesh、mTLS                           | 服務之間的身分目前靠 NetworkPolicy；長期再評估（見 SEC-02）      |
 | Debezium（CDC）                              | Outbox 輪詢已足夠；事件量大或想讓應用程式不碰 Kafka 時再換       |
 
-## 待決事項（實作各階段前確認）
+## 原待決事項與決議
 
-- A：K8s 上的監控要自己放 `otel-lgtm`，還是用 Helm 的 kube-prometheus-stack（較貼近正式環境，但較重）
+- A：（已採用）本機與 K8s 使用同一個 `otel-lgtm` 映像，見[可觀測性紀錄](observability-implementation-plan.md)；原候選 kube-prometheus-stack 較貼近正式環境但較重，未採用。
 - C：（已決定）事件格式用 JSON 加文件規格；Schema Registry（Avro／Protobuf）有需要再評估
 - D：（已決定）Elasticsearch + 官方 analysis-smartcn；實驗與版本見搜尋實作紀錄
 - F：（已決定不實作）原本待選的金流商不再需要選擇
+
+## 審查追蹤
+
+原始審查保留當時的問題與判斷，後續修正及驗證見各階段實作紀錄；不以刪除審查項目代表結案。
+
+| 階段 | 審查 | 後續紀錄 |
+|---|---|---|
+| C | [階段 C 審查](event-implementation-plan.md#review-c) | [事件紀錄](event-implementation-plan.md) |
+| D | [階段 D 審查](search-implementation-record.md#review-d) | [搜尋紀錄](search-implementation-record.md) |
+| E | [階段 E 審查](notification-implementation-record.md#review-e) | [通知紀錄](notification-implementation-record.md) |
