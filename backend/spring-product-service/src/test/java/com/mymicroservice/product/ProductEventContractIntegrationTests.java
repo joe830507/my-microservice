@@ -3,6 +3,8 @@ package com.mymicroservice.product;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -45,7 +47,10 @@ class ProductEventContractIntegrationTests {
         assertThat(payload.has("categoryId")).isTrue();
         assertThat(payload.has("version")).isTrue();
         assertThat(payload.get("brand").asText()).isEmpty();
+        Instant eventCreatedAt = Instant.parse(payload.get("createdAt").asText());
         assertThat(payload.get("createdAt").asText()).endsWith("Z");
+        assertThat(eventCreatedAt.truncatedTo(ChronoUnit.MICROS))
+                .isEqualTo(created.createdAt().truncatedTo(ChronoUnit.MICROS));
         assertThat(payload.get("version").asLong()).isEqualTo(created.version());
         assertThat(payload.get("createdAt").asText()).isNotBlank();
         var updated = products.updateOneProduct(created.id(), new UpdateOneProductReq(sku, "Updated Product",
@@ -57,7 +62,9 @@ class ProductEventContractIntegrationTests {
         assertThat(update.get("type").asText()).isEqualTo("ProductUpdated");
         assertThat(update.get("payload").get("name").asText()).isEqualTo("Updated Product");
         assertThat(update.get("payload").get("version").asLong()).isEqualTo(updated.version());
-        assertThat(update.get("payload").get("createdAt").asText()).isEqualTo(payload.get("createdAt").asText());
+        Instant updateCreatedAt = Instant.parse(update.get("payload").get("createdAt").asText());
+        assertThat(updateCreatedAt.truncatedTo(ChronoUnit.MICROS))
+                .isEqualTo(eventCreatedAt.truncatedTo(ChronoUnit.MICROS));
         var archived = mapper.readTree(events.get(2));
         assertThat(archived.get("type").asText()).isEqualTo("ProductStatusChanged");
         assertThat(archived.get("payload").get("status").asText()).isEqualTo("ARCHIVED");

@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import jakarta.persistence.EntityManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -53,6 +54,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional
 public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
+    private final EntityManager entityManager;
     private final CategoryRepository categoryRepository;
     private final ProductImageRepository productImageRepository;
     private final ProductDetailCache productDetailCache;
@@ -62,8 +64,10 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public AddOneNewProductRes addOneNewProduct(AddOneNewProductReq addOneNewProductReq) {
-        // 先 flush 取得資料庫精度一致的 createdAt 與 version，再把同一份快照寫入 outbox。
+        // 先 flush 並 refresh，取回 PostgreSQL 對 TIMESTAMPTZ 奈秒值四捨五入後的微秒時間，
+        // 再把與資料庫一致的快照寫入 outbox。
         Product savedProduct = productRepository.saveAndFlush(addOneNewProductReq.toEntity());
+        entityManager.refresh(savedProduct);
         publishProductEvent(savedProduct, "ProductCreated");
 
         // 建立前可能有人查過這個 sku，查不到的結果會被短暫快取
