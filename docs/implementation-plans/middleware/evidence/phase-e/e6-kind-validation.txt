@@ -1,34 +1,50 @@
-E6 kind validation
-Date: 2026-11-12
+# E6 kind 驗收證據
+日期：2026-11-12
 
-Deployment
-- Built and loaded current inventory, order, payment, and notification images into kind. Rolled out inventory -> order -> notification; each deployment reached 2/2 Ready. Refreshed order/payment schemas migrated (V8/V6); notification migrations validated.
-- The running user-service image was stale and had not published registration events. Rebuilt and restarted it; new UserRegistered events populated notification contact data. No credential values were recorded.
+## 部署
 
-Customer and management E2E
-- Customer purchase flow: `npm run test:e2e -- --project=chromium e2e/purchase-flow.spec.ts` passed 1/1 (browse, cart, registration, checkout, payment success, shipment).
-- Notification event flow: `notification-events.spec.ts` passed 1/1 and exercised payment failure and cancellation.
-- Management shipment UI: `notification-order-shipment.spec.ts` passed 1/1; the manager used the UI ship action and the order reached SHIPPED.
-- The customer purchase produced `order-created`, `order-paid`, and `order-shipped`; all corresponding notification rows reached SENT and appeared in Mailpit. The payment-failure and cancellation rows also reached SENT. Mailpit was restarted during recovery checks, so its in-memory message history is not a cumulative audit count.
+- 建置並載入 inventory、order、payment、notification 映像至 kind，依 inventory → order → notification 部署；四個服務皆達 2/2 Ready。order/payment 套用 schema V8/V6；notification migration 全數驗證。
+- 發現 kind 的 user-service 映像過舊，沒有送出新註冊事件。重建並重新 rollout 後，新 `UserRegistered` 事件已建立 notification contact。未記錄任何憑證值。
+- 審查修正後重新建置 `my-microservice/notification-service:0.1.0` 並載入 kind；依序重新 rollout inventory、order、notification，notification 新副本均 Ready 且無重啟。
+- 在重新部署前及每個 rollout 完成後查詢 Grafana Alertmanager；各檢查點均沒有 active `dlt`／`dead-letter` 告警。這記錄的是部署各階段前後的 Alertmanager 狀態。
 
-Recovery checks
-- Mailpit SMTP scaled to zero: three new notification rows remained PENDING during the outage. After Mailpit returned, all three became SENT; no duplicate delivery was observed for these rows.
-- notification-service scaled to zero during a purchase: Kafka order.events accumulated. After scaling notification-service back to two replicas, consumer lag returned to zero and the three queued email rows became SENT; Mailpit count increased by three.
-- order-service scaled to zero and restored; a subsequent purchase/notification flow passed.
+## Customer 與 management E2E
 
-NetworkPolicy
-- A diagnostic pod labeled as notification-service connected to mailpit:1025 and notification-db:5432.
-- An untrusted diagnostic pod was blocked from both mailpit:1025 and notification-db:5432.
-- Temporary diagnostic pods were removed after the probes.
+- Customer 購物流程：`npm run test:e2e -- --project=chromium e2e/purchase-flow.spec.ts`，1/1 通過（瀏覽、購物車、註冊、結帳、付款成功、出貨）。
+- 通知事件流程：`notification-events.spec.ts`，1/1 通過，涵蓋付款失敗與取消。
+- Management 出貨 UI：`notification-order-shipment.spec.ts`，1/1 通過；由管理端 UI 執行出貨並確認訂單為 SHIPPED。
+- 前端以 Playwright 自動化驗收；未另做人工操作確認。
+- 購物流程建立 `order-created`、`order-paid`、`order-shipped` 並寄入 Mailpit；付款失敗與取消通知也寄達，對應 `email_message` 為 SENT。Mailpit 中資料會隨容器重啟清除，故不將跨測試的總封數當成累計稽核數。
 
-Alert checks
-- Applied current generated observability configuration to my-microservice. Grafana loaded 12 rules, including `mm-notification-failed` and `mm-notification-backlog`.
-- Controlled synthetic FAILED and stale PENDING rows made each notification alert fire once. Removing the synthetic rows resolved both alerts. Synthetic rows and their test-only contacts/references were deleted afterward.
+## SMTP 整合測試與 Windows Docker Desktop 解法
 
-Tracing
-- Tempo search returned notification-service `notification.email.send` / dispatch spans. A single trace showing the complete outbox -> Kafka -> notification consumer path was not conclusively identified; this remains pending.
+- 原本 Testcontainers 將 SMTP 暴露到 host mapped port；Windows Docker Desktop 上 TCP 可連，但 SMTP server-first greeting 無回應，因此兩個真實 SMTP 測試失敗。
+- 依使用者選定方案，Mailpit SMTP 僅在 Testcontainers network 內以 `mailpit:1025` 提供；Testcontainers 以同 network 啟動從目前原始碼建置的 notification-service runner，使用相同 PostgreSQL 測試資料庫。Host 僅透過 mapped HTTP port 8025 查 Mailpit API。被測派送仍由正式 `EmailDispatcher`／`JavaMailSender` 透過 SMTP 完成，沒有 mock 或放寬斷言。
+- 整個 `NotificationEmailIntegrationTests` 類別通過：事件消費、六封唯一佇列、五種範本、收件人與內文、重複事件去重、併發 dispatcher `SKIP LOCKED`、暫時性 SMTP 失敗及缺少收件人的 SKIPPED 路徑均保留並驗證。
+- Mailpit API 詳細內容與原始 headers 確認每封信的 `Message-ID` 為 `<{email_message.id}@my-microservice.local>`；確認 Bcc 收件人欄位為空。另加範本注入斷言：名稱含 `{{amount}}` 時保留原字串，不被金額替換；`{{name}}` 改為最後替換。
 
-Automated tests and limitation
-- `mvn -o clean test` ran the 10-module reactor for about 12 minutes and failed two `NotificationEmailIntegrationTests` SMTP cases. The Testcontainers Mailpit mapped port accepted TCP, but the server-first SMTP greeting timed out in the Windows Docker Desktop test JVM. The failure persists when using IPv4; kind SMTP delivery works. Do not report the full reactor as passing.
-- Separately, `mvn -o -pl spring-api-gateway -am test` passed; api-gateway reported 111 tests.
-- No recipient address, password, customer name, message body, or secret value is recorded here.
+## 故障恢復
+
+- Mailpit SMTP 縮至 0：三筆新通知維持 PENDING；恢復後均成為 SENT，逐筆核對只有一封。
+- notification-service 縮至 0：`order.events` 累積；恢復至兩副本後 consumer lag 歸零，三封積壓郵件各寄出一次。
+- order-service 停機並恢復；後續購物與通知流程成功。
+
+## NetworkPolicy
+
+- 標記為 notification-service 的診斷 pod 可連 `mailpit:1025` 與 `notification-db:5432`。
+- 未授權診斷 pod 連不到 Mailpit SMTP 與 notification-db。測試後刪除診斷 pod。
+
+## 告警與 trace
+
+- 套用目前產生的 observability 設定；Grafana 載入 12 條規則，包含 `mm-notification-failed`、`mm-notification-backlog`。
+- 受控合成 FAILED 與老化 PENDING row 使兩條通知告警各 firing 一次；移除合成 row 後兩者 resolved。測試資料與相關 contact/reference 已刪除。
+- Tempo 同 trace `4f07e937dd6143327b6e36949257cce8` 覆蓋 gateway → order-service 出貨 → outbox → Kafka → inventory／notification 消費；細節見 `e6-tempo-trace.txt`。排程寄信 span 是獨立 trace。
+
+## 完整 Maven reactor
+
+- 指令：`mvnw.cmd -o clean test`（在 `backend/` 執行）。
+- 結果：BUILD SUCCESS，10/10 模組通過，0 failures、0 errors、0 skipped，總耗時 13 分 34 秒（2026-11-12）。
+- 模組耗時：product-service 6 分 57 秒、user-service 1 分 08 秒、inventory-service 37.168 秒、order-service 53.376 秒、payment-service 32.724 秒、notification-service 2 分 13 秒、api-gateway 45.381 秒；common 與 observability 亦成功。
+- api-gateway 本次 111 個測試通過。之前獨立執行 `mvn -o -pl spring-api-gateway -am test` 也曾 BUILD SUCCESS。
+
+未記錄收件人位址以外的真實個資、密碼、客戶姓名、信件本文或 Secret 值；測試信箱皆使用保留網域 `example.com`。

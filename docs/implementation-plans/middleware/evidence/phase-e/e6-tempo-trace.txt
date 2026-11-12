@@ -1,0 +1,14 @@
+# E6 補充證據：跨服務 trace（審查者以 CLI 取得，2026-11-12）
+來源：Grafana 匿名唯讀 -> Tempo search/trace API；查詢 notification-service 消費 order.events 的 span。
+
+trace 4f07e937dd6143327b6e36949257cce8（後台出貨 -> outbox -> Kafka -> inventory 與 notification 消費）
++0.0ms    api-gateway        http post
++4.8ms    order-service      http post /api/v1/orders/{id}/ship   27.8ms
++126.3ms  order-service      outbox publish                        7.2ms
++134.1ms  inventory-service  order.events process                  5.6ms
++134.2ms  notification-service order.events process               8.3ms
+(inventory 與 notification 各有兩個 process span，對應兩個副本或重複的觀測；不影響結論)
+
+說明：同一個 traceId 貫穿 gateway -> order-service -> outbox -> Kafka -> inventory／notification，
+滿足計畫 E6「下單／出貨 -> outbox -> Kafka -> notification 消費」的 trace 驗收。
+寄信本身（notification.email.send）在派送器的獨立 trace（task 型 root），不與上述 trace 相連；這是排程派送的特性。

@@ -180,10 +180,10 @@ public class EmailDispatcher {
         String name = sanitizeName(message.displayName());
         String reason = "timeout".equals(message.reason()) ? "逾時未付款" : "已取消";
         String body = loadTemplate(message.template())
-                .replace("{{name}}", name)
                 .replace("{{orderId}}", String.valueOf(message.orderId()))
                 .replace("{{amount}}", message.totalAmount().toPlainString())
-                .replace("{{reason}}", reason);
+                .replace("{{reason}}", reason)
+                .replace("{{name}}", name);
 
         MimeMessage mail = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(mail, false, StandardCharsets.UTF_8.name());

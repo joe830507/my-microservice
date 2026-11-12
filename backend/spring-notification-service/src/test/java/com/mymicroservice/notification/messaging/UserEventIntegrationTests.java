@@ -37,7 +37,6 @@ import tools.jackson.databind.ObjectMapper;
 @Testcontainers
 @SpringBootTest(properties = {
         "spring.kafka.listener.auto-startup=false",
-        "spring.kafka.consumer.auto-offset-reset=earliest",
         "app.events.outbox-poll-interval=3600000"
 })
 @Import(TestcontainersConfiguration.class)

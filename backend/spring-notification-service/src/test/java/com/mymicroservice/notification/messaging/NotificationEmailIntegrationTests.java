@@ -6,12 +6,12 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.BooleanSupplier;
@@ -19,6 +19,8 @@ import java.util.function.BooleanSupplier;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,16 +30,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
-import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.beans.factory.ObjectProvider;
 import io.micrometer.core.instrument.MeterRegistry;
 import com.mymicroservice.notification.mail.EmailDispatcher;
-import com.mymicroservice.notification.mail.EmailMetrics;
-import com.mymicroservice.notification.config.NotificationProperties;
-import io.opentelemetry.api.OpenTelemetry;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Network;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.KafkaContainer;
@@ -45,6 +43,7 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.BindMode;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -52,9 +51,8 @@ import tools.jackson.databind.ObjectMapper;
 @Testcontainers
 @SpringBootTest(properties = {
         "spring.kafka.listener.auto-startup=false",
-        "spring.kafka.consumer.auto-offset-reset=earliest",
         "app.events.outbox-poll-interval=3600000",
-        "notification.dispatch.interval=100ms"
+        "notification.dispatch.interval=3600000"
 })
 @Import(TestcontainersConfiguration.class)
 class NotificationEmailIntegrationTests {
@@ -62,10 +60,15 @@ class NotificationEmailIntegrationTests {
     private static final String PAYMENT_TOPIC = "payment.events";
     private static final String USER_TOPIC = "user.events";
     private static final org.slf4j.Logger MAILPIT_LOG = org.slf4j.LoggerFactory.getLogger("test.mailpit");
+    private static boolean dispatcherJarReady;
+    private final List<GenericContainer<?>> dispatcherContainers = new java.util.concurrent.CopyOnWriteArrayList<>();
+    static final Network NETWORK = Network.newNetwork();
     @Container static final KafkaContainer KAFKA = new KafkaContainer("apache/kafka:4.1.0");
     @Container static final GenericContainer<?> MAILPIT = new GenericContainer<>(DockerImageName.parse("axllent/mailpit:v1.33.1"))
             .withEnv("MP_SMTP_BIND_ADDR", "0.0.0.0:1025")
-            .withExposedPorts(1025, 8025)
+            .withNetwork(NETWORK)
+            .withNetworkAliases("mailpit")
+            .withExposedPorts(8025)
             .withLogConsumer(new Slf4jLogConsumer(MAILPIT_LOG))
             .waitingFor(new WaitAllStrategy()
                     .withStrategy(Wait.forHttp("/api/v1/info").forPort(8025).forStatusCode(200))
@@ -74,13 +77,8 @@ class NotificationEmailIntegrationTests {
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry properties) {
         properties.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
-        properties.add("spring.mail.host", NotificationEmailIntegrationTests::smtpHost);
-        properties.add("spring.mail.port", () -> MAILPIT.getMappedPort(1025));
-    }
-
-    private static String smtpHost() {
-        String host = MAILPIT.getHost();
-        return "localhost".equalsIgnoreCase(host) ? "127.0.0.1" : host;
+        properties.add("spring.mail.host", () -> "127.0.0.1");
+        properties.add("spring.mail.port", () -> 1);
     }
 
     @Autowired JdbcTemplate jdbc;
@@ -90,10 +88,6 @@ class NotificationEmailIntegrationTests {
     @Autowired JavaMailSenderImpl mailSender;
     @Autowired EmailDispatcher dispatcher;
     @Autowired MeterRegistry meters;
-    @Autowired TransactionTemplate transactions;
-    @Autowired NotificationProperties notificationProperties;
-    @Autowired EmailMetrics emailMetrics;
-    @Autowired ObjectProvider<OpenTelemetry> telemetry;
     private final HttpClient http = HttpClient.newHttpClient();
 
     @BeforeAll
@@ -108,20 +102,24 @@ class NotificationEmailIntegrationTests {
         }
     }
 
+    @AfterAll
+    static void closeNetwork() {
+        NETWORK.close();
+    }
+
     @BeforeEach
     void clear() throws Exception {
         jdbc.execute("TRUNCATE notification_service.processed_event, notification_service.user_contact, "
                 + "notification_service.order_ref, notification_service.email_message");
         request("DELETE", "/api/v1/messages");
-        mailSender.setHost(smtpHost());
-        mailSender.setPort(MAILPIT.getMappedPort(1025));
+        mailSender.setHost("127.0.0.1");
+        mailSender.setPort(1);
         listeners.start();
     }
 
     @Test
     void eventsQueueDeduplicatedMessagesAndDeliverAllTemplatesThroughMailpit() throws Exception {
-        assertThat(mailSender.getHost()).isEqualTo(smtpHost());
-        assertThat(mailSender.getPort()).isEqualTo(MAILPIT.getMappedPort(1025));
+        GenericContainer<?> dispatcher = startDispatcher();
 
         UUID userId = UUID.randomUUID();
         UUID orderId = UUID.randomUUID();
@@ -135,7 +133,7 @@ class NotificationEmailIntegrationTests {
                         "status", "SUCCEEDED", "amount", 42.50)));
         publish(USER_TOPIC, userId, event(UUID.randomUUID(), "UserRegistered", userId,
                 Map.of("userId", userId.toString(), "email", "buyer@example.com",
-                        "displayName", "Alice\r\nBcc: attacker@example.com")));
+                        "displayName", "Alice\r\nBcc: attacker@example.com {{amount}}")));
         publish(ORDER_TOPIC, orderId, event(UUID.randomUUID(), "OrderCreated", orderId,
                 Map.of("userId", userId.toString(), "totalAmount", 42.50)));
         String paid = event(paidEventId, "OrderPaid", orderId, Map.of("orderId", orderId.toString()));
@@ -166,15 +164,27 @@ class NotificationEmailIntegrationTests {
         JsonNode mails = mailMessages().path("messages");
         assertThat(mails).hasSize(6);
         java.util.Set<String> subjects = new java.util.HashSet<>();
+        java.util.Set<String> messageIds = new java.util.HashSet<>();
+        for (Map<String, Object> row : jdbc.queryForList("SELECT id FROM notification_service.email_message WHERE status='SENT'")) {
+            messageIds.add("<" + row.get("id") + "@my-microservice.local>");
+        }
         for (JsonNode mailSummary : mails) {
             JsonNode mail = request("GET", "/api/v1/message/" + mailSummary.path("ID").asText());
             assertThat(mail.path("To").toString()).contains("buyer@example.com");
             subjects.add(mail.path("Subject").asText());
-            assertThat(mail.path("Text").asText()).contains(orderId.toString());
-            assertThat(mail.path("Text").asText()).doesNotContain("Bcc:", "attacker@example.com");
+            String body = mail.path("Text").asText();
+            assertThat(body).contains(orderId.toString());
+            assertThat(body).contains("Alice Bcc: attacker@example.com {{amount}} 您好：");
+            assertThat(mail.path("Bcc").isMissingNode() || mail.path("Bcc").isEmpty()).isTrue();
+            String messageId = mail.path("MessageID").asText();
+            assertThat(messageIds).contains("<" + messageId + ">");
+            assertThat(messageIds.remove("<" + messageId + ">")).isTrue();
+            JsonNode headers = request("GET", "/api/v1/message/" + mailSummary.path("ID").asText() + "/headers");
+            assertThat(headers.toString().toLowerCase(java.util.Locale.ROOT)).contains("message-id");
+            assertThat(headers.toString()).contains("<" + messageId + ">");
         }
+        assertThat(messageIds).isEmpty();
         assertThat(subjects).containsExactlyInAnyOrder("訂單已成立", "付款成功", "訂單已出貨", "訂單已取消", "付款失敗");
-        assertThat(mails.toString()).doesNotContain("attacker@example.com");
     }
 
     @Test
@@ -189,18 +199,30 @@ class NotificationEmailIntegrationTests {
         jdbc.update("INSERT INTO notification_service.email_message(id,event_id,template,order_id) VALUES (?,?,?,?)",
                 UUID.randomUUID(), eventId, "order-paid", orderId);
 
-        EmailDispatcher first = new EmailDispatcher(jdbc, transactions, mailSender,
-                notificationProperties, emailMetrics, telemetry);
-        EmailDispatcher second = new EmailDispatcher(jdbc, transactions, mailSender,
-                notificationProperties, emailMetrics, telemetry);
-        CompletableFuture.allOf(
-                CompletableFuture.runAsync(first::dispatchDueEmails),
-                CompletableFuture.runAsync(second::dispatchDueEmails)).join();
+        jdbc.update("UPDATE notification_service.email_message SET next_attempt_at=now() + interval '10 seconds' WHERE event_id=?", eventId);
+        startDispatcher();
+        startDispatcher();
+        jdbc.update("UPDATE notification_service.email_message SET next_attempt_at=now() WHERE event_id=?", eventId);
 
         await(() -> mailMessages().path("messages").size() == 1, Duration.ofSeconds(10),
                 () -> "Mailpit response=" + mailMessages());
         assertThat(jdbc.queryForObject("SELECT status FROM notification_service.email_message WHERE event_id=?",
                 String.class, eventId)).isEqualTo("SENT");
+        String expectedMessageId = "<" + jdbc.queryForObject(
+                "SELECT id FROM notification_service.email_message WHERE event_id=?", UUID.class, eventId)
+                + "@my-microservice.local>";
+        JsonNode mail = request("GET", "/api/v1/message/" + mailMessages().path("messages").get(0).path("ID").asText());
+        assertThat(mail.path("MessageID").asText()).isEqualTo(expectedMessageId.substring(1, expectedMessageId.length() - 1));
+        JsonNode headers = request("GET", "/api/v1/message/" + mailMessages().path("messages").get(0).path("ID").asText()
+                + "/headers");
+        assertThat(headers.toString().toLowerCase(java.util.Locale.ROOT)).contains("message-id");
+        assertThat(headers.toString()).contains(expectedMessageId);
+    }
+
+    @AfterEach
+    void stopDispatchers() {
+        dispatcherContainers.forEach(GenericContainer::stop);
+        dispatcherContainers.clear();
     }
 
     @Test
@@ -293,6 +315,108 @@ class NotificationEmailIntegrationTests {
     private JsonNode mailMessages() {
         try { return request("GET", "/api/v1/messages"); }
         catch (Exception failure) { throw new IllegalStateException(failure); }
+    }
+
+    private GenericContainer<?> startDispatcher() {
+        ensureDispatcherJar();
+        String backend = Path.of(System.getProperty("user.dir")).getParent().toAbsolutePath().toString();
+        String kafka = KAFKA.getBootstrapServers().replace("localhost", "host.docker.internal")
+                .replace("127.0.0.1", "host.docker.internal");
+        String command = "exec java -jar /workspace/spring-notification-service/target/notification-service-0.0.1-SNAPSHOT.jar"
+                + " --spring.datasource.url=jdbc:postgresql://notification-db:5432/test"
+                + " --spring.datasource.username=" + TestcontainersConfiguration.POSTGRES.getUsername()
+                + " --spring.datasource.password=" + TestcontainersConfiguration.POSTGRES.getPassword()
+                + " --spring.mail.host=mailpit --spring.mail.port=1025"
+                + " --spring.kafka.bootstrap-servers=" + kafka
+                + " --spring.kafka.listener.auto-startup=false --spring.kafka.admin.auto-create=false"
+                + " --app.events.outbox-poll-interval=3600000 --notification.dispatch.interval=100ms";
+        GenericContainer<?> container = new GenericContainer<>(DockerImageName.parse("maven:3.9-eclipse-temurin-21"))
+                .withNetwork(NETWORK)
+                .withFileSystemBind(backend, "/workspace", BindMode.READ_WRITE)
+                .withCommand("sh", "-c", command)
+                .withStartupTimeout(Duration.ofMinutes(2))
+                .waitingFor(org.testcontainers.containers.wait.strategy.Wait.forLogMessage(".*Started NotificationServiceApplication.*\\n", 1)
+                        .withStartupTimeout(Duration.ofMinutes(2)))
+                .withLogConsumer(new Slf4jLogConsumer(org.slf4j.LoggerFactory.getLogger("test.notification-dispatcher")));
+        container.start();
+        dispatcherContainers.add(container);
+        return container;
+    }
+
+    private synchronized void ensureDispatcherJar() {
+        if (dispatcherJarReady) return;
+        String backend = Path.of(System.getProperty("user.dir")).getParent().toAbsolutePath().toString();
+        Path jar = Path.of(backend, "spring-notification-service", "target", "notification-service-0.0.1-SNAPSHOT.jar");
+        Path marker = jar.resolveSibling("notification-dispatcher-build.sha256");
+        String fingerprint = dispatcherSourceFingerprint(Path.of(backend));
+        if (java.nio.file.Files.isRegularFile(jar)) {
+            try {
+                if (java.nio.file.Files.isRegularFile(marker)
+                        && java.nio.file.Files.readString(marker).equals(fingerprint)) {
+                    dispatcherJarReady = true;
+                    return;
+                }
+            } catch (java.io.IOException failure) {
+                throw new IllegalStateException("Could not inspect the notification build marker", failure);
+            }
+        }
+        String mavenRepo = Path.of(System.getProperty("user.home"), ".m2", "repository").toAbsolutePath().toString();
+        Path mavenDistribution = findMavenDistribution();
+        GenericContainer<?> builder = new GenericContainer<>(DockerImageName.parse("maven:3.9-eclipse-temurin-21"))
+                .withFileSystemBind(backend, "/workspace", BindMode.READ_WRITE)
+                .withFileSystemBind(mavenRepo, "/root/.m2/repository", BindMode.READ_WRITE)
+                .withFileSystemBind(mavenDistribution.toString(), "/opt/maven", BindMode.READ_ONLY)
+                .withCommand("sh", "-c", "sh /opt/maven/bin/mvn -o -f /workspace/pom.xml -pl spring-notification-service -am -DskipTests package"
+                        + " && echo NOTIFICATION_PACKAGE_COMPLETE && tail -f /dev/null")
+                .withStartupTimeout(Duration.ofMinutes(10))
+                .waitingFor(org.testcontainers.containers.wait.strategy.Wait.forLogMessage(".*NOTIFICATION_PACKAGE_COMPLETE.*\\n", 1)
+                        .withStartupTimeout(Duration.ofMinutes(10)))
+                .withLogConsumer(new Slf4jLogConsumer(org.slf4j.LoggerFactory.getLogger("test.notification-package")));
+        builder.start();
+        builder.stop();
+        try { java.nio.file.Files.writeString(marker, fingerprint); }
+        catch (java.io.IOException failure) { throw new IllegalStateException("Could not write notification build marker", failure); }
+        dispatcherJarReady = true;
+    }
+
+    private static String dispatcherSourceFingerprint(Path backend) {
+        try {
+            var digest = java.security.MessageDigest.getInstance("SHA-256");
+            List<Path> roots = List.of(
+                    backend.resolve("pom.xml"),
+                    backend.resolve("common/pom.xml"), backend.resolve("common/src/main"),
+                    backend.resolve("observability/pom.xml"), backend.resolve("observability/src/main"),
+                    backend.resolve("spring-notification-service/pom.xml"),
+                    backend.resolve("spring-notification-service/src/main"));
+            List<Path> files = new java.util.ArrayList<>();
+            for (Path root : roots) {
+                if (java.nio.file.Files.isDirectory(root)) {
+                    try (var paths = java.nio.file.Files.walk(root)) {
+                        paths.filter(java.nio.file.Files::isRegularFile).forEach(files::add);
+                    }
+                } else if (java.nio.file.Files.isRegularFile(root)) files.add(root);
+            }
+            files.sort(Path::compareTo);
+            for (Path file : files) {
+                digest.update(backend.relativize(file).toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                digest.update(java.nio.file.Files.readAllBytes(file));
+            }
+            return java.util.HexFormat.of().formatHex(digest.digest());
+        } catch (java.security.NoSuchAlgorithmException | java.io.IOException failure) {
+            throw new IllegalStateException("Could not fingerprint notification sources", failure);
+        }
+    }
+
+    private static Path findMavenDistribution() {
+        Path distributions = Path.of(System.getProperty("user.home"), ".m2", "wrapper", "dists", "apache-maven-3.10.0");
+        try (var candidates = java.nio.file.Files.list(distributions)) {
+            return candidates.filter(java.nio.file.Files::isDirectory)
+                    .filter(path -> java.nio.file.Files.isRegularFile(path.resolve("bin/mvn")))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("Maven 3.10.0 distribution is not cached"));
+        } catch (java.io.IOException failure) {
+            throw new IllegalStateException("Could not locate cached Maven distribution", failure);
+        }
     }
 
     private JsonNode request(String method, String path) throws Exception {

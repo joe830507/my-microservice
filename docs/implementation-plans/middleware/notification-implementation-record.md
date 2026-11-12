@@ -1,7 +1,7 @@
 # Notification 實作紀錄
 
 > 更新日期：2026-11-12
-> Status: E1-E3 complete; E4/E5 implemented and SMTP delivery verified in kind; E6 acceptance mostly complete with Maven/Testcontainers SMTP greeting and cross-service Tempo trace evidence still pending; E7 not started.
+> 狀態：E1–E6 完成；E7（真實信箱驗證）暫緩。完整 Maven reactor 與 kind 驗收證據見本紀錄及 `evidence/phase-e/`。
 > 計畫：[notification-implementation-plan.md](notification-implementation-plan.md)
 
 ## E1：基礎設施與服務骨架
@@ -80,7 +80,7 @@ Mailpit 在 `readOnlyRootFilesystem` 下需要可寫暫存目錄，kind manifest
 一開始為 `shipOrder` 加上交易後，測試發現條件式 bulk update 後仍讀到舊的 JPA managed entity。將 `markShippedIfPaid` 設為 flush 後清除 persistence context，使回讀使用資料庫新狀態，並保證並發出貨只產生單筆事件。
 
 
-## E4: Outbox and email delivery
+## E4：發件匣與郵件派送
 
 ### Implementation
 
@@ -91,15 +91,14 @@ Mailpit 在 `readOnlyRootFilesystem` 下需要可寫暫存目錄，kind manifest
 
 ### Validation
 
-- Offline Maven compile of notification-service and dependencies: BUILD SUCCESS.
-- Kafka/PostgreSQL/Mailpit Testcontainers integration test was added. It confirmed event processing and six unique queued emails, including a duplicate `OrderPaid` eventId producing one row; `PaymentSucceeded` was not recorded.
-- SMTP delivery is verified in the kind cluster: customer purchase and payment failure/cancellation flows delivered messages to Mailpit and their database rows reached `SENT`. The separate Testcontainers SMTP test remains blocked on this Windows Docker Desktop host because the mapped SMTP port accepts TCP but the test JVM times out before the server greeting.
-- Test inputs use reserved `example.com` addresses. This record contains no recipient address, customer name, or message content.
+- notification-service 與相依模組離線 Maven 編譯成功。
+- Kafka/PostgreSQL/Mailpit 整合測試驗證事件處理及六筆唯一郵件；重複的 `OrderPaid` eventId 只建立一筆，`PaymentSucceeded` 不會建立郵件。
+- Mailpit 實收測試在 Testcontainers network 內啟動目前原始碼建置的通知服務 runner，SMTP 走 `mailpit:1025`，HTTP API 由 host 查詢。所有範本、收件人、內文、去重、併發派送及 `Message-ID` 原始 header 斷言通過。kind 中 customer 下單、付款失敗與取消通知也已實收，資料列為 `SENT`。
+- 測試位址使用保留網域 `example.com`；本紀錄不保存客戶姓名或信件內容。
 
 ### Follow-up and limitations
 
-- Resolve local Testcontainers SMTP reachability and rerun delivery assertions for all templates; add a concurrent two-dispatcher `SKIP LOCKED` test.
-- SMTP retry backoff, maximum attempts, missing-recipient transition to SKIPPED, metrics, and alerts are E5. SMTP and database commits are not atomic; a process failure after SMTP accepts a message and before the SENT update can cause a retry. Stable `Message-ID` helps identify duplicates.
+- E4 的 SMTP 可達性與雙 dispatcher `SKIP LOCKED` 併發測試已通過。SMTP 與資料庫提交不是原子操作：SMTP 接受郵件後、資料列標記 SENT 前若程序當機，仍可能重試；固定 `Message-ID` 可辨識此類重複。
 
 
 ## E5: Failure handling and observability
@@ -114,22 +113,24 @@ Mailpit 在 `readOnlyRootFilesystem` 下需要可寫暫存目錄，kind manifest
 ### Validation
 
 - Added integration coverage for missing order, missing contact, retry progression, and terminal failure. Test outcomes are recorded in `evidence/phase-e/e5-notification-resilience.txt`.
-- SMTP success is verified in kind, including Mailpit outage/recovery. Local Testcontainers SMTP integration remains blocked by the mapped-port greeting timeout described under E4.
+- SMTP 寄送、Mailpit 停機恢復、FAILED 與 backlog 告警觸發／解除已驗證；告警查詢已聚合 replica 指標，避免重複告警。
 - Dashboard generator compiles and regenerates the dashboard and alert rules.
 
 
-## E6: kind deployment and end-to-end validation
+## E6：kind 部署與端到端驗收
 
 ### Implementation and deployment
 
-- Built and deployed the current inventory, order, payment, and notification images to the existing kind cluster in dependency order (inventory → order → notification); all four deployments reached 2/2 Ready. The refreshed order and payment images applied schema migrations V8 and V6; notification validated its four migrations.
-- Ran the customer Playwright purchase flow against the kind-hosted frontend using the cluster's bootstrap-admin Secret: browse, cart, registration, checkout, payment success, and management shipment all passed (1/1). Credentials were loaded into process environment variables and were not recorded.
+- 建置並部署 inventory、order、payment、notification 映像至既有 kind，依 inventory → order → notification 順序 rollout；四個 Deployment 均為 2/2 Ready。order/payment 套用 schema V8/V6，notification migration 全數驗證。
+- `application.yml` 明確設定 Kafka consumer `auto-offset-reset: earliest`，讓新部署的 notification 可讀取 Kafka 保留期內既有 `UserRegistered`；Testcontainers 測試不再自行覆寫此值。
+- Customer Playwright 購物流程通過 1/1：瀏覽、購物車、註冊、結帳、付款成功與管理端出貨均完成。管理端另有 UI 出貨測試 1/1；付款失敗與取消事件測試 1/1。Playwright 憑證由既有 bootstrap-admin Secret 提供，僅載入程序環境，未記錄或輸出。
 
-### Validation and limits
+### 驗收結果與限制
 
-- Customer purchase flow delivered `order-created`, `order-paid`, and `order-shipped` to Mailpit; all corresponding `email_message` rows reached `SENT`. A separate E2E verified `payment-failed` and `order-cancelled`; the management UI shipment test passed (1/1).
-- SMTP outage/recovery retained three rows as `PENDING` and delivered them after Mailpit returned; notification outage/recovery consumed the Kafka backlog and delivered the three queued messages once. Order-service outage/recovery was also exercised.
-- NetworkPolicy probes confirmed notification-service can reach Mailpit SMTP and notification-db while an untrusted pod is blocked from both. The notification FAILED and backlog Grafana alerts each fired once under controlled synthetic conditions and resolved after the synthetic rows were removed.
-- The generated Tempo data source returned notification dispatch spans, but a trace proving the complete outbox-to-Kafka-to-notification-consumer path was not isolated. This evidence remains pending.
-- Two offline full-reactor runs (`mvn -o clean test`) stopped at two `NotificationEmailIntegrationTests`: on this Windows Docker Desktop setup, the mapped Mailpit SMTP port accepts TCP but its server-first greeting times out in the test JVM. The other modules before notification passed. `mvn -o -pl spring-api-gateway -am test` passed independently (111 gateway tests). This is an environment-level test blocker; the full reactor is not recorded as passing.
-- See `evidence/phase-e/e6-kind-validation.txt` for commands and acceptance evidence. E6 remains open until the full reactor and cross-service trace evidence are complete.
+- Customer 購物流程寄出 `order-created`、`order-paid`、`order-shipped`，對應 `email_message` 均為 `SENT`。另一個 E2E 驗證 `payment-failed` 與 `order-cancelled`；管理端出貨 UI E2E 通過（1/1）。前端以 Playwright 自動化驗收，未另做人工點擊確認。
+- 實際 SMTP 交付使用 Mailpit 與通知服務 runner 同一個 Testcontainers network，避免經過 Docker Desktop 的 SMTP host port mapping。runner 從當前原始碼建置通知服務 JAR，並在 network 內啟動；原有事件消費、範本、收件人、去重與併發派送斷言均保留。Mailpit API 逐筆確認 `Message-ID` 原始 header 與 `email_message.id` 相符，並確認沒有 Bcc 收件人。
+- SMTP 停機／恢復時三筆郵件保持 `PENDING`，恢復後轉為 `SENT`；notification 停機／恢復後 Kafka backlog 歸零、三封郵件各送出一次；order-service 停機／恢復也已實測。
+- NetworkPolicy 探測確認 notification-service 可連 Mailpit SMTP 與 notification-db，未授權 pod 無法連線。受控合成資料使 notification FAILED 與 backlog 告警各觸發一次；刪除合成資料後兩者均解除。
+- Tempo trace `4f07e937dd6143327b6e36949257cce8` 已證明 gateway → order-service → outbox → Kafka → inventory／notification consumer 的同一 trace；詳見 `evidence/phase-e/e6-tempo-trace.txt`。排程寄信 span 為獨立 trace。
+- 先前兩次完整 reactor 因 Windows Docker Desktop 的 SMTP host port mapping 無法回傳 greeting，在 `NotificationEmailIntegrationTests` 兩例失敗。依使用者選定的方案改為同 Testcontainers network 內執行被測通知服務，已通過完整 `NotificationEmailIntegrationTests` 類別及 Message-ID 斷言。
+- 完整 `mvn -o clean test` 通過，10 個模組全綠，0 failures、0 errors、0 skipped，總耗時 13 分 34 秒；api-gateway 111 個測試通過。各模組耗時見 `evidence/phase-e/e6-kind-validation.txt`。

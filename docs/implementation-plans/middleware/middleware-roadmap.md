@@ -3,7 +3,7 @@
 > 建立日期：2026-11-11
 > 分支：計畫在 `feature/middleware-roadmap`；每個階段實作時各自開分支（階段 C：`feature/event-driven-phase-c`）
 > 對應：[product-service-middleware-evaluation.md](../../design/product-service-middleware-evaluation.md)「建議導入順序」、[microservice-architecture.md](../../architecture/microservice-architecture.md)「之後：事件驅動」
-> Status: Phases A-D complete; Phase E in progress (E1-E3 complete; E4/E5 implemented with SMTP delivery verified in kind; E6 acceptance mostly complete, with full Maven reactor blocked by local Testcontainers SMTP greeting timeout and cross-service Tempo trace evidence pending; E7 not started); Phase F not started.
+> 狀態：階段 A–D 完成；階段 E 的 E1–E6 完成，E7（真實信箱驗證）暫緩；階段 F 尚未開始。
 
 從雛型的「同步 REST + 排程補償」走向「事件驅動 + 可觀測 + 可水平擴充」。每個階段都要能在本機 compose 與 kind 上跑起來並驗證，做法和之前一樣：每一步附測試，測試通過後單獨 commit。
 
@@ -158,9 +158,9 @@
 | E1 | 基礎設施與服務骨架：Mailpit（compose/kind）、notification-db、notification-service、NetworkPolicy、SEC-15 | **完成**：notification 2/2、Mailpit 1/1 Ready；Flyway V1/V2 通過；SMTP/Kafka/DB 可達，product-service 被策略阻擋 |
 | E2 | 收件人資料：消費 `UserRegistered`、去重並 upsert 本地收件人資料 | **完成**：Kafka/PostgreSQL 整合測試 3 項通過，重複事件不重寫，欄位錯誤進 DLT |
 | E3 | 訂單事件契約：`OrderCreated`/`OrderShipped` outbox、inventory 向後相容 | **完成**：訂單事件原子發送與庫存 consumer 相容；order/inventory 整合測試通過 |
-| E4   | 發件匣與寄信：消費 `order.events`（下單、付款成功、出貨、取消）與 `payment.events` 的 `PaymentFailed`（**不消費 `PaymentSucceeded`**，付款成功信由 `OrderPaid` 觸發）；以 `eventId` 去重，同一事件不會寄兩封 | **實作與 kind 驗收完成**：customer 下單、付款、出貨與 payment-failed/cancellation 的通知均由 Mailpit 收到，對應資料列為 SENT；Windows Docker Desktop 的 Testcontainers 映射 SMTP 測試仍受 greeting timeout 阻擋 |
-| E5 | Bounded retry after email failure; skip after missing-recipient attempts; metrics, dashboard, and alerts | 實作完成；Mailpit 停機恢復測試確認 PENDING 自動重試至 SENT，FAILED 與 backlog 告警各自觸發並解除 |
-| E6   | kind 部署驗收與 E2E（部署順序：inventory → order → notification） | kind 部署、購物與管理端出貨 E2E、SMTP/notification/order 停機恢復、NetworkPolicy 正反向探測、FAILED/backlog 告警觸發與解除均完成；Maven full reactor 仍有兩個 Testcontainers SMTP greeting timeout，跨服務 Tempo trace 證據待補。詳見實作紀錄與 `evidence/phase-e/e6-kind-validation.txt` |
+| E4   | 發件匣與寄信：消費 `order.events`（下單、付款成功、出貨、取消）與 `payment.events` 的 `PaymentFailed`（**不消費 `PaymentSucceeded`**，付款成功信由 `OrderPaid` 觸發）；以 `eventId` 去重，同一事件不會寄兩封 | **實作與驗收完成**：kind 與 Testcontainers network 內的 Mailpit 均實際收信；範本、收件人、去重、併發派送與 `Message-ID` 原始 header 斷言通過 |
+| E5 | Bounded retry after email failure; skip after missing-recipient attempts; metrics, dashboard, and alerts | **實作與驗收完成**：Mailpit 停機恢復後 PENDING 自動重試至 SENT；FAILED 與 backlog 告警各觸發並解除 |
+| E6   | kind 部署驗收與 E2E（部署順序：inventory → order → notification） | **完成**：kind ordered rollout 每階段前後 Alertmanager 均無 active DLT/dead-letter alert；customer 與 management Playwright E2E、SMTP/notification/order 停機恢復、NetworkPolicy 正反向探測、FAILED/backlog firing/resolved、Tempo trace 皆有證據；完整 10 模組 Maven reactor 13 分 34 秒全綠。詳見實作紀錄與 `evidence/phase-e/e6-kind-validation.txt` |
 | E7   | 真實信箱驗證（暫緩，需使用者配合；不是結案條件） | 使用者提供信箱後，五種信在真實郵件客戶端正常顯示 |
 
 **暫緩（先有雛型，之後要補，不是不做）**：註冊改成寄信確認（解決 SEC-04 的 Email 列舉）；補寄「通知上線前」已存在使用者與訂單的收件人資料；真實 SMTP 的認證與 TLS。
