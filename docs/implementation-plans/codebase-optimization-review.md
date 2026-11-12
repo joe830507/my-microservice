@@ -213,6 +213,8 @@ CREATE INDEX idx_product_category_status_created ON product_service.product (cat
 
 ## 12.（低）商品詳情頁的請求是串接的
 
+> 2026-11-13 修正註記：商品與圖片請求同時發出，庫存仍待 SKU；圖片失敗獨立處理，商品失敗不套用圖片，保留 latestRequest 保護。Chrome 測試在延遲商品回應時確認圖片請求已送出。
+
 位置：`frontend/vue-customer/src/features/catalog/ProductDetailView.vue` 的 `load`
 
 問題：先等 `getProduct(props.id)` 回來，才同時查圖片與庫存。圖片只需要商品 id，網址上就有，不必等商品資料；目前多等一次往返，圖片是這一頁最大的內容，最晚出現。

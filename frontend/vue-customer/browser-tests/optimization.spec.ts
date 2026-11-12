@@ -46,3 +46,25 @@ test('cart updates across browser tabs without a reload', async ({ page, context
   await expect(second.locator('.store-nav__badge')).toHaveCount(0)
 })
 
+test('images start before the product response completes', async ({ page }) => {
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let imageRequested = false
+  await page.route(`**/api/v1/products/${id}`, async (route) => {
+    await gate
+    await route.fulfill({ json: product })
+  })
+  await page.route(`**/api/v1/products/${id}/images`, (route) => {
+    imageRequested = true
+    return route.fulfill({ json: { productId: id, images: [] } })
+  })
+  await page.route('**/api/v1/inventory/SKU', (route) =>
+    route.fulfill({ json: { sku: 'SKU', available: 2, reserved: 0, updatedAt: 'now' } }),
+  )
+  await page.goto(`/p/${id}`)
+  await expect.poll(() => imageRequested).toBe(true)
+  release()
+  await expect(page.locator('h1.detail__name')).toHaveText('Shoe')
+})
