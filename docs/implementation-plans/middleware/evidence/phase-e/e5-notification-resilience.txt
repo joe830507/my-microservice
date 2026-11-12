@@ -2,13 +2,13 @@ E5 notification resilience validation
 Date: 2026-11-12
 
 Build:
-- Offline Maven reactor compile: common, observability, notification-service ? BUILD SUCCESS.
+- Offline Maven reactor compile: common, observability, notification-service: BUILD SUCCESS.
 
 Focused tests:
-- NotificationEmailIntegrationTests: missingOrderReferenceIsSkippedAfterFiveAttempts ? passed.
-- NotificationEmailIntegrationTests: missingUserContactIsSkippedAfterFiveAttempts ? passed.
-- NotificationEmailIntegrationTests: transientSmtpFailureRetriesThenMarksFailedOnEighthAttempt ? passed; verified first failure leaves PENDING, increments attempts to 1, and schedules next_attempt_at in the future; eighth failure becomes FAILED.
-- EmailDispatcherFailureClassificationTests: SMTP 550 classified permanent and SMTP 451 classified transient ? passed.
+- NotificationEmailIntegrationTests: missingOrderReferenceIsSkippedAfterFiveAttempts: passed.
+- NotificationEmailIntegrationTests: missingUserContactIsSkippedAfterFiveAttempts: passed.
+- NotificationEmailIntegrationTests: transientSmtpFailureRetriesThenMarksFailedOnEighthAttempt: passed; verified first failure leaves PENDING, increments attempts to 1, and schedules next_attempt_at in the future; eighth failure becomes FAILED.
+- EmailDispatcherFailureClassificationTests: SMTP 550 classified permanent and SMTP 451 classified transient: passed.
 
 Monitoring:
 - Dashboard generator compiled and generated the overview dashboard (40 panels) and alert rules (12 rules).

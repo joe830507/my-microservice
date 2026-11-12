@@ -1,0 +1,36 @@
+E6 kind validation
+Date: 2026-11-12
+
+Deployment
+- Built current inventory, order, payment, and notification images and loaded them into kind.
+- Rolled out in dependency order: inventory, order, notification (payment refreshed between order and notification because the running image had an outdated schema).
+- inventory-service, order-service, payment-service, and notification-service each reached 2/2 Ready.
+- Order migration V8, payment migration V6, and notification's four migrations validated at startup.
+- No DLT alert firing was observed during the deployment, but alert state was not exhaustively checked.
+
+Customer flow
+- Ran: npm run test:e2e -- --project=chromium e2e/purchase-flow.spec.ts
+- Target: kind customer frontend through localhost port-forward.
+- Result: 1 passed. Browse, add to cart, register, checkout, payment success, and management shipment succeeded.
+- The E2E admin credentials came from the existing bootstrap-admin Kubernetes Secret; values were not printed or stored here.
+
+Email delivery
+- Read-only notification DB inspection after the flow found three rows: order-created, order-paid, order-shipped.
+- All three were PENDING with 4 attempts. Mailpit HTTP API returned 0 messages.
+- Therefore SMTP delivery and recovery are NOT PASS. The flow verifies order/payment/shipment only.
+- Mailpit's Service exposes SMTP port 1025 only; its UI was inspected through a temporary direct pod port-forward.
+
+Automated tests
+- Ran the full offline reactor: mvn -o clean test (equivalent backend Maven wrapper command with offline Maven installation).
+- Elapsed about 12m06s. All modules reached before notification passed; notification had 2 failures in NotificationEmailIntegrationTests due SMTP greeting timeout. api-gateway was not reached because the reactor stopped at notification.
+- The notification resilience tests passed. Do not count the full reactor as passing.
+- Ran the remaining API gateway tests independently with required local dependency: mvn -o -pl spring-api-gateway -am test. Result: BUILD SUCCESS; api-gateway 111 tests passed (observability dependency had no tests).
+
+Still pending
+- SMTP unavailable/recovery and one-message assertion.
+- Notification and order outage/recovery checks; payment-failure email.
+- Positive/negative NetworkPolicy connectivity probes for Mailpit and notification-db.
+- DLT/FAILED/pending-age alert firing and resolution, and Tempo trace inspection.
+- Full reactor rerun after fixing SMTP reachability; run api-gateway tests independently meanwhile.
+
+No recipient address, password, customer name, message body, or secret value is recorded in this evidence.

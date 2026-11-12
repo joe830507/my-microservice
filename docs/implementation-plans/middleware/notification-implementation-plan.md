@@ -4,7 +4,7 @@
 > 分支：實作時開 `feature/notification-phase-e`（從階段 D 合併後的 `main` 切出；階段 D 尚未合併時，從 `feature/search-phase-d` 切出並做 stacked PR）
 > 對應：[middleware-roadmap.md](middleware-roadmap.md)「階段 E」、[event-contracts.md](../../architecture/event-contracts.md)
 > 前置：階段 C 完成（`user.events`、`order.events`、`payment.events` 已經在發送）；階段 D 完成（本階段沿用其文件與驗收規範）
-> Status: E1-E3 complete; E4 implemented with Mailpit SMTP validation pending the local Testcontainers port-mapping issue; E5 implemented; E6-E7 not started.
+> Status: E1-E3 complete; E4/E5 implemented with SMTP delivery validation pending; E6 partially verified in kind (ordered deployments and purchase E2E pass, but SMTP delivery and remaining outage/policy/alert checks are blocked); E7 not started.
 
 這份文件是給實作者（Codex 或任何人）照著做的**唯一依據**。分成兩半：前半說明「做什麼、為什麼這樣設計」，後半（[實作規範](#實作規範)）說明「怎麼做、哪些事不能做」。**開始實作前兩半都要讀完。** 遇到文件沒寫到、或發現文件有錯的地方，不要自己默默決定，先照[計畫變更](#計畫變更紀錄)的規則處理。
 
@@ -168,7 +168,7 @@ inventory-service 同時消費 `order.events`：**必須在 order-service 開始
 | E3 | **訂單事件契約**：inventory 記錄並忽略 `OrderCreated`/`OrderShipped`；order-service 以 transactional outbox 發送新訂單與出貨事件；更新事件契約 | **完成**：inventory 4 項 order event 單元整合測試與 2 項 Kafka/DLT 整合測試通過；order 137 項、inventory 95 項、common 52 項全部通過 |
 | E4 | **發件匣與寄信**：消費 `OrderCreated`（建 `order_ref`）、`OrderPaid`、`OrderShipped`、`OrderCancelled`、`PaymentFailed`（寫 `email_message`）；範本；派送器與 SMTP | 實作完成；Mailpit HTTP API 可用，但本機 Testcontainers SMTP 端到端測試通道連線逾時，待排除環境問題 |
 | E5 | Failure handling and observability: bounded retry, SKIPPED/FAILED, metrics, dashboard, alerts, and documentation sync | Implemented; E5 resilience tests pass; successful SMTP delivery validation remains blocked by the E4 local Testcontainers port issue |
-| E6 | **kind 部署驗收與 E2E**：依[部署順序](#部署順序)部署；走完整購物流程在 Mailpit 收到各種信；停 SMTP、停 notification、停 order 的恢復；完整 `mvnw.cmd -o clean test` | 見 [E6](#e6-部署驗收) |
+| E6 | **kind 部署驗收與 E2E**：依[部署順序](#部署順序)部署；走完整購物流程在 Mailpit 收到各種信；停 SMTP、停 notification、停 order 的恢復；完整 `mvnw.cmd -o clean test` | 部分完成：inventory → order → notification 部署與 customer 購物/付款/出貨 E2E 通過；SMTP 訊息仍 PENDING，見 [E6](#e6-部署驗收) 與證據 |
 | E7 | **真實信箱驗證（暫緩，需使用者配合）**：雛型穩定後，把信寄到使用者提供的真實信箱，確認中文主旨與內文、寄件地址、`Message-ID` 在真實郵件客戶端的呈現 | 見 [E7](#e7-真實信箱驗證暫緩需使用者配合)；**不是階段 E 結案的條件** |
 
 ### E3 訂單事件契約

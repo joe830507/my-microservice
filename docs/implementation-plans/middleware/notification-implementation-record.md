@@ -1,7 +1,7 @@
 # Notification 實作紀錄
 
 > 更新日期：2026-11-12
-> Status: E1-E3 complete; E4 implemented with SMTP integration validation pending the local Testcontainers port issue; E5 implemented; E6-E7 not started.
+> Status: E1-E3 complete; E4/E5 implemented with SMTP delivery validation pending; E6 partially verified in kind (purchase flow passes but SMTP delivery and outage/policy/alert checks remain incomplete); E7 not started.
 > 計畫：[notification-implementation-plan.md](notification-implementation-plan.md)
 
 ## E1：基礎設施與服務骨架
@@ -116,3 +116,18 @@ Mailpit 在 `readOnlyRootFilesystem` 下需要可寫暫存目錄，kind manifest
 - Added integration coverage for missing order, missing contact, retry progression, and terminal failure. Test outcomes are recorded in `evidence/phase-e/e5-notification-resilience.txt`.
 - SMTP success remains unverified because the local Testcontainers mapped SMTP endpoint accepts TCP but does not provide the SMTP greeting; this is the existing E4 environment issue.
 - Dashboard generator compiles and regenerates the dashboard and alert rules.
+
+
+## E6: kind deployment and end-to-end validation
+
+### Implementation and deployment
+
+- Built and deployed the current inventory, order, payment, and notification images to the existing kind cluster in dependency order (inventory → order → notification); all four deployments reached 2/2 Ready. The refreshed order and payment images applied schema migrations V8 and V6; notification validated its four migrations.
+- Ran the customer Playwright purchase flow against the kind-hosted frontend using the cluster's bootstrap-admin Secret: browse, cart, registration, checkout, payment success, and management shipment all passed (1/1). Credentials were loaded into process environment variables and were not recorded.
+
+### Validation and limits
+
+- The purchase created three email rows (`order-created`, `order-paid`, `order-shipped`), but all remained `PENDING` after four attempts; Mailpit reported zero messages. This is a failed SMTP delivery check, not a successful end-to-end email validation. See `evidence/phase-e/e6-kind-validation.txt`.
+- `mvn -o clean test` completed the reactor through notification-service and failed two `NotificationEmailIntegrationTests` because the Testcontainers Mailpit SMTP connection timed out before greeting. Earlier modules passed; api-gateway was not reached in that reactor run.
+- Ran api-gateway separately with its local dependency: `mvn -o -pl spring-api-gateway -am test`; BUILD SUCCESS, 111 api-gateway tests passed.
+- The planned SMTP-down/recovery, notification-down/recovery, order-down, failure-email, alert firing/resolution, NetworkPolicy connectivity probes, and Tempo trace checks remain incomplete. Do not mark E6 complete until these checks pass or their blockers are resolved and recorded.
