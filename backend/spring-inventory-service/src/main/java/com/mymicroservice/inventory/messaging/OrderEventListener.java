@@ -37,6 +37,7 @@ public class OrderEventListener {
                 switch (event.type()) {
                     case "OrderPaid" -> reservations.confirm(orderId);
                     case "OrderCancelled" -> reservations.release(orderId);
+                    case "OrderCreated", "OrderShipped" -> { }
                     default -> throw new IllegalArgumentException("Unsupported order event " + event.type());
                 }
             });

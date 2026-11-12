@@ -80,7 +80,7 @@ class OrderControllerCreateIntegrationTests {
 
     @BeforeEach
     void setUp() {
-        jdbcTemplate.execute("TRUNCATE order_service.orders CASCADE");
+        jdbcTemplate.execute("TRUNCATE order_service.outbox_event, order_service.orders CASCADE");
         stubProducts(product(SHOE_ID, "SHOE-001", "Running Shoe", "199.99", "ACTIVE"),
                 product(SOCK_ID, "SOCK-001", "Sock", "50.00", "ACTIVE"));
         INVENTORY_SERVICE.stubFor(WireMock.post(urlEqualTo(RESERVATIONS_PATH)).willReturn(aResponse().withStatus(201)));
@@ -125,6 +125,13 @@ class OrderControllerCreateIntegrationTests {
         assertThat((BigDecimal) row.get("total_amount")).isEqualByComparingTo("449.98");
         assertThat(row.get("created_by")).isEqualTo(USER_ID);
         assertThat(countItems(orderId)).isEqualTo(2);
+        assertThat(countEvent("OrderCreated", orderId)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT payload->'payload'->>'userId' FROM order_service.outbox_event "
+                + "WHERE event_type = 'OrderCreated' AND aggregate_id = ?", String.class, orderId.toString()))
+                .isEqualTo(USER_ID.toString());
+        assertThat(jdbcTemplate.queryForObject("SELECT (payload->'payload'->>'totalAmount')::numeric "
+                + "FROM order_service.outbox_event WHERE event_type = 'OrderCreated' AND aggregate_id = ?",
+                BigDecimal.class, orderId.toString())).isEqualByComparingTo("449.98");
     }
 
     @Test
@@ -171,6 +178,8 @@ class OrderControllerCreateIntegrationTests {
 
         INVENTORY_SERVICE.verify(0, anyRequestedFor(anyUrl()));
         assertThat(countOrders()).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM order_service.outbox_event "
+                + "WHERE event_type = 'OrderCreated'", Integer.class)).isZero();
     }
 
     @ParameterizedTest
@@ -224,6 +233,8 @@ class OrderControllerCreateIntegrationTests {
         INVENTORY_SERVICE.verify(0, postRequestedFor(urlPathEqualTo(RESERVATIONS_PATH + "/release")));
         INVENTORY_SERVICE.verify(1, anyRequestedFor(anyUrl()));
         assertThat(countOrders()).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM order_service.outbox_event "
+                + "WHERE event_type = 'OrderCreated'", Integer.class)).isZero();
     }
 
     @Test
@@ -396,5 +407,10 @@ class OrderControllerCreateIntegrationTests {
     private int countItems(UUID orderId) {
         return jdbcTemplate.queryForObject("SELECT count(*) FROM order_service.order_item WHERE order_id = ?",
                 Integer.class, orderId);
+    }
+
+    private int countEvent(String type, UUID orderId) {
+        return jdbcTemplate.queryForObject("SELECT count(*) FROM order_service.outbox_event "
+                + "WHERE event_type = ? AND aggregate_id = ?", Integer.class, type, orderId.toString());
     }
 }

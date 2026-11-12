@@ -10,7 +10,7 @@
 
 | 編號 | 問題 | 嚴重度 | 狀態 | 預計處理 |
 | ---- | ---- | ------ | ---- | -------- |
-| [SEC-01](#sec-01-顧客可以自己把訂單標成付款成功) | 顧客可以自己把訂單標成付款成功 | 高 | **已處理**：預設關閉的設定開關（`PAYMENT_MOCK_CALLBACK_ENABLED`） | `feature/security-hardening` |
+| [SEC-01](#sec-01-顧客可以自己把訂單標成付款成功) | 顧客可以自己把訂單標成付款成功 | 高 | **已緩解並接受剩餘風險**：預設關閉的設定開關（`PAYMENT_MOCK_CALLBACK_ENABLED`）；不接真實金流（路線圖階段 F 不實作），僅適用於隔離的示範環境 | `feature/security-hardening` |
 | [SEC-02](#sec-02-繞過-gateway-直連服務可以偽造任何人的身分) | 繞過 Gateway 直連服務可以偽造任何人的身分 | 高 | **已處理並實測**：K8s 的進入與**出去**限制（NetworkPolicy）；本機直接啟動的開發環境沒有隔離 | — |
 | [SEC-03](#sec-03-開發環境的預設設定不能帶上線) | 開發環境的預設設定不能帶上線 | 高 | **已處理**：K8s 隨機 Secret；compose 埠綁定 127.0.0.1；repo 內的測試用金鑰標明僅限測試 | — |
 | [SEC-04](#sec-04-註冊沒有頻率限制) | 註冊沒有頻率限制，且可列舉 Email | 中 | **已處理**：Gateway 對註冊依來源 IP 限流 | — |
@@ -31,8 +31,8 @@
 - **現象**：`POST /api/v1/payments/{id}/mock-callback` 讓付款的本人（或 ADMIN）呼叫，指定 `SUCCESS` 或 `FAILED`。顧客建單、建立付款後自己呼叫 `SUCCESS`，訂單就變成 `PAID`，等於不用付錢。
 - **驗證**：以一般顧客帳號實際走過：建單 → 建立付款 → `mock-callback` `SUCCESS` → 0.08 秒後訂單 `PAID`。
 - **成因**：雛型階段用它模擬第三方金流的回呼，payment-service 的程式碼註解已寫明「之後會移除這支 API」。
-- **處理方向**：接真的金流前移除；真實金流的回呼要由第三方伺服器呼叫，並驗證簽章，不經過使用者身分。在此之前任何對外環境都不能開放這支 API（例如 Gateway 不轉發 `/payments/*/mock-callback`，或用設定開關只在開發環境啟用）。
-- **處理結果（2026-11-11）**：`mock-callback` 搬到 `MockPaymentController`，用 `@ConditionalOnProperty(payment.mock-callback.enabled)` 控制，**預設關閉**（`PAYMENT_MOCK_CALLBACK_ENABLED`，未開啟時 `POST /payments/{id}/mock-callback` 回 404，有測試）。開啟時啟動會記 warn。K8s 的 `payment-service.yaml` 目前設為 `"true"`（沒有真的金流，示範與 E2E 需要它）；**接真的金流時要拿掉並移除這支 API**。本機啟動 payment-service 跑 E2E 要設 `PAYMENT_MOCK_CALLBACK_ENABLED=true`。
+- **處理方向**：原計畫接真的金流時移除，但本專案已決定不實作真實金流（路線圖階段 F），所以改為長期保留模擬並以設定開關限制範圍。若將來接真的金流，則真實金流的回呼要由第三方伺服器呼叫，並驗證簽章，不經過使用者身分。模擬 API 在任何對外環境都不能開放（例如 Gateway 不轉發 `/payments/*/mock-callback`，或用設定開關只在開發環境啟用）。
+- **處理結果（2026-11-11）**：`mock-callback` 搬到 `MockPaymentController`，用 `@ConditionalOnProperty(payment.mock-callback.enabled)` 控制，**預設關閉**（`PAYMENT_MOCK_CALLBACK_ENABLED`，未開啟時 `POST /payments/{id}/mock-callback` 回 404，有測試）。開啟時啟動會記 warn。K8s 的 `payment-service.yaml` 目前設為 `"true"`（沒有真的金流，示範與 E2E 需要它）；**不接真的金流（路線圖階段 F 不實作），所以這支 API 與 K8s 上的開關會保留，只能用在隔離的示範環境，不可用於對外環境；若將來改變決定，接真的金流時要拿掉並移除這支 API**。本機啟動 payment-service 跑 E2E 要設 `PAYMENT_MOCK_CALLBACK_ENABLED=true`。
 
 ## SEC-02 繞過 Gateway 直連服務可以偽造任何人的身分
 
@@ -164,3 +164,17 @@
 ## SEC-13 Kafka 尚未啟用用戶端認證
 
 階段 C 的本機與 kind Kafka 使用明文 listener，服務來源以 NetworkPolicy 限制；叢集內已授權的 Pod 仍可直接連線，topic 沒有 ACL。這套設定只適用本機與隔離的示範叢集。對外或多租戶環境部署前，需啟用 TLS 與 SASL/SCRAM（或等效機制）、topic ACL，並把憑證放入 Secret。
+
+
+## SEC-14 Elasticsearch 尚未啟用認證與 TLS
+
+階段 D 的本機與 kind ES 使用明文 HTTP，未啟用用戶端認證。Compose 只綁 127.0.0.1:9200；kind 以 NetworkPolicy 只允許 product-service 連線。Kibana 僅供本機 dev-tools profile，未部署到 kind。這些設定限本機與隔離的示範環境；對外或多租戶環境前必須補 TLS、認證與最小權限帳號，憑證放入 Secret。Pod 標籤不是用戶端身分認證。搜尋服務的索引延遲與退回 SQL 監控已納入 D6 儀表板與告警設定；kind 實際 firing 驗收已於 D7 完成。見[搜尋實作紀錄](../implementation-plans/middleware/search-implementation-record.md)。
+
+## SEC-15 通知服務的測試 SMTP 與 Email 個資保護
+
+階段 E 的 Compose 與 kind 使用 Mailpit，不啟用 SMTP 認證或 TLS；Mailpit UI 也沒有登入保護。Compose 僅將 SMTP 1025 與 UI 8025 綁到 `127.0.0.1`；kind 以 NetworkPolicy 僅允許 notification-service 連 SMTP，UI 不建立 Service，只能透過 port-forward 使用。這些設定只供本機與隔離的示範環境。對外環境必須改用啟用認證與 TLS 的 SMTP，並使用 Secret 管理憑證。
+
+notification-service 的 `user_contact` 與 `email_message` 會保存 Email、顯示名稱及通知狀態，目前沒有資料保留期限或自動清理機制。資料庫只允許 notification-service 存取；上線前需決定保留期限、清理流程與資料存取稽核。Mailpit 內文與測試證據不得放入真實個資。
+
+
+E5 adds bounded SMTP retries, immediate failure for permanent SMTP errors, and `SKIPPED` outcomes after five attempts when order/contact references remain unavailable. Metrics and alerts expose permanent failures and queue age. These controls do not change the outstanding data-retention and access-audit requirements above, and SMTP delivery still needs end-to-end validation after the local Testcontainers port-mapping issue is resolved.

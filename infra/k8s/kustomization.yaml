@@ -8,11 +8,14 @@ resources:
   - data/redis.yaml
   - data/object-storage.yaml
   - data/kafka.yaml
+  - data/elasticsearch.yaml
+  - data/mailpit.yaml
   - services/user-service.yaml
   - services/product-service.yaml
   - services/inventory-service.yaml
   - services/order-service.yaml
   - services/payment-service.yaml
+  - services/notification-service.yaml
   - services/api-gateway.yaml
   - services/pod-disruption-budgets.yaml
   - ../observability

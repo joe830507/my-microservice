@@ -31,6 +31,10 @@ public enum ProductErrorCode implements ErrorCode {
     PRODUCT_ACTIVE_CATEGORY_REQUIRED(HttpStatus.BAD_REQUEST, "active product must have an active category."),
     PRODUCT_PRIMARY_IMAGE_REQUIRED(HttpStatus.BAD_REQUEST, "product must have a primary image."),
 
+    // Search
+    SEARCH_RESULT_WINDOW_EXCEEDED(HttpStatus.BAD_REQUEST,
+            "search results beyond the first 10000 are not available, please narrow the search."),
+
     // Product Image
     PRODUCT_IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "product image not found."),
     PRODUCT_IMAGE_PRIMARY_UNDELETABLE(HttpStatus.BAD_REQUEST,

@@ -1,5 +1,6 @@
 package com.mymicroservice.product.service.impl;
 
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.EnumSet;
@@ -11,6 +12,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import jakarta.persistence.EntityManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -40,9 +42,11 @@ import com.mymicroservice.product.exception.ProductErrorCode;
 import com.mymicroservice.product.repository.CategoryRepository;
 import com.mymicroservice.product.repository.ProductImageRepository;
 import com.mymicroservice.product.repository.ProductRepository;
+import com.mymicroservice.product.search.ProductSearchService;
 import com.mymicroservice.product.service.ProductService;
 import com.mymicroservice.product.storage.ImageStorage;
 
+import io.micrometer.core.instrument.Metrics;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -50,15 +54,20 @@ import lombok.RequiredArgsConstructor;
 @Transactional
 public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
+    private final EntityManager entityManager;
     private final CategoryRepository categoryRepository;
     private final ProductImageRepository productImageRepository;
     private final ProductDetailCache productDetailCache;
     private final ImageStorage imageStorage;
     private final OutboxEventWriter outbox;
+    private final ProductSearchService productSearchService;
 
     @Override
     public AddOneNewProductRes addOneNewProduct(AddOneNewProductReq addOneNewProductReq) {
-        Product savedProduct = productRepository.save(addOneNewProductReq.toEntity());
+        // 先 flush 並 refresh，取回 PostgreSQL 對 TIMESTAMPTZ 奈秒值四捨五入後的微秒時間，
+        // 再把與資料庫一致的快照寫入 outbox。
+        Product savedProduct = productRepository.saveAndFlush(addOneNewProductReq.toEntity());
+        entityManager.refresh(savedProduct);
         publishProductEvent(savedProduct, "ProductCreated");
 
         // 建立前可能有人查過這個 sku，查不到的結果會被短暫快取
@@ -104,14 +113,37 @@ public class ProductServiceImpl implements ProductService {
                 .filter(detail -> detail.sku().equals(sku));
     }
 
+    // 不開交易：查 Elasticsearch 的期間不能佔著 DB 連線；資料庫查詢由 repository 自己的交易處理
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ProductQueryResponse getProductList(ProductQueryRequest productQueryRequest, boolean includeUnpublished) {
+        Set<UUID> categoryIds = categoryIdsOf(productQueryRequest);
+
+        // 只有前台的關鍵字搜尋走 Elasticsearch（後台要看全部狀態且要求即時一致，沒有關鍵字也不需要相關性）；
+        // 搜尋引擎暫時不能用時（Optional 為空）退回下面原本的資料庫查詢
+        if (!includeUnpublished && productQueryRequest.hasKeyword()) {
+            Optional<Page<Product>> hits = productSearchService.search(productQueryRequest, categoryIds);
+            Metrics.counter("search.requests", "engine", hits.isPresent() ? "es" : "sql").increment();
+            if (hits.isPresent()) {
+                return ProductQueryResponse.from(hits.get(), primaryImageUrls(hits.get().getContent()));
+            }
+        }
+
         // 前台只看得到上架中的商品：忽略傳入的 status，固定查 ACTIVE
         ProductStatus status = includeUnpublished ? productQueryRequest.status() : ProductStatus.ACTIVE;
-        Page<Product> productPage = productRepository.findAll(toSpecification(productQueryRequest, status),
+        Page<Product> productPage = productRepository.findAll(toSpecification(productQueryRequest, status, categoryIds),
                 productQueryRequest.toPageable());
         return ProductQueryResponse.from(productPage, primaryImageUrls(productPage.getContent()));
+    }
+
+    // 沒有分類條件為 null；includeSubcategories=true 時連同所有子孫分類，否則只有該分類自己
+    private Set<UUID> categoryIdsOf(ProductQueryRequest productQueryRequest) {
+        if (productQueryRequest.categoryId() == null) {
+            return null;
+        }
+        return Boolean.TRUE.equals(productQueryRequest.includeSubcategories())
+                ? withDescendants(productQueryRequest.categoryId())
+                : Set.of(productQueryRequest.categoryId());
     }
 
     // 分類自己加上所有子孫分類的 id（含停用的，商品的可見性另外由狀態決定）
@@ -145,21 +177,16 @@ public class ProductServiceImpl implements ProductService {
     }
 
     // 只組合有傳入的條件，全部未傳入時等同查詢全部
-    private Specification<Product> toSpecification(ProductQueryRequest productQueryRequest, ProductStatus status) {
+    private Specification<Product> toSpecification(ProductQueryRequest productQueryRequest, ProductStatus status,
+            Set<UUID> categoryIds) {
         Specification<Product> specification = Specification.unrestricted();
 
-        if (productQueryRequest.keyword() != null && !productQueryRequest.keyword().isBlank()) {
+        if (productQueryRequest.hasKeyword()) {
             String pattern = "%" + escapeLike(productQueryRequest.keyword().trim().toLowerCase()) + "%";
             specification = specification.and((root, query, cb) -> cb.like(cb.lower(root.get("name")), pattern, '\\'));
         }
-        if (productQueryRequest.categoryId() != null) {
-            if (Boolean.TRUE.equals(productQueryRequest.includeSubcategories())) {
-                Set<UUID> categoryIds = withDescendants(productQueryRequest.categoryId());
-                specification = specification.and((root, query, cb) -> root.get("categoryId").in(categoryIds));
-            } else {
-                specification = specification.and((root, query, cb) -> cb.equal(root.get("categoryId"),
-                        productQueryRequest.categoryId()));
-            }
+        if (categoryIds != null) {
+            specification = specification.and((root, query, cb) -> root.get("categoryId").in(categoryIds));
         }
         if (status != null) {
             specification = specification.and((root, query, cb) -> cb.equal(root.get("status"), status));
@@ -314,6 +341,8 @@ public class ProductServiceImpl implements ProductService {
                 "sku", product.getSku(),
                 "name", product.getName(),
                 "description", product.getDescription() == null ? "" : product.getDescription(),
+                "brand", product.getBrand() == null ? "" : product.getBrand(),
+                "createdAt", product.getCreatedAt().truncatedTo(ChronoUnit.MICROS).toString(),
                 "price", product.getPrice(),
                 "categoryId", product.getCategoryId() == null ? "" : product.getCategoryId().toString(),
                 "status", product.getStatus().name(),

@@ -1,0 +1,30 @@
+# D7 補充驗收（2026-11-12，審查者以 CLI 取得，非瀏覽器）
+context=kind-my-microservice
+method=port-forward Grafana(匿名唯讀) -> Tempo search/trace API；port-forward api-gateway -> 呼叫 /api/v1/products
+
+## 1. Tempo trace：後台更新 -> outbox -> Kafka -> 索引（同一個 trace）
+### trace 88003f12267278152ba833401cc327fa（ES 正常）
++0.0ms    http put /api/v1/products/{id}     11.2ms
++48.1ms   outbox publish                      8.0ms
++57.1ms   product.events process             17.1ms
+
+### trace 467e6547e9abb8348b611b0a12a0d99c（更新發生在 ES 停機期間）
++0.0ms      http put /api/v1/products/{id}   67.2ms
++160.8ms    outbox publish                  229.8ms
++399.1ms    product.events process         5065.5ms   (ES 逾時)
++6475.1ms   product.events process            2.3ms   (退避重試)
++8482.6ms   product.events process            1.5ms
++12491.0ms  product.events process            1.3ms
++20503.8ms  product.events process         5004.2ms
++41526.7ms  product.events process          114.5ms   (ES 恢復後成功)
+說明：索引器以指數退避重試，不送 DLT；兩個 trace 都帶同一個 traceId 貫穿 HTTP -> outbox -> consumer。
+
+## 2. 經 Gateway 的前台關鍵字搜尋（前端實際呼叫的路徑）
+GET /api/v1/products?keyword=Phase&page=0&size=5                         -> totalElements=4
+GET /api/v1/products?keyword=Phase&sortBy=price&sortDirection=asc        -> totalElements=4
+GET /api/v1/products?keyword=zzzxxqq                                      -> totalElements=0
+Prometheus search_requests_total 前後：engine=es 20 -> 23（+3），engine=sql 89 -> 89（不變），
+代表這三次請求確實由 Elasticsearch 回應，不是退回 SQL。
+
+## 未涵蓋
+瀏覽器畫面操作（vue-customer 搜尋頁、vue-management 商品列表）：Claude in Chrome 擴充功能未連線，無法執行。

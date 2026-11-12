@@ -65,7 +65,7 @@ public interface ProductApi {
             @Parameter(hidden = true) String roles,
             @Parameter(description = "商品 sku", example = "SHOE-NK-001") String sku);
 
-    @Operation(summary = "查詢商品列表", description = "可依分類、狀態篩選，支援分頁與排序。不是 ADMIN 時只列出上架中（ACTIVE）的商品，傳入的 status 會被忽略。每筆帶主圖網址 primaryImageUrl（沒有主圖為 null）。includeSubcategories=true 時，categoryId 連同所有子孫分類一起查。")
+    @Operation(summary = "查詢商品列表", description = "可依分類、狀態篩選，支援分頁與排序。不是 ADMIN 時只列出上架中（ACTIVE）的商品，傳入的 status 會被忽略。每筆帶主圖網址 primaryImageUrl（沒有主圖為 null）。includeSubcategories=true 時，categoryId 連同所有子孫分類一起查。前台帶 keyword 時用 Elasticsearch 搜尋商品名稱、品牌、描述與 SKU，沒指定 sortBy 時依相關性排序（sortBy=relevance）；搜尋引擎暫時不能用時退回資料庫的名稱模糊比對。只能翻到搜尋結果的前 10000 筆，超過回 400（SEARCH_RESULT_WINDOW_EXCEEDED）。")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "查詢成功"),
             @ApiResponse(responseCode = "400", description = "查詢參數驗證失敗",

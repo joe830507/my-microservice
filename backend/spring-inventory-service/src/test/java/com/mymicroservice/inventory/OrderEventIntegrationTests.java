@@ -50,4 +50,21 @@ class OrderEventIntegrationTests {
                 .isEqualTo(available);
         assertThat(jdbc.queryForObject("SELECT reserved FROM inventory_service.stock WHERE sku = 'EVENT-SKU'", Integer.class)).isZero();
     }
+
+    @ParameterizedTest
+    @CsvSource({"OrderCreated", "OrderShipped"})
+    void notificationOrderEventsAreMarkedProcessedWithoutChangingInventory(String type) throws Exception {
+        jdbc.execute("TRUNCATE inventory_service.reservation, inventory_service.stock, inventory_service.processed_event CASCADE");
+        UUID eventId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        String payload = mapper.writeValueAsString(new EventEnvelope<>(eventId, type, 1,
+                Instant.now(), orderId.toString(), Map.of("orderId", orderId)));
+
+        listener.consume(new ConsumerRecord<>("order.events", 0, 0, orderId.toString(), payload));
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM inventory_service.processed_event WHERE event_id = ?",
+                Integer.class, eventId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM inventory_service.reservation", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM inventory_service.stock", Integer.class)).isZero();
+    }
 }

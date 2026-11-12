@@ -1,0 +1,12 @@
+E2 user.events 整合測試
+日期：2026-11-12
+指令：`mvn.cmd -o -Dmaven.repo.local=C:\Users\joe83\.m2\repository -pl spring-notification-service -am test`
+
+結果：BUILD SUCCESS
+- common：52 項測試通過。
+- notification-service `UserEventIntegrationTests`：3 項通過。
+  - Kafka 中重送相同 eventId，PostgreSQL `processed_event` 只有單筆，`user_contact` 也只有單筆。
+  - 同 userId 依序收到新 eventId，保留最新 email/displayName。
+  - 缺少 email 的 UserRegistered 事件進 `user.events.DLT`，且沒有寫入收件人資料或 processed_event。
+
+環境：Testcontainers PostgreSQL 18.6 與 Apache Kafka 4.1.0。

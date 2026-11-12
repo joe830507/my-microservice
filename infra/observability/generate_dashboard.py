@@ -129,6 +129,44 @@ panels.append(series("各服務的副本", [
 ], 12, y, 12, 7))
 y += 7
 
+panels.append(row("商品搜尋（Elasticsearch）", y)); y += 1
+panels.append(series("搜尋引擎使用量（每分鐘）", [
+    ('sum by (engine) (rate(search_requests_total[5m])) * 60', "{{engine}}"),
+], 0, y, 8, 8, desc="關鍵字搜尋由 Elasticsearch 或 SQL 執行的次數"))
+panels.append(series("搜尋退回 SQL（每分鐘，依原因）", [
+    ('sum by (reason) (rate(search_fallback_total[5m])) * 60', "{{reason}}"),
+], 8, y, 8, 8, desc="ES 逾時、熔斷、索引未就緒或其他錯誤所造成的退回"))
+panels.append(series("Elasticsearch 搜尋平均延遲", [
+    ('sum(rate(search_es_duration_milliseconds_sum[5m])) / sum(rate(search_es_duration_milliseconds_count[5m]))', "平均"),
+], 16, y, 8, 8, unit="ms", desc="search.es.duration 以毫秒匯出（search_es_duration_milliseconds_*）；目前只有 +Inf bucket，沒有可用的百分位數"))
+y += 8
+panels.append(series("搜尋索引事件（每分鐘）", [
+    ('sum by (result) (rate(search_index_events_total[5m])) * 60', "{{result}}"),
+], 0, y, 8, 8, desc="indexed、stale_skipped 與 failed 的索引事件結果"))
+panels.append(series("搜尋重建文件數（每分鐘）", [
+    ('sum(rate(search_rebuild_documents_total[5m])) * 60', "文件數"),
+], 8, y, 8, 8))
+panels.append(series("搜尋過期命中（每分鐘）", [
+    ('sum(rate(search_stale_hits_total[5m])) * 60', "過期文件"),
+], 16, y, 8, 8))
+y += 8
+
+panels.append(row("通知（寄信）", y)); y += 1
+panels.append(series("寄信結果（每分鐘，依範本與結果）", [
+    ('sum by (template, result) (rate(notification_emails_total[5m])) * 60', "{{template}} / {{result}}"),
+], 0, y, 12, 8, stack=True, desc="result：sent、retry、failed、skipped"))
+panels.append(series("SMTP 平均寄送耗時", [
+    ('sum by (template) (rate(notification_email_send_duration_milliseconds_sum[5m])) '
+     '/ sum by (template) (rate(notification_email_send_duration_milliseconds_count[5m]))', "{{template}}"),
+], 12, y, 12, 8, unit="ms",
+   desc="notification.email.send.duration 以毫秒匯出（notification_email_send_duration_milliseconds_*）"))
+y += 8
+panels.append(stat("待寄信件數", "notification_email_pending", 0, y, w=6))
+panels.append(stat("最舊待寄信件已等待（秒）", "notification_email_oldest_pending_seconds", 6, y, w=6,
+                   thresholds={"mode": "absolute", "steps": [{"color": "green", "value": None},
+                                                                  {"color": "red", "value": 600}]}))
+y += 4
+
 panels.append(row("Log（warn、error）", y)); y += 1
 panels.append({
     "id": _id(), "type": "logs", "title": "warn / error", "datasource": LOKI,
@@ -197,9 +235,18 @@ alerts = {"apiVersion": 1, "groups": [{
         rule("mm-kafka-consumer-lag", "Kafka consumer lag 偏高",
              'max by (service_name) (kafka_consumer_fetch_manager_records_lag_max)',
              "gt", 1000, "5m", "{{ $labels.service_name }} 的 Kafka consumer lag 持續超過 1000 筆"),
+        rule("mm-search-fallback", "搜尋持續退回 SQL",
+             'sum by (application, reason) (rate(search_fallback_total[1m]))',
+             "gt", 0, "5m", "{{ $labels.application }} 搜尋在過去 5 分鐘持續退回 SQL，原因：{{ $labels.reason }}；請檢查 Elasticsearch 與搜尋索引狀態"),
         rule("mm-kafka-dlt", "Kafka 事件進入 DLT",
              'sum(increase(events_dlt_published_total[5m]))',
              "gt", 0, "0s", "事件進入 dead-letter topic；請檢查消費端錯誤", "critical"),
+        rule("mm-notification-failed", "通知信件寄送失敗（FAILED）",
+             'sum(increase(notification_emails_total{result="failed"}[10m]))',
+             "gt", 0, "0s", "有通知信件進入 FAILED；請檢查 SMTP 與 email_message.last_error。"),
+        rule("mm-notification-backlog", "通知信件積壓",
+             'max(notification_email_oldest_pending_seconds)',
+             "gt", 600, "5m", "最舊的待寄通知信件已超過 10 分鐘；請檢查 SMTP 與 notification-service。"),
     ],
 }]}
 out2 = pathlib.Path(__file__).parent / "alerting.yaml"

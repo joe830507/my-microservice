@@ -1,0 +1,3 @@
+context=kind-my-microservice
+product-service -> elasticsearch:9200 = allowed
+unauthorized Pod -> elasticsearch:9200 = denied

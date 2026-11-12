@@ -1,0 +1,9 @@
+date=2026-11-12
+command=mvn -o -Dmaven.repo.local=C:\Users\joe83\.m2\repository -pl spring-product-service -am -Dtest=ProductEventContractIntegrationTests,ProductIndexEventListenerIntegrationTests -Dsurefire.failIfNoSpecifiedTests=false test
+runs=3
+run_1=BUILD_SUCCESS; ProductEventContractIntegrationTests 1/1; ProductIndexEventListenerIntegrationTests 4/4; total 5/5; 02:07
+run_2=BUILD_SUCCESS; ProductEventContractIntegrationTests 1/1; ProductIndexEventListenerIntegrationTests 4/4; total 5/5; 02:14
+run_3=BUILD_SUCCESS; ProductEventContractIntegrationTests 1/1; ProductIndexEventListenerIntegrationTests 4/4; total 5/5; 02:00
+pre_fix_finding=First run before EntityManager.refresh failed because ProductCreated and ProductUpdated createdAt differed by 1 microsecond.
+fix=Refresh newly inserted Product after flush so event snapshot uses PostgreSQL-rounded TIMESTAMPTZ value; test compares both timestamps at microsecond precision.
+container_note=All 3 post-fix runs started Kafka and Elasticsearch Testcontainers successfully. Kafka disconnect messages appeared during listener shutdown; all tests passed.

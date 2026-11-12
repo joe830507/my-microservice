@@ -134,7 +134,7 @@ payment
 
 ## 之後再處理
 
-- 真實金流：回呼改由第三方呼叫並驗證簽章，`mock-callback` 移除
+- 真實金流：回呼改由第三方呼叫並驗證簽章，`mock-callback` 移除（**不實作**，見路線圖階段 F；本專案維持模擬金流）
 - 退款流程（`REJECTED` 的付款）
 - PENDING 付款逾時：訂單被取消後，留著的 `PENDING` 付款改成 `FAILED`
 - Kafka 導入後，付款成功改成發 `PaymentSucceeded` 事件

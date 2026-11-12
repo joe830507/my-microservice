@@ -45,7 +45,7 @@ class OrderControllerShipIntegrationTests {
 
     @BeforeEach
     void setUp() {
-        jdbcTemplate.execute("TRUNCATE order_service.orders CASCADE");
+        jdbcTemplate.execute("TRUNCATE order_service.outbox_event, order_service.orders CASCADE");
     }
 
     @Test
@@ -66,6 +66,7 @@ class OrderControllerShipIntegrationTests {
         assertThat(row.get("version")).isEqualTo(1L);
         // 出貨不影響預扣
         assertThat(row.get("reservation_status")).isEqualTo("CONFIRMED");
+        assertThat(countShippedEvents(orderId)).isEqualTo(1);
 
     }
 
@@ -82,6 +83,7 @@ class OrderControllerShipIntegrationTests {
         Map<String, Object> row = findOrder(orderId);
         assertThat(row.get("version")).isEqualTo(1L);
         assertThat(row.get("shipped_at")).isEqualTo(shippedAt);
+        assertThat(countShippedEvents(orderId)).isEqualTo(1);
     }
 
     @ParameterizedTest
@@ -98,6 +100,7 @@ class OrderControllerShipIntegrationTests {
         Map<String, Object> row = findOrder(orderId);
         assertThat(row.get("status")).isEqualTo(status);
         assertThat(row.get("shipped_at")).isNull();
+        assertThat(countShippedEvents(orderId)).isZero();
     }
 
     @Test
@@ -155,6 +158,7 @@ class OrderControllerShipIntegrationTests {
 
         // 只有一個請求真的出貨（version 只加 1）
         assertThat(findOrder(orderId).get("version")).isEqualTo(1L);
+        assertThat(countShippedEvents(orderId)).isEqualTo(1);
     }
 
     // ---------- helpers ----------
@@ -167,5 +171,10 @@ class OrderControllerShipIntegrationTests {
 
     private Map<String, Object> findOrder(UUID orderId) {
         return jdbcTemplate.queryForMap("SELECT * FROM order_service.orders WHERE id = ?", orderId);
+    }
+
+    private int countShippedEvents(UUID orderId) {
+        return jdbcTemplate.queryForObject("SELECT count(*) FROM order_service.outbox_event "
+                + "WHERE event_type = 'OrderShipped' AND aggregate_id = ?", Integer.class, orderId.toString());
     }
 }

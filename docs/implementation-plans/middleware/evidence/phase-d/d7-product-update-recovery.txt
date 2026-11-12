@@ -1,0 +1,4 @@
+outage_update_version=1
+updated_document_reindexed=True
+fixture_restored_version=2
+restored_document_reindexed=True
