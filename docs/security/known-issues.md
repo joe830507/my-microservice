@@ -10,7 +10,7 @@
 
 | 編號 | 問題 | 嚴重度 | 狀態 | 預計處理 |
 | ---- | ---- | ------ | ---- | -------- |
-| [SEC-01](#sec-01-顧客可以自己把訂單標成付款成功) | 顧客可以自己把訂單標成付款成功 | 高 | **已處理**：預設關閉的設定開關（`PAYMENT_MOCK_CALLBACK_ENABLED`） | `feature/security-hardening` |
+| [SEC-01](#sec-01-顧客可以自己把訂單標成付款成功) | 顧客可以自己把訂單標成付款成功 | 高 | **已緩解並接受剩餘風險**：預設關閉的設定開關（`PAYMENT_MOCK_CALLBACK_ENABLED`）；不接真實金流（路線圖階段 F 不實作），僅適用於隔離的示範環境 | `feature/security-hardening` |
 | [SEC-02](#sec-02-繞過-gateway-直連服務可以偽造任何人的身分) | 繞過 Gateway 直連服務可以偽造任何人的身分 | 高 | **已處理並實測**：K8s 的進入與**出去**限制（NetworkPolicy）；本機直接啟動的開發環境沒有隔離 | — |
 | [SEC-03](#sec-03-開發環境的預設設定不能帶上線) | 開發環境的預設設定不能帶上線 | 高 | **已處理**：K8s 隨機 Secret；compose 埠綁定 127.0.0.1；repo 內的測試用金鑰標明僅限測試 | — |
 | [SEC-04](#sec-04-註冊沒有頻率限制) | 註冊沒有頻率限制，且可列舉 Email | 中 | **已處理**：Gateway 對註冊依來源 IP 限流 | — |
@@ -31,8 +31,8 @@
 - **現象**：`POST /api/v1/payments/{id}/mock-callback` 讓付款的本人（或 ADMIN）呼叫，指定 `SUCCESS` 或 `FAILED`。顧客建單、建立付款後自己呼叫 `SUCCESS`，訂單就變成 `PAID`，等於不用付錢。
 - **驗證**：以一般顧客帳號實際走過：建單 → 建立付款 → `mock-callback` `SUCCESS` → 0.08 秒後訂單 `PAID`。
 - **成因**：雛型階段用它模擬第三方金流的回呼，payment-service 的程式碼註解已寫明「之後會移除這支 API」。
-- **處理方向**：接真的金流前移除；真實金流的回呼要由第三方伺服器呼叫，並驗證簽章，不經過使用者身分。在此之前任何對外環境都不能開放這支 API（例如 Gateway 不轉發 `/payments/*/mock-callback`，或用設定開關只在開發環境啟用）。
-- **處理結果（2026-11-11）**：`mock-callback` 搬到 `MockPaymentController`，用 `@ConditionalOnProperty(payment.mock-callback.enabled)` 控制，**預設關閉**（`PAYMENT_MOCK_CALLBACK_ENABLED`，未開啟時 `POST /payments/{id}/mock-callback` 回 404，有測試）。開啟時啟動會記 warn。K8s 的 `payment-service.yaml` 目前設為 `"true"`（沒有真的金流，示範與 E2E 需要它）；**接真的金流時要拿掉並移除這支 API**。本機啟動 payment-service 跑 E2E 要設 `PAYMENT_MOCK_CALLBACK_ENABLED=true`。
+- **處理方向**：原計畫接真的金流時移除，但本專案已決定不實作真實金流（路線圖階段 F），所以改為長期保留模擬並以設定開關限制範圍。若將來接真的金流，則真實金流的回呼要由第三方伺服器呼叫，並驗證簽章，不經過使用者身分。模擬 API 在任何對外環境都不能開放（例如 Gateway 不轉發 `/payments/*/mock-callback`，或用設定開關只在開發環境啟用）。
+- **處理結果（2026-11-11）**：`mock-callback` 搬到 `MockPaymentController`，用 `@ConditionalOnProperty(payment.mock-callback.enabled)` 控制，**預設關閉**（`PAYMENT_MOCK_CALLBACK_ENABLED`，未開啟時 `POST /payments/{id}/mock-callback` 回 404，有測試）。開啟時啟動會記 warn。K8s 的 `payment-service.yaml` 目前設為 `"true"`（沒有真的金流，示範與 E2E 需要它）；**不接真的金流（路線圖階段 F 不實作），所以這支 API 與 K8s 上的開關會保留，只能用在隔離的示範環境，不可用於對外環境；若將來改變決定，接真的金流時要拿掉並移除這支 API**。本機啟動 payment-service 跑 E2E 要設 `PAYMENT_MOCK_CALLBACK_ENABLED=true`。
 
 ## SEC-02 繞過 Gateway 直連服務可以偽造任何人的身分
 

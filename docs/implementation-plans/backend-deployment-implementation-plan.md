@@ -118,6 +118,6 @@ Spring 的 relaxed binding 讓 `SPRING_DATASOURCE_URL`、`SPRING_DATA_REDIS_HOST
 - **圖片網址是 `localhost:8333`**：只在本機有效。正式環境要換成對外的網域（`STORAGE_UPLOAD_ENDPOINT`、`STORAGE_PUBLIC_BASE_URL`，以及兩個前端 ConfigMap 的 `STORAGE_PUBLIC_ORIGIN`，CSP 會用到）
 - **資料庫與 Redis 的高可用、備份**：單一副本、本機磁碟區
 - **映像檔倉庫、CI、映像檔掃描、簽章**
-- **`SEC-01`（`mock-callback`）**：已改成設定開關、預設關閉，但 K8s 上為了示範與 E2E 仍設為開啟；接真的金流時要移除
+- **`SEC-01`（`mock-callback`）**：已改成設定開關、預設關閉，但 K8s 上為了示範與 E2E 仍設為開啟；不接真的金流（路線圖階段 F 不實作），維持此狀態，僅適用於隔離的示範環境
 - 服務啟動順序：沒有 initContainer 等資料庫，靠重啟等待
 - 測試沒有跑在映像檔建置裡（Testcontainers 需要 Docker），應該在 CI 先跑

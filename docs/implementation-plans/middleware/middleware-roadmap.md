@@ -46,9 +46,9 @@
 | **C** | Kafka + Outbox：事件機制，取代同步通知與補做排程   | A、B              | payment、order、inventory、product、common |
 | **D** | 搜尋：Elasticsearch                                | C                 | product（之後可拆 search-service）         |
 | **E** | 通知：notification-service（寄信）                 | C                 | 新服務、user                               |
-| **F** | 真的金流（第三方測試環境），移除 `mock-callback` | C                 | payment                                    |
+| **F** | 真的金流（第三方測試環境），移除 `mock-callback`（**不實作**，見階段 F） | C                 | payment                                    |
 
-順序的理由：A、B 改動小、立刻降低之後的除錯成本；C 是改動最大的一步，要在看得到追蹤之後做；D、E、F 都建立在 C 的事件上。
+順序的理由：A、B 改動小、立刻降低之後的除錯成本；C 是改動最大的一步，要在看得到追蹤之後做；D、E 都建立在 C 的事件上（F 原本也是，但已決定不實作）。
 
 每個階段的共同收尾（不再每階段重複列出）：
 
@@ -184,4 +184,4 @@
 - A：K8s 上的監控要自己放 `otel-lgtm`，還是用 Helm 的 kube-prometheus-stack（較貼近正式環境，但較重）
 - C：（已決定）事件格式用 JSON 加文件規格；Schema Registry（Avro／Protobuf）有需要再評估
 - D：（已決定）Elasticsearch + 官方 analysis-smartcn；實驗與版本見搜尋實作紀錄
-- F：金流商的選擇
+- F：（已決定不實作）原本待選的金流商不再需要選擇
