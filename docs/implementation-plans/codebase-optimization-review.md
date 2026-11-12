@@ -279,6 +279,8 @@ CREATE INDEX idx_product_category_status_created ON product_service.product (cat
 
 ## 18.（低）後端映像檔沒有分層，啟動沒用 CDS／AOT cache
 
+> 2026-11-13 修正註記：Dockerfile 用 tools extract 分成 dependencies、spring-boot-loader、snapshot-dependencies、application 四層，改由 JarLauncher 啟動。已成功建置 notification 測試映像並在隔離 DB 實際啟動，五個 migration 均成功。CDS／AOT cache 暫緩：需要可重現的依賴與啟動 training 流程及實際 CPU 基準，本次不增加帶環境依賴的訓練啟動。
+
 位置：`backend/Dockerfile`
 
 問題：執行階段直接 `COPY app.jar`，任何一行程式改動都會產生整個 fat jar 的新層（數十 MB），推送與 K8s 拉取映像都比較慢。Spring Boot 啟動在 100m CPU request 下也偏慢（startupProbe 要給比較長的時間）。
