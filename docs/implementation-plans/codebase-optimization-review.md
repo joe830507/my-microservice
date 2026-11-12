@@ -159,6 +159,8 @@ CREATE INDEX idx_outbox_event_aggregate_pending_seq
 
 ## 8.（中）EmailDispatcher 在 DB 交易內寄 SMTP
 
+> 2026-11-13 修正註記：改為每封短交易領取 SENDING、兩分鐘租約及唯一 lease_token，交易外寄 SMTP，再短交易回寫；過期租約可回收，回寫須符合 token，避免舊 worker 覆蓋新領取者。逐封領取避免後段信件排隊耗盡租約。新增 SMTP 交易外、租約到期回收及有效租約不被搶走的測試；保留固定 Message-ID 與至少一次投遞語意。
+
 位置：`backend/spring-notification-service/src/main/java/com/mymicroservice/notification/mail/EmailDispatcher.java:57`
 
 問題：`SELECT ... FOR UPDATE SKIP LOCKED` 之後，整批（預設 10 封）的 SMTP 寄送都在同一個交易內完成，期間佔著 DB 連線與 row lock。SMTP 慢或逾時時（每封可能數秒），一輪會鎖很久；交易也可能超過資料庫的 idle-in-transaction 限制。
