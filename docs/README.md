@@ -33,12 +33,14 @@
 | [vue-management/](implementation-plans/vue-management/README.md) | 完成（Step 0–12）：後台前端（Vue 3 + TS + Element Plus），登入、商品、圖片、庫存、訂單、使用者 |
 | [vue-customer/](implementation-plans/vue-customer/README.md) | 完成（Step 0–12）：顧客用的商店前台（Vue 3 + TS），瀏覽、購物車、下單、模擬付款、我的訂單 |
 | [backend-deployment-implementation-plan.md](implementation-plans/backend-deployment-implementation-plan.md) | 完成：後端 6 個服務與資料庫、Redis、物件儲存、兩個前端放進 K8s（kind 驗證）；NetworkPolicy、Secret；含實際攔截測試 |
-| [middleware-roadmap.md](implementation-plans/middleware/middleware-roadmap.md) | 進行中：中介軟體導入計畫（可觀測性 → 韌性 → Kafka + Outbox → Elasticsearch → 通知 → 真的金流）；階段 A–C 完成，D 進行中，E–F 規劃中 |
+| [middleware-roadmap.md](implementation-plans/middleware/middleware-roadmap.md) | 進行中：中介軟體導入計畫（可觀測性 → 韌性 → Kafka + Outbox → Elasticsearch → 通知；原規劃的真的金流不實作）；階段 A–C 完成，D 進行中，E 規劃中，F 不實作 |
 | [observability-implementation-plan.md](implementation-plans/middleware/observability-implementation-plan.md) | 完成（中介軟體階段 A）：指標、追蹤、log 用 OTLP 送到 Grafana LGTM；儀表板、告警規則；本機與 kind 都驗證 |
 | [resilience-implementation-plan.md](implementation-plans/middleware/resilience-implementation-plan.md) | 完成（中介軟體階段 B）：重試與熔斷、Gateway 熔斷、排程分散式鎖（ShedLock）、2 個副本、優雅關閉；kind 上實測 |
 | [event-implementation-plan.md](implementation-plans/middleware/event-implementation-plan.md) | 完成（中介軟體階段 C）：Kafka + Outbox、消費端去重與 DLT、付款與庫存改事件、商品與使用者事件；kind 停機恢復與 trace、告警實測 |
-| [search-implementation-plan.md](implementation-plans/middleware/search-implementation-plan.md) | 實作中（中介軟體階段 D）：Elasticsearch 搜尋的詳細計畫、索引與查詢設計、步驟 D1–D7，以及給實作者的規範 |
-| [search-implementation-record.md](implementation-plans/middleware/search-implementation-record.md) | 進行中（階段 D）：D1 Elasticsearch／SmartCN 與 kind 網路隔離；D2 索引管理；D3 Kafka 事件索引器；D4 全量重建、補灌、原子切 alias 與背景啟動修復均已通過真實容器測試；D5–D7 待實作 |
+| [search-implementation-plan.md](implementation-plans/middleware/search-implementation-plan.md) | 完成（中介軟體階段 D）：Elasticsearch 搜尋計畫與 D1–D7 驗收 |
+| [search-implementation-record.md](implementation-plans/middleware/search-implementation-record.md) | 完成（階段 D）：kind 停機恢復、索引重建、告警、完整 Maven reactor、Tempo trace、Gateway 搜尋及使用者人工操作前後台（無截圖） |
+| [notification-implementation-plan.md](implementation-plans/middleware/notification-implementation-plan.md) | E1 完成；E2–E7 尚未開始 |
+| [notification-implementation-record.md](implementation-plans/middleware/notification-implementation-record.md) | E1 完成；E2–E7 尚未開始 |
 
 ## 設計與評估
 
