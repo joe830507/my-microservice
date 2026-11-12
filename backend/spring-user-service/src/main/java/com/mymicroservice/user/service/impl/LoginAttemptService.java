@@ -37,11 +37,11 @@ public class LoginAttemptService {
     // INCR 和設定到期時間要一起完成：分兩個指令的話，中間失敗會留下永不過期的 key，帳號就永久被鎖
     // 只在第一次失敗時設定到期時間，形成從第一次失敗起算的固定時間窗
     private static final RedisScript<Long> INCREMENT_SCRIPT = RedisScript.of("""
-            local count = redis.call('INCR', KEYS[1])
-            if count == 1 then
-                redis.call('PEXPIRE', KEYS[1], ARGV[1])
+            for i = 1, #KEYS do
+                local count = redis.call('INCR', KEYS[i])
+                if count == 1 then redis.call('PEXPIRE', KEYS[i], ARGV[1]) end
             end
-            return count
+            return 1
             """, Long.class);
 
     private final StringRedisTemplate redisTemplate;
@@ -50,8 +50,9 @@ public class LoginAttemptService {
     // 失敗次數已達上限（任何一層）：在比對密碼之前呼叫，鎖住期間就算密碼正確也不放行
     public boolean isBlocked(String email, String clientIp) {
         try {
-            return reached(redisTemplate.opsForValue().get(pairKey(email, clientIp)), properties.maxFailures())
-                    || reached(redisTemplate.opsForValue().get(key(email)), properties.maxFailuresPerEmail());
+            List<String> counts = redisTemplate.opsForValue().multiGet(List.of(pairKey(email, clientIp), key(email)));
+            return counts != null && (reached(counts.get(0), properties.maxFailures())
+                    || reached(counts.get(1), properties.maxFailuresPerEmail()));
         } catch (DataAccessException exception) {
             log.warn("login attempt check skipped, redis unavailable: {}", exception.getMessage());
             return false;
@@ -66,8 +67,7 @@ public class LoginAttemptService {
     public void recordFailure(String email, String clientIp) {
         try {
             String windowMillis = String.valueOf(properties.window().toMillis());
-            redisTemplate.execute(INCREMENT_SCRIPT, List.of(pairKey(email, clientIp)), windowMillis);
-            redisTemplate.execute(INCREMENT_SCRIPT, List.of(key(email)), windowMillis);
+            redisTemplate.execute(INCREMENT_SCRIPT, List.of(pairKey(email, clientIp), key(email)), windowMillis);
         } catch (DataAccessException exception) {
             log.warn("login failure not recorded, redis unavailable: {}", exception.getMessage());
         }

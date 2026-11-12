@@ -259,6 +259,8 @@ CREATE INDEX idx_product_category_status_created ON product_service.product (cat
 
 ## 16.（低）LoginAttemptService 的 Redis 往返
 
+> 2026-11-13 修正註記：isBlocked 改一次 MGET；recordFailure 改一個 Lua 同時遞增兩個 key，仍只在首次失敗設定 TTL。保留兩層門檻、成功僅清來源 IP 及 Redis 故障放行行為；補兩層門檻單元測試。適用目前單一 Redis 部署。
+
 位置：`backend/spring-user-service/src/main/java/com/mymicroservice/user/service/impl/LoginAttemptService.java`
 
 問題：`isBlocked` 用兩次 `GET`；`recordFailure` 執行兩次 Lua script。每次登入失敗共 4 次往返。
