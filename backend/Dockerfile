@@ -3,7 +3,7 @@
 # SERVICE 是資料夾名稱去掉 spring- 前綴：api-gateway、user-service、product-service、inventory-service、order-service、payment-service
 # 建置階段沒有用到 SERVICE，所以六次建置會共用同一個建置快取，只編譯一次
 
-# ---------- 階段 1：編譯所有模組（common、observability + 6 個服務）----------
+# ---------- 階段 1：編譯所有模組（common、observability + 7 個服務）----------
 FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /src
 
@@ -18,6 +18,7 @@ COPY spring-product-service/pom.xml spring-product-service/pom.xml
 COPY spring-inventory-service/pom.xml spring-inventory-service/pom.xml
 COPY spring-order-service/pom.xml spring-order-service/pom.xml
 COPY spring-payment-service/pom.xml spring-payment-service/pom.xml
+COPY spring-notification-service/pom.xml spring-notification-service/pom.xml
 # Windows 的工作目錄可能是 CRLF 行尾，mvnw 的 #!/bin/sh\r 在 Linux 上會找不到直譯器
 RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
 
@@ -29,6 +30,7 @@ COPY spring-product-service spring-product-service
 COPY spring-inventory-service spring-inventory-service
 COPY spring-order-service spring-order-service
 COPY spring-payment-service spring-payment-service
+COPY spring-notification-service spring-notification-service
 
 # 測試要 Docker（Testcontainers），在 CI 先跑，不放進映像檔的建置
 RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -q -DskipTests package

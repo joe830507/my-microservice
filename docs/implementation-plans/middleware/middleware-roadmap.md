@@ -3,7 +3,7 @@
 > 建立日期：2026-11-11
 > 分支：計畫在 `feature/middleware-roadmap`；每個階段實作時各自開分支（階段 C：`feature/event-driven-phase-c`）
 > 對應：[product-service-middleware-evaluation.md](../../design/product-service-middleware-evaluation.md)「建議導入順序」、[microservice-architecture.md](../../architecture/microservice-architecture.md)「之後：事件驅動」
-> 狀態：階段 A（[observability-implementation-plan.md](observability-implementation-plan.md)）、B（[resilience-implementation-plan.md](resilience-implementation-plan.md)）、C（[event-implementation-plan.md](event-implementation-plan.md)）完成；D 進行中（D1 infra 與分詞驗收），E–F 尚未開始
+> 狀態：階段 A–D 完成；階段 E 的 E1–E6 完成，E7（真實信箱驗證）暫緩；階段 F 尚未開始。
 
 從雛型的「同步 REST + 排程補償」走向「事件驅動 + 可觀測 + 可水平擴充」。每個階段都要能在本機 compose 與 kind 上跑起來並驗證，做法和之前一樣：每一步附測試，測試通過後單獨 commit。
 
@@ -103,7 +103,7 @@
 | Topic              | key       | 事件                                                             | 發送方  | 消費方                                           |
 | ------------------ | --------- | ---------------------------------------------------------------- | ------- | ------------------------------------------------ |
 | `payment.events` | orderId   | `PaymentSucceeded`、`PaymentFailed`                          | payment | order                                            |
-| `order.events`   | orderId   | `OrderPaid`、`OrderCancelled`                                | order   | inventory（確認／釋放預扣）、之後的 notification |
+| `order.events`   | orderId   | `OrderPaid`、`OrderCancelled`（階段 E 新增 `OrderCreated`、`OrderShipped`） | order   | inventory（確認／釋放預扣；階段 E 起忽略新增型別）、之後的 notification |
 | `product.events` | productId | `ProductCreated`、`ProductUpdated`、`ProductStatusChanged` | product | 之後的搜尋索引、快取失效                         |
 | `user.events`    | userId    | `UserRegistered`                                               | user    | 之後的 notification                              |
 
@@ -151,13 +151,23 @@
 
 | Step | 內容                                                                                                               | 驗收                            |
 | ---- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
-| E1   | 新服務 `spring-notification-service`（自己的 DB），本機用 Mailpit 收信                                           | —                              |
-| E2   | 消費 `user.events` 建立本地的使用者聯絡資料（只存需要的欄位），不在寄信時同步呼叫 user-service                   | —                              |
-| E3   | 消費 `order.events`、`payment.events`：下單、付款成功、出貨、取消寄信；以 `eventId` 去重，同一封信不會寄兩次 | Mailpit 收到各種信              |
-| E4   | 寄信失敗重試、退避；收件人不存在記錄後略過                                                                         | SMTP 停掉時信件延後寄出，不遺失 |
-| E5   | （可選）註冊改成寄信確認，解決 SEC-04 的 Email 列舉                                                                | —                              |
+詳細計畫見 [notification-implementation-plan.md](notification-implementation-plan.md)（步驟 E1–E7，與下表的差異見其「已定的決定」）。
 
-## 階段 F：真的金流
+| Step | 內容 | 驗收 |
+| ---- | ---- | ---- |
+| E1 | 基礎設施與服務骨架：Mailpit（compose/kind）、notification-db、notification-service、NetworkPolicy、SEC-15 | **完成**：notification 2/2、Mailpit 1/1 Ready；Flyway V1/V2 通過；SMTP/Kafka/DB 可達，product-service 被策略阻擋 |
+| E2 | 收件人資料：消費 `UserRegistered`、去重並 upsert 本地收件人資料 | **完成**：Kafka/PostgreSQL 整合測試 3 項通過，重複事件不重寫，欄位錯誤進 DLT |
+| E3 | 訂單事件契約：`OrderCreated`/`OrderShipped` outbox、inventory 向後相容 | **完成**：訂單事件原子發送與庫存 consumer 相容；order/inventory 整合測試通過 |
+| E4   | 發件匣與寄信：消費 `order.events`（下單、付款成功、出貨、取消）與 `payment.events` 的 `PaymentFailed`（**不消費 `PaymentSucceeded`**，付款成功信由 `OrderPaid` 觸發）；以 `eventId` 去重，同一事件不會寄兩封 | **實作與驗收完成**：kind 與 Testcontainers network 內的 Mailpit 均實際收信；範本、收件人、去重、併發派送與 `Message-ID` 原始 header 斷言通過 |
+| E5 | Bounded retry after email failure; skip after missing-recipient attempts; metrics, dashboard, and alerts | **實作與驗收完成**：Mailpit 停機恢復後 PENDING 自動重試至 SENT；FAILED 與 backlog 告警各觸發並解除 |
+| E6   | kind 部署驗收與 E2E（部署順序：inventory → order → notification） | **完成**：kind ordered rollout 每階段前後 Alertmanager 均無 active DLT/dead-letter alert；customer 與 management Playwright E2E、SMTP/notification/order 停機恢復、NetworkPolicy 正反向探測、FAILED/backlog firing/resolved、Tempo trace 皆有證據；完整 10 模組 Maven reactor 13 分 34 秒全綠。詳見實作紀錄與 `evidence/phase-e/e6-kind-validation.txt` |
+| E7   | 真實信箱驗證（暫緩，需使用者配合；不是結案條件） | 使用者提供信箱後，五種信在真實郵件客戶端正常顯示 |
+
+**暫緩（先有雛型，之後要補，不是不做）**：註冊改成寄信確認（解決 SEC-04 的 Email 列舉）；補寄「通知上線前」已存在使用者與訂單的收件人資料；真實 SMTP 的認證與 TLS。
+
+## 階段 F：真的金流（不實作）
+
+> **決定：本階段不實作。** 本專案的重點是前面階段的技術應用（可觀測性、韌性、事件機制、搜尋、通知），串接真實金流商偏向第三方整合，不在學習範圍內。付款維持現有的 `mock-callback` 模擬流程，SEC-01 因此維持未結案，只適用於隔離的開發環境。下表保留原先的規劃作為參考，若將來改變決定可直接沿用。
 
 | Step | 內容                                                                                                                                                        | 驗收                                         |
 | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |

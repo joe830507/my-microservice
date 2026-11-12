@@ -1,0 +1,13 @@
+E1 kind 驗證紀錄
+日期：2026-11-12
+Context：kind-my-microservice；Namespace：my-microservice
+
+Deployment readiness：notification-service 2/2 Ready；mailpit 1/1 Ready；notification-db StatefulSet 1/1 Ready。
+Flyway：notification-service 啟動時 Successfully validated 3 migrations；schema notification_service version 2。
+從 notification Pod 執行 nc -vz -w 3 mailpit 1025：open。
+從 notification Pod 執行 nc -vz -w 3 kafka 9092：open。
+DB：Flyway 連線成功並完成 V2，證明 notification Pod 可連 notification-db。
+從 product-service 執行 nc -vz -w 3 notification-db 5432：逾時（預期由 NetworkPolicy 阻擋）。
+從 product-service 執行 nc -vz -w 3 mailpit 1025：逾時（預期由 NetworkPolicy 阻擋）。
+
+限制：SMTP 僅做 TCP 連通性檢查，寄信端到端流程屬 E2/E3；未用真實信箱驗證。

@@ -1,0 +1,14 @@
+E4 focused validation (2026-11-12)
+
+Compile:
+- Offline Maven compile for spring-notification-service and dependencies: BUILD SUCCESS.
+
+Kafka/PostgreSQL/Mailpit Testcontainers:
+- Event consumers processed OrderCreated, two distinct OrderPaid events (one resent with the same eventId), OrderShipped, OrderCancelled, PaymentFailed, and UserRegistered.
+- PaymentSucceeded was ignored and did not create a processed_event or email_message.
+- Six unique email_message rows were queued; the duplicate OrderPaid eventId created one row.
+- Mailpit HTTP API was reachable. Container logs reported SMTP listening on 0.0.0.0:1025.
+- SMTP delivery assertion did not pass: the test JVM timed out while reading SMTP responses through the mapped port; no messages appeared in Mailpit. SMTP acceptance remains pending.
+- A separate temporary Mailpit container published on local port 1025 also accepted TCP but returned no SMTP greeting. The probe container was stopped and removed afterward.
+
+No message content, customer name, or email address is included in this evidence.

@@ -1,0 +1,12 @@
+E3 訂單事件驗證
+日期：2026-11-12
+
+指令與結果：
+- `mvn.cmd -o -Dmaven.repo.local=C:\Users\joe83\.m2\repository -pl spring-order-service -am test`：order-service 137/137 通過；common 52/52 通過。
+- `mvn.cmd -o -Dmaven.repo.local=C:\Users\joe83\.m2\repository -pl spring-inventory-service -am test`：inventory-service 95/95 通過；common 52/52 通過。
+
+主要斷言：
+- 新建訂單僅有一筆 `OrderCreated`；payload `userId` 正確、`totalAmount` 為數值。
+- 庫存失敗不建立訂單或發事件；相同 Idempotency-Key 重放與並發只有一筆 OrderCreated。
+- `OrderShipped` 於 PAID 狀態轉換成功時產生一次；已出貨重放、409 與並發情境皆符預期。
+- 真實 Kafka 中 `OrderCreated`/`OrderShipped` 在 inventory 被去重記錄後忽略，不進 DLT；未知類型進 `order.events.DLT`。

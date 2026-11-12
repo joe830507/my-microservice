@@ -57,7 +57,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
     // 出貨：只有 PAID 才會改，回傳 1 = 成功、0 = 狀態不對；兩個請求同時出貨時只有一個會成功
     // 預扣在付款時已經確認，出貨不用通知 inventory
     @Transactional
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE Order o
             SET o.status = com.mymicroservice.order.enums.OrderStatus.SHIPPED, o.shippedAt = :now,

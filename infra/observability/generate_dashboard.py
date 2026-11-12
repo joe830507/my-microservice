@@ -151,6 +151,22 @@ panels.append(series("搜尋過期命中（每分鐘）", [
 ], 16, y, 8, 8))
 y += 8
 
+panels.append(row("通知（寄信）", y)); y += 1
+panels.append(series("寄信結果（每分鐘，依範本與結果）", [
+    ('sum by (template, result) (rate(notification_emails_total[5m])) * 60', "{{template}} / {{result}}"),
+], 0, y, 12, 8, stack=True, desc="result：sent、retry、failed、skipped"))
+panels.append(series("SMTP 平均寄送耗時", [
+    ('sum by (template) (rate(notification_email_send_duration_milliseconds_sum[5m])) '
+     '/ sum by (template) (rate(notification_email_send_duration_milliseconds_count[5m]))', "{{template}}"),
+], 12, y, 12, 8, unit="ms",
+   desc="notification.email.send.duration 以毫秒匯出（notification_email_send_duration_milliseconds_*）"))
+y += 8
+panels.append(stat("待寄信件數", "notification_email_pending", 0, y, w=6))
+panels.append(stat("最舊待寄信件已等待（秒）", "notification_email_oldest_pending_seconds", 6, y, w=6,
+                   thresholds={"mode": "absolute", "steps": [{"color": "green", "value": None},
+                                                                  {"color": "red", "value": 600}]}))
+y += 4
+
 panels.append(row("Log（warn、error）", y)); y += 1
 panels.append({
     "id": _id(), "type": "logs", "title": "warn / error", "datasource": LOKI,
@@ -225,6 +241,12 @@ alerts = {"apiVersion": 1, "groups": [{
         rule("mm-kafka-dlt", "Kafka 事件進入 DLT",
              'sum(increase(events_dlt_published_total[5m]))',
              "gt", 0, "0s", "事件進入 dead-letter topic；請檢查消費端錯誤", "critical"),
+        rule("mm-notification-failed", "通知信件寄送失敗（FAILED）",
+             'sum(increase(notification_emails_total{result="failed"}[10m]))',
+             "gt", 0, "0s", "有通知信件進入 FAILED；請檢查 SMTP 與 email_message.last_error。"),
+        rule("mm-notification-backlog", "通知信件積壓",
+             'max(notification_email_oldest_pending_seconds)',
+             "gt", 600, "5m", "最舊的待寄通知信件已超過 10 分鐘；請檢查 SMTP 與 notification-service。"),
     ],
 }]}
 out2 = pathlib.Path(__file__).parent / "alerting.yaml"

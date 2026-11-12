@@ -302,7 +302,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: ["api-gateway", "user-service", "product-service", "inventory-service", "order-service", "payment-service"]
+        values: ["api-gateway", "user-service", "product-service", "inventory-service", "order-service", "payment-service", "notification-service"]
   policyTypes: ["Egress"]
   egress:
     - to:
@@ -325,7 +325,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: ["payment-service", "order-service", "inventory-service", "product-service", "user-service"]
+        values: ["payment-service", "order-service", "inventory-service", "product-service", "user-service", "notification-service"]
   policyTypes: ["Egress"]
   egress:
     - to:
@@ -393,3 +393,45 @@ spec:
       ports:
         - protocol: TCP
           port: 9200
+---
+# notification-service 只連自己的 DB、Kafka、Mailpit SMTP 與 observability collector。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-notification-service-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: notification-service
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: notification-db
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              app: kafka
+      ports:
+        - protocol: TCP
+          port: 9092
+    - to:
+        - podSelector:
+            matchLabels:
+              app: mailpit
+      ports:
+        - protocol: TCP
+          port: 1025
+    - to:
+        - podSelector:
+            matchLabels:
+              app: observability
+      ports:
+        - protocol: TCP
+          port: 4317
+        - protocol: TCP
+          port: 4318

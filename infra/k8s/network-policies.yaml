@@ -370,7 +370,7 @@ spec:
             matchExpressions:
               - key: app
                 operator: In
-                values: ["api-gateway", "user-service", "product-service", "inventory-service", "order-service", "payment-service"]
+                values: ["api-gateway", "user-service", "product-service", "inventory-service", "order-service", "payment-service", "notification-service"]
       ports:
         - protocol: TCP
           port: 4317
@@ -393,7 +393,7 @@ spec:
             matchExpressions:
               - key: app
                 operator: In
-                values: ["payment-service", "order-service", "inventory-service", "product-service", "user-service"]
+                values: ["payment-service", "order-service", "inventory-service", "product-service", "user-service", "notification-service"]
       ports:
         - protocol: TCP
           port: 9092
@@ -423,3 +423,60 @@ spec:
       ports:
         - protocol: TCP
           port: 9200
+---
+# notification-service 僅接受 observability 的 actuator 抓取；不提供業務 API。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-notification-service
+spec:
+  podSelector:
+    matchLabels:
+      app: notification-service
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: observability
+      ports:
+        - protocol: TCP
+          port: 8086
+---
+# 通知資料庫只允許 notification-service 存取。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-notification-db
+spec:
+  podSelector:
+    matchLabels:
+      app: notification-db
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: notification-service
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# Mailpit 的 SMTP 僅允許通知服務；UI 沒有 Service，也沒有 Pod ingress 規則。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-mailpit-smtp
+spec:
+  podSelector:
+    matchLabels:
+      app: mailpit
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: notification-service
+      ports:
+        - protocol: TCP
+          port: 1025

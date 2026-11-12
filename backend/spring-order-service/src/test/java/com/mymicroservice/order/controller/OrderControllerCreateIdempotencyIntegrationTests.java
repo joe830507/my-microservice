@@ -78,7 +78,7 @@ class OrderControllerCreateIdempotencyIntegrationTests {
 
     @BeforeEach
     void setUp() {
-        jdbcTemplate.execute("TRUNCATE order_service.orders CASCADE");
+        jdbcTemplate.execute("TRUNCATE order_service.outbox_event, order_service.orders CASCADE");
         PRODUCT_SERVICE.resetAll();
         INVENTORY_SERVICE.resetAll();
         stubProducts(0);
@@ -99,6 +99,8 @@ class OrderControllerCreateIdempotencyIntegrationTests {
                 .andExpect(jsonPath("$.items[0].qty").value(2));
 
         assertThat(countOrders()).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM order_service.outbox_event "
+                + "WHERE event_type = 'OrderCreated' AND aggregate_id = ?", Integer.class, orderId)).isEqualTo(1);
         INVENTORY_SERVICE.verify(1, postRequestedFor(urlEqualTo(RESERVATIONS_PATH)));
         // 重送不再查商品
         PRODUCT_SERVICE.verify(1, getRequestedFor(urlPathEqualTo(BATCH_PATH)));
@@ -114,6 +116,8 @@ class OrderControllerCreateIdempotencyIntegrationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(orderId));
         assertThat(countOrders()).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM order_service.outbox_event "
+                + "WHERE event_type = 'OrderCreated'", Integer.class)).isEqualTo(1);
     }
 
     @Test
@@ -203,6 +207,8 @@ class OrderControllerCreateIdempotencyIntegrationTests {
             String idA = JsonPath.read(resultA.getResponse().getContentAsString(), "$.id");
             String idB = JsonPath.read(resultB.getResponse().getContentAsString(), "$.id");
             assertThat(idA).isEqualTo(idB);
+            assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM order_service.outbox_event "
+                    + "WHERE event_type = 'OrderCreated' AND aggregate_id = ?", Integer.class, idA)).isEqualTo(1);
         } finally {
             pool.shutdownNow();
         }
