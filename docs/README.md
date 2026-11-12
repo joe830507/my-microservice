@@ -1,5 +1,7 @@
 # 文件索引
 
+第一次接觸專案，先讀[系統導讀：從一筆訂單理解整個專案](architecture/system-guide.md)。它面向懂程式但不熟悉本系統的讀者，依序說明服務分工、資料邊界、核心流程、故障行為與程式閱讀入口。
+
 ## 分類
 
 | 資料夾 | 放什麼 |
@@ -17,7 +19,7 @@
 
 | 文件 | 內容 |
 |---|---|
-| [microservice-architecture.md](architecture/microservice-architecture.md) | 服務清單、port 分配、各服務 API、Gateway 路由、下單流程、建立順序；**先讀這份** |
+| [microservice-architecture.md](architecture/microservice-architecture.md) | 架構參考：服務清單、port 分配、各服務 API、Gateway 路由、下單流程、建立順序 |
 | [event-contracts.md](architecture/event-contracts.md) | 事件格式、版本、交易、去重、重試與消費行為的依據 |
 
 ## 實作計畫
@@ -53,6 +55,8 @@
 | [known-issues.md](security/known-issues.md) | 已知的安全問題與 SEC 編號追蹤、驗證過沒有問題的項目、還沒檢查的範圍；**上線前必讀** |
 
 ## 文件維護
+
+2026-11-12 新增系統導讀，作為跨服務的閱讀入口，文件數增為 25 份。內容已核對建單、付款、身分驗證、搜尋、通知與本機啟動程式；本次 2 份異動文件的 53 個本機連結、13 個章節引用及 UTF-8 編碼檢查通過，未重新執行應用程式測試或部署。
 
 2026-11-12 整合：Markdown 由 55 份減為 24 份。前後台各自的 Step 0–12 與後台 API 實測收進各自 README；C／D／E 原始審查收進對應實作紀錄；圖片上傳設計收進實作文件。31 份被完整取代的舊檔已移除，引用改為章節連結，決策、限制、測試結果與原始證據保留。
 
