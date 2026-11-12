@@ -2,7 +2,7 @@
 
 > 評估日期：2026-10-28
 > 目標情境：大流量、多場景（多前端、多服務協作）
-> 狀態：Redis 已導入（2026-11-04），其餘評估中
+> 性質：原始評估與導入取捨；下方「現況」是評估時的基準。Redis 已導入，後續 Kafka、Elasticsearch 等決策與進度見[中介軟體路線圖](../implementation-plans/middleware/middleware-roadmap.md)。
 
 ## 現況
 

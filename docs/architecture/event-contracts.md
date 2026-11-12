@@ -19,7 +19,7 @@ IDE 使用 localhost:9094；Compose 容器與 kind 使用 kafka:9092。
 | order.events | OrderShipped | orderId | orderId | 通知服務寄送出貨通知；inventory 去重後忽略 |
 | order.events | OrderCancelled | orderId | orderId、選填 reason | 釋放庫存預留 |
 | product.events | ProductCreated、ProductUpdated、ProductStatusChanged | productId | productId、sku、name、description、brand、createdAt、price、categoryId、status、version | product-service 搜尋索引與快取更新 |
-| user.events | UserRegistered | userId | userId、email、displayName | 預留給通知服務 |
+| user.events | UserRegistered | userId | userId、email、displayName | 通知服務維護本地收件人資料 |
 
 商品快照的 description、brand 與 categoryId 未設定時使用空字串；createdAt 是商品建立時間的 ISO-8601 UTC 字串；price 是 JSON 數字，payload.version 是商品的樂觀鎖整數版本。事件信封的 version 則是契約版本，兩者意義不同。商品更新先 flush 再寫 outbox，確保 payload.version 是本次提交後的版本，同一商品的事件版本嚴格遞增。搜尋索引消費者不使用 `processed_event`：它把 payload.version 傳給 Elasticsearch 的 `external_gte`，因此重複事件可冪等覆寫，較舊快照會被略過。索引處理結果以 `search.index.events{result=indexed|stale_skipped|failed}` 計數；consumer lag 監控 `product-service-search` 群組，ES 查詢失敗則由搜尋服務退回 SQL 並記錄原因。
 
@@ -34,11 +34,11 @@ UserRegistered 含 email，不可將 payload 或地址複製到 log 或 trace at
 
 ## 訂單事件發送規則
 
-- `OrderCreated` 於訂單第一次建立時寫入 outbox，與訂單保存使用同一資料庫交易。重送幂等請求僅回傳既有訂單，不會再產生事件。事件的 `aggregateId` 是 orderId；payload 包含 userId 與 JSON 數值 totalAmount。
+- `OrderCreated` 於訂單第一次建立時寫入 outbox，與訂單保存使用同一資料庫交易。重送冪等請求僅回傳既有訂單，不會再產生事件。事件的 `aggregateId` 是 orderId；payload 包含 userId 與 JSON 數值 totalAmount。
 - `OrderShipped` 只在訂單成功從 PAID 轉為 SHIPPED 的同一交易寫入；payload 包含 orderId。重複出貨請求不會重發。
 - inventory-service 將這兩種類型記錄於 `processed_event` 後忽略；其他未知 `order.events` 類型仍進 DLT。
 
 
-## Notification consumer behavior
+## 通知服務消費行為
 
 `notification-service` 消費 `UserRegistered` 維護本地收件人資料；消費 `OrderCreated` 建立訂單與使用者的對應並排入「訂單成立」信；消費 `OrderPaid`、`OrderShipped`、`OrderCancelled` 排入對應的信；消費 `PaymentFailed` 排入「付款失敗」信。`PaymentSucceeded` 是已知但不需要的事件，明確忽略，付款成功信由 `OrderPaid` 觸發。事件去重與信件入列放在同一個資料庫交易。SMTP 寄送是非同步且有界重試；找不到訂單或收件人資料時，經重試後標記為 `SKIPPED`。新部署的服務從 earliest 開始消費，會處理 Kafka 保留期內的歷史事件。

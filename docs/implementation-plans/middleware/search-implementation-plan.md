@@ -326,35 +326,20 @@ D7 驗收摘要與證據見[實作紀錄](search-implementation-record.md#d7-kin
 
 ## 實作規範
 
-這一節是整份文件最重要的部分之一。上一階段（C）的審查發現了一批「功能對、但做法和專案慣例不合」的問題，這次要避免。
+必讀：[中介軟體實作共用規範](implementation-guidelines.md)。以下保留本階段特殊要求；共用流程、提交、文件編碼、程式風格、migration 不可修改、測試與誠實回報原則不再重複。
 
 ### 流程
 
-1. **一次只做一個 Step**。做完、測試通過、更新文件進度後 **commit**，才開始下一個 Step。**不要**一口氣做完整個階段再一次提交（階段 C 因此無法乾淨拆 commit，最後得從交錯的變更裡切開）
-2. Commit 訊息格式：`Phase D<N>: <英文簡述>`，例如 `Phase D3: index product events with external versioning`。訊息本文簡述重點，結尾加上專案要求的 `Co-Authored-By` 行（與歷史 commit 一致）。**不要**使用 `fix(events):` 這類 conventional commit 格式
-3. 每個 commit 只包含該步驟的檔案。**不要**順手修改無關的檔案（例如 `.vscode/launch.json` 是使用者本機的設定，永遠不要提交）
-4. 不 push、不開 PR、不改 `main`，這些由使用者決定
-5. 開始前先讀：[middleware-roadmap.md](middleware-roadmap.md)、[event-implementation-plan.md](event-implementation-plan.md)、[event-contracts.md](../../architecture/event-contracts.md)、[resilience-implementation-plan.md](resilience-implementation-plan.md)（熔斷規則），以及 product-service 現有的程式與測試風格
-6. 完成後在實作紀錄（`search-implementation-record.md`，見下）最後列出「**最不確定、希望審查者重點看的地方**」
+- 開始前先讀：[middleware-roadmap.md](middleware-roadmap.md)、[event-implementation-plan.md](event-implementation-plan.md)、[event-contracts.md](../../architecture/event-contracts.md)、[resilience-implementation-plan.md](resilience-implementation-plan.md)（熔斷規則），以及 product-service 現有的程式與測試風格
 
 ### 實作紀錄與文件
 
-- 本文件是**計畫**，不要在裡面記實作結果。結果寫在新檔 `docs/implementation-plans/middleware/search-implementation-record.md`，格式比照 [resilience-implementation-plan.md](resilience-implementation-plan.md)：標頭（日期、分支、對應、狀態）→ 內容表 → 規則說明 → 驗證結果 → 遇到的問題 → 已知限制
-- **所有文件用繁體中文**（程式識別字、指令、設定鍵名除外）。階段 C 的 `event-contracts.md` 一度是英文，被退回
-- 驗證結果要有**可重現的證據**：指令、時間、數字。寫「測試通過」要附指令與結果；沒有親自驗證的項目標「待驗證」，不要寫成已完成。部署驗收的證據放 `evidence/phase-d/`
-- **證據檔一律存成 UTF-8（無 BOM）**。Windows PowerShell 的 `>`、`Out-File` 預設會產生 UTF-16，git 會當成二進位而無法閱讀；請用 `Out-File -Encoding utf8` 後去掉 BOM，或在寫檔時指定無 BOM 的 UTF-8
-- 文件互相引用的地方要同步：每個 Step 完成時更新本計畫的進度、`docs/README.md` 的索引（**一個檔案只列一次**，階段 C 曾經重複列出）、roadmap 的狀態。不要留下過時的敘述（例如「尚未部署」「進行中」在完成後還在）
-- 新的安全限制記到 `docs/security/known-issues.md`（編號接續 SEC-13）
+- 實作結果見 [search-implementation-record.md](search-implementation-record.md)，部署證據放 `evidence/phase-d/`；安全事項沿用既有 SEC 編號，新增才接續編號。
 
 ### 程式風格（跟著現有程式，不要自創）
 
-- **註解用繁體中文，寫「為什麼」，不要翻譯程式碼在做什麼**。類別或方法上方用 `//` 說明設計決定與取捨，風格參考 `ProductServiceImpl`、`DownstreamCaller`
-- **用 `import`，不要在程式裡寫 `java.util.Map.of(...)` 這種全名**。import 依專案現有順序整理，不要留下沒用到的 import
-- **沒有用到的參數與欄位要刪掉**，不要為了「以後可能用」保留
 - 套件與命名比照現有：`controller/api/XxxApi`（OpenAPI 介面）+ `XxxController`、`service/XxxService` + `service/impl/XxxServiceImpl`、DTO 放 `dto/<資源>/<動作>/` 且命名為 `XxxReq`／`XxxRes`、錯誤碼放 `ProductErrorCode`。索引相關的新類別放 `product/search/`
-- 設定用 `@ConfigurationProperties` 的 record（比照 `StorageProperties`），不要散落的 `@Value`
 - 共用元件放 `common`，但 **`common` 不能出現任何單一服務的業務名詞**（例如訂單、商品的錯誤碼字串）；階段 C 曾把 `ORDER_ALREADY_CANCELLED` 寫在 `common` 裡，被退回
-- Lombok、Jakarta Validation、Spring 的用法比照現有程式；日誌用 `@Slf4j`，**不要記錄事件的完整 payload 或使用者資料**
 - **不要加功能旗標來同時保留新舊兩條路徑**（階段 C 的 `app.events.enabled` 過渡旗標增加了大量分支，最後又花一輪移除）。退回 SQL 是**執行期的失敗退路**，不是旗標；它用的是同一份既有的 SQL 程式，不複製一份
 - **不要在 listener 或請求執行緒裡 `Thread.sleep`** 做重試；用框架的 backoff
 - 不引入計畫沒寫的新依賴；需要新依賴時（ES client、Testcontainers ES 模組）限制在 `spring-product-service`（測試依賴可在其 pom），並在實作紀錄寫明版本與理由
@@ -363,19 +348,15 @@ D7 驗收摘要與證據見[實作紀錄](search-implementation-record.md#d7-kin
 
 - **已經存在的 migration 檔案絕對不改**（Flyway checksum；階段 C 的 V6、V8 因此留下無法修正的寫法）。需要變更就新增 migration，編號接續 product 的 `V7`
 - 本階段原則上**不需要**新的 migration（索引器不使用 `processed_event`）。如果實作時發現需要，先走[計畫變更](#計畫變更紀錄)
-- migration 中的 SQL 要能在 PostgreSQL 18 執行，並寫明用了哪些 18 才有的功能
 
 ### 測試
 
 - 見[測試規範](#測試規範)。另外：**不要用 `Thread.sleep` 等時間**，用輪詢加逾時（例如 Awaitility，若專案已有；沒有就自己寫短的輪詢工具），失敗時要能看出等的是什麼
-- 測試要能在「離線 Maven + 本機已有映像」的環境執行
 - 測試資料不要依賴執行順序；每個測試自己準備、自己清理（尤其是 ES 索引與 Kafka topic）
 
 ### 誠實回報
 
-- 做不到或沒做的，寫進「已知限制」或「待驗證」，不要含糊帶過
-- 計畫有錯或不合理，**先停下來記錄再改**（見下節），不要悄悄偏離
-- 不要為了讓測試通過而放寬斷言、跳過測試或加 `@Disabled`；真的要這樣做，在實作紀錄寫明理由與後續
+依[共用規範](implementation-guidelines.md)執行。
 
 ---
 

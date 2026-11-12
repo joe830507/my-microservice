@@ -44,7 +44,7 @@
 | C7 trace | Tempo `/api/traces/fe50ccdfc71446a6a7d10c910293ffa5` 包含 order HTTP、outbox publish、inventory order.events process；訂單01a1ca77-250a-704f-a027-9d3a811cf854 |
 | C7 告警 | 真實事件及暫時 consumer quota 造成 lag>1000 持續五分鐘，19:54 firing；格式錯誤訊息送 DLT，19:53 DLT firing；兩者 health=ok。驗收後移除 quota 與暫時 fetch 設定 |
 
-停機操作見 [驗收腳本](../../../../infra/k8s/scripts/verify-phase-c.ps1)，從 repo 根目錄執行，腳本自行建立暫時 port-forward。[停機輸出](evidence/phase-c/phase-c-acceptance.log)、[商品事件](evidence/phase-c/phase-c-product-topic.log)、[使用者事件](evidence/phase-c/phase-c-user-topic.log)、[Tempo](evidence/phase-c/phase-c-order-trace.json)、[告警 API](evidence/phase-c/phase-c-alert-rules.json)、[lag 查詢](evidence/phase-c/phase-c-lag-query.json)。
+停機操作見 [驗收腳本](../../../infra/k8s/scripts/verify-phase-c.ps1)，從 repo 根目錄執行，腳本自行建立暫時 port-forward。[停機輸出](evidence/phase-c/phase-c-acceptance.log)、[商品事件](evidence/phase-c/phase-c-product-topic.log)、[使用者事件](evidence/phase-c/phase-c-user-topic.log)、[Tempo](evidence/phase-c/phase-c-order-trace.json)、[告警 API](evidence/phase-c/phase-c-alert-rules.json)、[lag 查詢](evidence/phase-c/phase-c-lag-query.json)。
 
 驗收修復：lag 指標及 service_name 標籤、DLT 第一筆計數零值基線、Kafka trace（Spring SDK、明確 W3C consumer scope、避免 template observation 覆寫 header）。告警產生器同步修正。common、inventory、order 回歸19:53:12全數成功，1:39；[結果](evidence/phase-c/trace-regression-summary.log)。
 

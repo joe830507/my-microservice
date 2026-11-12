@@ -9,13 +9,16 @@
 | `design/` | 單一功能或技術選型的設計、評估，還沒排進實作計畫的也放這裡 |
 | `security/` | 已知的安全問題：現象、驗證方式、處理方向與處理狀態 |
 
-新增文件時依上表放進對應的資料夾；文件之間用相對路徑連結。
+新增文件時依上表分類，使用相對路徑連結、繁體中文與 UTF-8 無 BOM。
+
+先讀架構與安全事項，再進入對應計畫。計畫保留要求與決策，實作紀錄保存結果、限制與證據；`phase-*-review.md` 是審查當時的發現，後續處理以實作紀錄為準。歷史的「現況」與測試數字不代表目前狀態，不因整理文件而重新宣稱驗證通過。
 
 ## 架構
 
 | 文件 | 內容 |
 |---|---|
 | [microservice-architecture.md](architecture/microservice-architecture.md) | 服務清單、port 分配、各服務 API、Gateway 路由、下單流程、建立順序；**先讀這份** |
+| [event-contracts.md](architecture/event-contracts.md) | 事件格式、版本、交易、去重、重試與消費行為的依據 |
 
 ## 實作計畫
 
@@ -33,24 +36,19 @@
 | [vue-management/](implementation-plans/vue-management/README.md) | 完成（Step 0–12）：後台前端（Vue 3 + TS + Element Plus），登入、商品、圖片、庫存、訂單、使用者 |
 | [vue-customer/](implementation-plans/vue-customer/README.md) | 完成（Step 0–12）：顧客用的商店前台（Vue 3 + TS），瀏覽、購物車、下單、模擬付款、我的訂單 |
 | [backend-deployment-implementation-plan.md](implementation-plans/backend-deployment-implementation-plan.md) | 完成：後端 6 個服務與資料庫、Redis、物件儲存、兩個前端放進 K8s（kind 驗證）；NetworkPolicy、Secret；含實際攔截測試 |
-| [middleware-roadmap.md](implementation-plans/middleware/middleware-roadmap.md) | 進行中：中介軟體導入計畫（可觀測性 → 韌性 → Kafka + Outbox → Elasticsearch → 通知；原規劃的真的金流不實作）；階段 A–C 完成，D 進行中，E 規劃中，F 不實作 |
-| [observability-implementation-plan.md](implementation-plans/middleware/observability-implementation-plan.md) | 完成（中介軟體階段 A）：指標、追蹤、log 用 OTLP 送到 Grafana LGTM；儀表板、告警規則；本機與 kind 都驗證 |
-| [resilience-implementation-plan.md](implementation-plans/middleware/resilience-implementation-plan.md) | 完成（中介軟體階段 B）：重試與熔斷、Gateway 熔斷、排程分散式鎖（ShedLock）、2 個副本、優雅關閉；kind 上實測 |
-| [event-implementation-plan.md](implementation-plans/middleware/event-implementation-plan.md) | 完成（中介軟體階段 C）：Kafka + Outbox、消費端去重與 DLT、付款與庫存改事件、商品與使用者事件；kind 停機恢復與 trace、告警實測 |
-| [search-implementation-plan.md](implementation-plans/middleware/search-implementation-plan.md) | 完成（中介軟體階段 D）：Elasticsearch 搜尋計畫與 D1–D7 驗收 |
-| [search-implementation-record.md](implementation-plans/middleware/search-implementation-record.md) | 完成（階段 D）：kind 停機恢復、索引重建、告警、完整 Maven reactor、Tempo trace、Gateway 搜尋及使用者人工操作前後台（無截圖） |
-| [notification-implementation-plan.md](implementation-plans/middleware/notification-implementation-plan.md) | E1-E5 implemented; E4 SMTP end-to-end validation pending local Testcontainers port-mapping issue; E6-E7 pending |
-| [notification-implementation-record.md](implementation-plans/middleware/notification-implementation-record.md) | E1-E5 implementation and validation record; SMTP delivery validation pending |
+| [middleware-roadmap.md](implementation-plans/middleware/middleware-roadmap.md) | 中介軟體導覽、階段狀態、決策與暫緩範圍；各階段計畫、紀錄與證據由此進入 |
+| [implementation-guidelines.md](implementation-plans/middleware/implementation-guidelines.md) | 階段 D／E 共用流程、提交、文件、測試與誠實回報原則 |
+
 
 ## 設計與評估
 
 | 文件 | 狀態 |
 |---|---|
-| [product-service-middleware-evaluation.md](design/product-service-middleware-evaluation.md) | product-service 的中介軟體評估；Redis 已導入，其餘評估中 |
+| [product-service-middleware-evaluation.md](design/product-service-middleware-evaluation.md) | 原始技術評估、取捨與延後理由；已採用方案與進度見路線圖 |
 | [product-image-upload-design.md](design/product-image-upload-design.md) | 商品圖片上傳（MinIO / S3，本機改用 SeaweedFS）；已實作 |
 
 ## 安全
 
 | 文件 | 內容 |
 |---|---|
-| [known-issues.md](security/known-issues.md) | 已知的安全問題（11 項，高風險 3 項）、驗證過沒有問題的項目、還沒檢查的範圍；**上線前必讀** |
+| [known-issues.md](security/known-issues.md) | 已知的安全問題與 SEC 編號追蹤、驗證過沒有問題的項目、還沒檢查的範圍；**上線前必讀** |
