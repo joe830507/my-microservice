@@ -129,6 +129,28 @@ panels.append(series("各服務的副本", [
 ], 12, y, 12, 7))
 y += 7
 
+panels.append(row("商品搜尋（Elasticsearch）", y)); y += 1
+panels.append(series("搜尋引擎使用量（每分鐘）", [
+    ('sum by (engine) (rate(search_requests_total[5m])) * 60', "{{engine}}"),
+], 0, y, 8, 8, desc="關鍵字搜尋由 Elasticsearch 或 SQL 執行的次數"))
+panels.append(series("搜尋退回 SQL（每分鐘，依原因）", [
+    ('sum by (reason) (rate(search_fallback_total[5m])) * 60', "{{reason}}"),
+], 8, y, 8, 8, desc="ES 逾時、熔斷、索引未就緒或其他錯誤所造成的退回"))
+panels.append(series("Elasticsearch 搜尋平均延遲", [
+    ('sum(rate(search_es_duration_seconds_sum[5m])) / sum(rate(search_es_duration_seconds_count[5m]))', "平均"),
+], 16, y, 8, 8, unit="s", desc="search.es.duration 目前以 summary 匯出，顯示觀測期間平均值"))
+y += 8
+panels.append(series("搜尋索引事件（每分鐘）", [
+    ('sum by (result) (rate(search_index_events_total[5m])) * 60', "{{result}}"),
+], 0, y, 8, 8, desc="indexed、stale_skipped 與 failed 的索引事件結果"))
+panels.append(series("搜尋重建文件數（每分鐘）", [
+    ('sum(rate(search_rebuild_documents_total[5m])) * 60', "文件數"),
+], 8, y, 8, 8))
+panels.append(series("搜尋過期命中（每分鐘）", [
+    ('sum(rate(search_stale_hits_total[5m])) * 60', "過期文件"),
+], 16, y, 8, 8))
+y += 8
+
 panels.append(row("Log（warn、error）", y)); y += 1
 panels.append({
     "id": _id(), "type": "logs", "title": "warn / error", "datasource": LOKI,
@@ -197,6 +219,9 @@ alerts = {"apiVersion": 1, "groups": [{
         rule("mm-kafka-consumer-lag", "Kafka consumer lag 偏高",
              'max by (service_name) (kafka_consumer_fetch_manager_records_lag_max)',
              "gt", 1000, "5m", "{{ $labels.service_name }} 的 Kafka consumer lag 持續超過 1000 筆"),
+        rule("mm-search-fallback", "搜尋持續退回 SQL",
+             'sum by (application, reason) (rate(search_fallback_total[1m]))',
+             "gt", 0, "5m", "{{ $labels.application }} 搜尋在過去 5 分鐘持續退回 SQL，原因：{{ $labels.reason }}；請檢查 Elasticsearch 與搜尋索引狀態"),
         rule("mm-kafka-dlt", "Kafka 事件進入 DLT",
              'sum(increase(events_dlt_published_total[5m]))',
              "gt", 0, "0s", "事件進入 dead-letter topic；請檢查消費端錯誤", "critical"),

@@ -435,12 +435,117 @@
           "for": "5m",
           "noDataState": "OK",
           "execErrState": "Error",
-          "annotations": { "summary": "{{ $labels.service_name }} 的 Kafka consumer lag 持續超過 1000 筆" },
-          "labels": { "severity": "warning" },
+          "annotations": {
+            "summary": "{{ $labels.service_name }} 的 Kafka consumer lag 持續超過 1000 筆"
+          },
+          "labels": {
+            "severity": "warning"
+          },
           "data": [
-            { "refId": "A", "relativeTimeRange": { "from": 900, "to": 0 }, "datasourceUid": "prometheus", "model": { "refId": "A", "expr": "max by (service_name) (kafka_consumer_fetch_manager_records_lag_max)", "instant": true, "intervalMs": 1000, "maxDataPoints": 43200 } },
-            { "refId": "B", "datasourceUid": "__expr__", "model": { "refId": "B", "type": "reduce", "expression": "A", "reducer": "last" } },
-            { "refId": "C", "datasourceUid": "__expr__", "model": { "refId": "C", "type": "threshold", "expression": "B", "conditions": [{ "evaluator": { "type": "gt", "params": [1000] } }] } }
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "max by (service_name) (kafka_consumer_fetch_manager_records_lag_max)",
+                "instant": true,
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last"
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        1000
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "mm-search-fallback",
+          "title": "搜尋持續退回 SQL",
+          "condition": "C",
+          "for": "5m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "annotations": {
+            "summary": "{{ $labels.application }} 搜尋在過去 5 分鐘持續退回 SQL，原因：{{ $labels.reason }}；請檢查 Elasticsearch 與搜尋索引狀態"
+          },
+          "labels": {
+            "severity": "warning"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "sum by (application, reason) (rate(search_fallback_total[1m]))",
+                "instant": true,
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last"
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
           ]
         },
         {
@@ -450,12 +555,57 @@
           "for": "0s",
           "noDataState": "OK",
           "execErrState": "Error",
-          "annotations": { "summary": "事件進入 dead-letter topic；請檢查消費端錯誤" },
-          "labels": { "severity": "critical" },
+          "annotations": {
+            "summary": "事件進入 dead-letter topic；請檢查消費端錯誤"
+          },
+          "labels": {
+            "severity": "critical"
+          },
           "data": [
-            { "refId": "A", "relativeTimeRange": { "from": 900, "to": 0 }, "datasourceUid": "prometheus", "model": { "refId": "A", "expr": "sum(increase(events_dlt_published_total[5m]))", "instant": true, "intervalMs": 1000, "maxDataPoints": 43200 } },
-            { "refId": "B", "datasourceUid": "__expr__", "model": { "refId": "B", "type": "reduce", "expression": "A", "reducer": "last" } },
-            { "refId": "C", "datasourceUid": "__expr__", "model": { "refId": "C", "type": "threshold", "expression": "B", "conditions": [{ "evaluator": { "type": "gt", "params": [0] } }] } }
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "sum(increase(events_dlt_published_total[5m]))",
+                "instant": true,
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "reduce",
+                "expression": "A",
+                "reducer": "last"
+              }
+            },
+            {
+              "refId": "C",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "B",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
           ]
         }
       ]
