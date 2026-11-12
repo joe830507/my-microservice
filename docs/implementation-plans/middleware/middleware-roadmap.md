@@ -133,7 +133,7 @@
 - Kafka 的認證（SASL/SCRAM）與 ACL：先靠 NetworkPolicy 隔離，已記到 known-issues 的 SEC-13，對外環境前要補
 - 實作時的決定：新舊路徑曾以 `app.events.enabled` 旗標過渡，驗收通過後已全部移除；事件 payload 與版本規則見 [event-contracts.md](../../architecture/event-contracts.md)
 
-## 階段 D：搜尋（Elasticsearch）（進行中，D1–D2 完成；見 [計畫](search-implementation-plan.md)與[實作紀錄](search-implementation-record.md)）
+## 階段 D：搜尋（Elasticsearch）（已完成；見 [計畫](search-implementation-plan.md)與[實作紀錄](search-implementation-record.md)）
 
 目標：商店前台的關鍵字搜尋改用 Elasticsearch（中文斷詞、相關性排序）；ES 掛掉時退回 SQL。後台列表與沒有關鍵字的列表維持 SQL。
 
@@ -143,9 +143,9 @@
 | D2 | **完成**：ES Java client、`products-index.json`、索引／別名／`_meta` 管理、商品文件轉換與 `external_gte` 版本寫入 | Testcontainers 實測建立索引、別名與 metadata；舊版拒絕、同版重寫、新版取代；strict mapping 拒絕未知欄位 |
 | D3 | **完成**：product-service 消費 `product.events` 更新索引（商品 `version` 當 ES 外部版本）；ES 暫時故障無限重試、不進 DLT；事件包含 `brand`、`createdAt` | Kafka＋ES Testcontainers 驗證亂序事件保留最新版、未知事件進 DLT、ES 停機後恢復並寫入 |
 | D4 | **完成**：從 DB 以 keyset 分頁全量匯入新索引、補灌近期更新、標記 built 後原子切換 alias；PostgreSQL advisory lock 防止多副本重複重建；支援背景啟動檢查及內部重建 API | PostgreSQL＋ES Testcontainers 驗證 500 筆分頁、補灌、bulk 失敗保留舊 alias、互斥、啟動修復及 `deleteOld` |
-| D5 | 商店搜尋 API：**有關鍵字時**改查 ES（相關性排序、分頁，結果回 DB 補資料）；ES 無法使用時退回原本的 SQL 查詢 | 停掉 ES 時搜尋仍可用（品質較差） |
-| D6 | 指標、儀表板、告警與文件 | 看得到退回次數與索引延遲 |
-| D7 | kind 部署驗收與 E2E | 停機恢復、前端搜尋、告警實測 |
+| D5 | **完成**：商店搜尋 API 有關鍵字時查 ES（相關性排序、分頁、回 DB 補資料）；ES 無法使用時退回原本 SQL 查詢 | 真實 ES＋PostgreSQL 整合驗證搜尋、分頁及退回路徑 |
+| D6 | **完成**：搜尋指標、Grafana 儀表板、退回 SQL 告警與架構／事件／安全文件同步 | 儀表板可查看引擎用量、退回原因、ES 平均延遲、索引事件、重建量與過期命中；consumer lag 與熔斷沿用共用告警 |
+| D7 | **完成**：kind NetworkPolicy、重建、ES 停機退回與恢復、更新事件追索、告警 firing、完整 Maven reactor、Tempo trace、Gateway 搜尋及使用者人工操作前後台；人工操作無截圖 | 見實作紀錄及 `evidence/phase-d/` |
 
 ## 階段 E：通知（notification-service）
 

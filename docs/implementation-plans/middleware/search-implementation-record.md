@@ -1,9 +1,9 @@
 # 搜尋（Elasticsearch）實作紀錄（階段 D）
 
-> 日期：2026-11-11
+> 日期：2026-11-12（審查修正更新）
 > 分支：`feature/search-phase-d`（從階段 C 後續計畫分支切出）
 > 對應：[search-implementation-plan.md](search-implementation-plan.md)、[middleware-roadmap.md](middleware-roadmap.md)
-> 狀態：D1–D5 完成；D6–D7 尚未開始
+> 狀態：D1–D7 完成；階段 D 結案（前端為使用者人工操作、無截圖）
 
 ---
 
@@ -16,7 +16,8 @@
 | D3 | 商品事件契約與 Elasticsearch listener 已完成；真實 Kafka＋ES 測試涵蓋亂序版本、DLT 與暫時故障恢復 |
 | D4 | 全量重建、補灌、原子 alias 切換、跨副本鎖、背景啟動修復及內部 API 已完成；真實 PostgreSQL＋ES 驗收通過 |
 | D5 | 前台關鍵字搜尋改查 Elasticsearch：回表、相關性排序、熔斷與退回資料庫查詢已完成；真實 ES＋PostgreSQL 整合測試通過 |
-| D6–D7 | 待實作 |
+| D6 | 搜尋儀表板、退回 SQL 告警及架構／事件契約／安全／索引文件同步已完成；kind 實際載入及告警 firing 於 D7 驗證 |
+| D7 | 完成：kind 部署、故障恢復、告警、完整 reactor、Tempo trace、Gateway 搜尋與兩個前端人工操作均已驗證 |
 
 ---
 
@@ -130,7 +131,7 @@ powershell -NoProfile -File infra/k8s/scripts/verify-phase-d.ps1
 - **API 相容**：`sortBy` 新增 `relevance`；`ProductQueryRequest` 不再補 `sortBy`、`sortDirection` 的預設值（保留 `null`），有關鍵字的前台搜尋預設依相關性，其他情況維持 `createdAt desc`。`toPageable()` 與新增的 `direction()` 處理 `null`。
 - **退回資料庫查詢**（回傳 `Optional.empty()`，由呼叫端走原本的 SQL 程式，沒有複製一份）：連線失敗、逾時、5xx、429、熔斷打開、別名不存在、`_meta.built != true`、結構版本不符。ES 回其他 4xx 不退回，記 error log 並回 500。
 - **逾時與熔斷**：新增專用的 `searchQueryClient`（連線逾時 1 秒、讀取逾時 3 秒，可由 `search.elasticsearch.query-*` 覆寫），原本的 client 標為 `@Primary` 並維持預設逾時，D3、D4 的索引寫入與批次重建不受影響。熔斷器 `elasticsearch-search` 用 `DownstreamCallers` 的 registry 建立（指標自動綁定），參數與階段 B 相同；失敗判定在 `ProductSearchService.isFailure`，不重試。索引是否可查的檢查結果快取 5 秒（`readiness-cache-ttl`）。
-- **指標**：`search.requests{engine=es|sql}`、`search.fallback{reason=timeout|breaker_open|index_not_ready|error}`、`search.es.duration`、`search.stale_hits`。沿用專案其他服務的靜態 `Metrics`；儀表板與告警留到 D6。
+- **指標**：`search.requests{engine=es|sql}`、`search.fallback{reason=timeout|breaker_open|index_not_ready|error}`、`search.es.duration`、`search.stale_hits`。沿用專案其他服務的靜態 `Metrics`；D6 已新增儀表板與退回告警。
 - 未新增資料庫 migration。
 
 驗證命令（在 `backend` 執行）：
@@ -157,10 +158,43 @@ powershell -NoProfile -File infra/k8s/scripts/verify-phase-d.ps1
 
 ---
 
+## D6 可觀測性與文件同步
+
+- `infra/observability/generate_dashboard.py` 新增「商品搜尋（Elasticsearch）」區塊：每分鐘 ES／SQL 搜尋量、依原因分類的 SQL 退回量、Elasticsearch 搜尋平均延遲、索引事件結果、重建文件數與過期命中。平均延遲使用 timer summary 的 `_sum / _count`，不使用目前未輸出的 histogram bucket。儀表板 JSON 由產生器更新，沒有直接手改產生檔。
+- 新增 Grafana 告警 `mm-search-fallback`：`search_fallback_total` 每分鐘速率連續 5 分鐘大於 0 時告警，帶出 `application` 與退回原因。既有 `mm-circuit-open` 告警適用包括 `elasticsearch-search` 的 Resilience4j 熔斷器；Kafka consumer lag 告警涵蓋搜尋消費群組的索引延遲。實際 firing 與恢復驗收留在 D7 kind 驗收。
+- 同步架構文件、事件契約、roadmap、`docs/README.md`；SEC-14 已描述 ES 開發環境未啟用 TLS／認證的限制，本步補上架構文件引用，未變更安全設定。
+- 產生器執行：`python infra/observability/generate_dashboard.py`，成功輸出儀表板 35 個 panels、告警 10 條 rules。D7 已在 kind 實際載入，並驗證告警 firing。
+
+## D7 kind 部署與故障恢復驗收
+
+- `infra/k8s/scripts/verify-phase-d.ps1` 在 `kind-my-microservice` 通過：未授權 Pod 被 NetworkPolicy 阻擋，`product-service` 可連 Elasticsearch；SmartCN 與 12 個搜尋案例通過。證據：`evidence/phase-d/d1-network.txt`、`d1-kind-analysis.json`。
+- kind 部署檢查發現 `product-service` manifest 缺少 `ELASTICSEARCH_ENDPOINT`，Pod 因而以 localhost 作為預設端點。已補上 `http://elasticsearch:9200` 並重啟部署，副本 2/2 Ready。
+- 呼叫內部重建 API 成功：掃描 10 筆、補灌 0 筆、建立新索引並切換 `products` alias，保留舊索引（`deleteOld=false`）。搜尋 `Phase` 回傳 4 筆。
+- 將 Elasticsearch StatefulSet 縮至 0 期間，以 5 秒間隔執行 66 次搜尋，全部成功、0 次失敗；SQL fallback 指標增加。Grafana `mm-search-fallback` 對 `error` 與 `breaker_open` 兩個原因均進入 active。恢復 Elasticsearch 後副本為 1/1。證據：`evidence/phase-d/d7-search-outage.txt`。
+- Elasticsearch 停機期間更新一筆 DRAFT 商品；恢復後確認 Kafka 索引器將新版本寫入 ES，再回復商品原值並確認版本 2 也已寫入。證據：`evidence/phase-d/d7-product-update-recovery.txt`。
+- 完整 reactor：在 `backend/` 執行 Maven 3.10.0 離線命令 `mvn -o -Dmaven.repo.local=C:\Users\joe83\.m2\repository clean test`，2026-11-12 09:25 +08:00 `BUILD SUCCESS`，總耗時 11:01；9 個 reactor 模組全數 SUCCESS。摘要證據：`evidence/phase-d/d7-reactor.txt`。
+- D7 補充驗收由審查者透過 CLI 完成，證據見 `evidence/phase-d/d7-tempo-and-gateway.txt`：Tempo 正常與 ES 停機兩個 trace 均貫穿 HTTP 更新、outbox publish、Kafka consumer；停機期間的索引更新經退避後約 41.5 秒成功，未進 DLT。經 Gateway 的 3 次搜尋使 `engine=es` 計數增加 3、`engine=sql` 不變。
+- 前端由使用者於 2026-11-12 人工操作 kind 上的 vue-customer（`localhost:8091`）與 vue-management（`localhost:8093`）：前台搜尋「Phase」有結果、無關詞無結果、排序選單可用、後台商品列表正常。使用者回報均正常；人工操作、無截圖，非自動化 E2E。此前 browser access host 不可用的工具限制不再作為未驗收理由。
+- `mm-search-fallback` 恢復後的 resolved 狀態沒有保留證據；Grafana Alertmanager 後續 active-alert 查詢為空，但這只能證明查詢當下沒有 active alert，不能證明該次告警從 firing 轉為 resolved，仍標記未驗證。
+- 每次重建預設 `deleteOld=false`，kind 目前可累積多個 `products-*` 索引。建議先執行重建並確認 alias `products` 指向新索引、搜尋與文件數正常，再透過內部重建 API 使用 `deleteOld=true`，或手動刪除不再被 alias 指向的舊索引；不可在確認新索引前刪除目前 alias 目標。
+- 審查確認 `alerting.yaml` 的大段格式差異只涉及既有規則格式展開及新規則；維持產生檔由 `generate_dashboard.py` 單一來源產生，沒有手動回改產生檔。這是格式整理造成的 diff 雜訊，與告警語意變更分開理解。
+- `ProductServiceImpl.publishProductEvent` 將事件端 `createdAt` 截到微秒；PostgreSQL `TIMESTAMPTZ` 精度也是微秒。事件契約整合測試已改為把回應時間在測試端同樣截到微秒，再與事件時間比較，避免奈秒與資料庫精度差異造成 1 微秒的不穩定斷言。重複測試結果見下方「審查後驗證」。
+- 審查提到曾有 Elasticsearch Testcontainers 啟動失敗，但現有證據不足以確定根因為資源競爭。修正後 3 次重複執行均成功啟動 Kafka 與 Elasticsearch 容器；listener 關閉期間有 Kafka disconnect 訊息，但所有測試均通過。未把未證實的資源競爭寫成結論。
+
+### 審查後驗證（2026-11-12）
+
+依 `phase-d-review.md` 重複執行 D 相關測試類別 3 次；每次均包含 `ProductEventContractIntegrationTests` 與 `ProductIndexEventListenerIntegrationTests`，15/15 個測試實例通過，結果附於 `evidence/phase-d/review-repeat-runs.txt`。另重跑全部 7 個 D 測試類別，34 項全數通過；結果見 `evidence/phase-d/review-d-tests.txt`。
+
+修正後另重跑全部 7 個 D 搜尋／事件測試類別，共 34 個測試，0 failures、0 errors，`BUILD SUCCESS`，耗時 04:38；證據摘要與完整日誌見 `evidence/phase-d/review-d-tests.txt`、`review-all-d.log`。
+
+`alerting.yaml` 僅新增 `mm-search-fallback`；將產生檔解析為 JSON，排除新規則後與基線比較，9 條既有規則皆語意相同。保留產生器的 canonical JSON 輸出格式，不手動壓縮產生檔；因此 review 指出的變化是格式差異，不含既有告警規則的內容修改。
+
+---
+
 ## 已知限制
 
 - SmartCN 對部分繁體中文仍逐字分詞；`name.char` 能補召回，但目前 OR 子句可能過度召回。D5 相關性測試要覆蓋長句與共字負例，若要改變計畫中的查詢語意，應先記錄計畫變更並討論。
-- D6（可觀測性：儀表板與告警）與 D7（kind 部署驗收）尚未實作；D5 完成不代表階段 D 結案。
+- 瀏覽器驗證為使用者人工操作、無截圖；非自動化 E2E。告警恢復狀態尚無轉為 resolved 的直接證據。
 - 未實際啟動 Kibana，僅確認 profile 與映像版本設定；D1 的分詞驗證直接使用 ES HTTP API。
 
 ---
@@ -172,4 +206,4 @@ powershell -NoProfile -File infra/k8s/scripts/verify-phase-d.ps1
 - D5：熔斷器是每個副本各一個，`search.fallback{reason=breaker_open}` 不會在副本之間共用（和階段 B 相同的限制）。
 - D5：`ProductQueryRequest` 的預設排序改為在 service 端決定，既有前端沒有改動；前端搜尋頁的排序選單預設「最新」實際上會變成相關性（因為預設值不送出），這是計畫預期的行為，但值得在 D7 的前端驗收時確認使用者看到的是否合理。
 - 繁體中文逐字分詞與 OR 查詢的誤召回；512Mi heap 在完整目錄重建的實際速度與高更新量補灌期間是否足夠；D3 對 retained 舊事件允許新增的 `brand`、`createdAt` 缺省並轉為空品牌／null 時間，需留意後續消費舊資料時建立完整搜尋快照的效果。前兩項尚未進行正式容量測試。
-- D3 的偶發失敗（見上方 D5 驗證結果）：`createdAt` 微秒精度比對與 ES 容器啟動；D5 沒有修改這些程式，但完整 reactor 回歸（D7）前最好處理，否則會影響結案的「全模組成功」。
+- D3 測試曾出現 `createdAt` 微秒精度比對與 ES 容器啟動的不穩定情形；D7 完整 reactor 已全數通過，但尚未做重複執行或容量測試。

@@ -4,7 +4,7 @@
 > 分支：實作時開 `feature/search-phase-d`（從階段 C 合併後的 `main` 切出；階段 C 尚未合併時，從 `feature/event-driven-phase-c` 切出並做 stacked PR）
 > 對應：[middleware-roadmap.md](middleware-roadmap.md)「階段 D」、[product-service-middleware-evaluation.md](../../design/product-service-middleware-evaluation.md)「2. 全文檢索」
 > 前置：階段 C 完成（`product.events` 已經在發送，見[事件契約](../../architecture/event-contracts.md)）
-> 狀態：**實作中**；逐步結果見 [search-implementation-record.md](search-implementation-record.md)
+> 狀態：**D1–D7 完成；階段 D 結案**（前端由使用者人工操作、無截圖；非自動化 E2E）；逐步結果見 [search-implementation-record.md](search-implementation-record.md)
 
 這份文件是給實作者（Codex 或任何人）照著做的**唯一依據**。分成兩半：前半說明「做什麼、為什麼這樣設計」，後半（[實作規範](#實作規範)）說明「怎麼做、哪些事不能做」。**開始實作前兩半都要讀完。** 遇到文件沒寫到、或發現文件有錯的地方，不要自己默默決定，先照[計畫變更](#計畫變更紀錄)的規則處理。
 
@@ -59,8 +59,15 @@
 | 避免舊事件蓋掉新資料 | **ES 外部版本**（`version_type=external_gte`，版本 = 商品的 `version`） | 比 `processed_event` 去重更適合：索引寫入本來就是冪等的，older 的事件會被 ES 拒絕（409，視為成功略過）。這是對「消費者以 `processed_event` 去重」的**刻意例外**，要寫進事件契約 |
 | 索引名稱 | 一律 `products-<yyyyMMddHHmmss>`，別名 `products` | 每次重建都建新索引再切別名，第一次建立和日後換 mapping 是同一條路徑 |
 | 何時查 ES | 前台、`keyword` 非空白 | 見「不做」 |
-| ES 失敗時 | 退回 SQL（原本的程式路徑，不另外複製一份） | 搜尋是使用者直接看到的讀取，退回比重試好 |
+| ES 失敗時 | 退回 SQL（原本的程式路徑，不另外複製一份） | 搜尋是使用者直接看到的讀取，退回比重試好；ES 是衍生資料（PostgreSQL 才是來源，索引可重建），短暫退回不會遺失資料。**不用 ES 叢集取代退回**，見下方「為何不用叢集」 |
 | 預設排序 | 有關鍵字且沒指定 `sortBy` → 相關性；其他情況維持 `createdAt desc` | 要讓 `ProductQueryRequest` 能分辨「沒傳」 |
+
+**為何不用叢集，而是單節點加退回 SQL**
+
+- **叢集不能取代退回。** 叢集只降低「單一節點故障」的機率；整個搜尋層不可用的情況仍然存在（升級失敗、索引損壞、網路分區、資源耗盡、慢查詢拖垮整個叢集、ES 與服務之間的連線問題）。這些情況都需要退回路徑，所以退回 SQL 無論有沒有叢集都要做。
+- **本專案的定位是學習用途，環境是本機 compose 與 kind。** 多節點要處理分片與副本配置、選主與 quorum、滾動升級、更多記憶體（每節點 request 1Gi），收益在這個規模幾乎看不到，成本卻是整個基礎設施的複雜度。
+- **ES 不是權威資料。** 資料遺失的風險由 PostgreSQL 與 D4 的重建工具承擔，不需要靠副本保護索引內容。
+- **兩者不互斥。** 若將來要上正式環境，做法是「多節點叢集（副本 ≥ 1）＋保留退回 SQL」：叢集處理節點故障，退回處理整個搜尋層不可用。屆時只需調整 ES 的部署與 `number_of_replicas`，應用程式的退回邏輯不用改。
 
 **與 roadmap 的差異**（實作第一步要同步改 roadmap，見 D1）：roadmap D2 寫「只放 `ACTIVE` 的商品」，改為「索引全部狀態、查詢過濾 `ACTIVE`」；D5 寫「商店搜尋 API 改查 ES」，改為「有關鍵字時才查 ES」。
 
@@ -253,6 +260,8 @@
 | 前端 | vue-customer 的搜尋頁、vue-management 的商品列表都正常（用瀏覽器實際操作，不是只靠單元測試） |
 | trace | Tempo 看到一個後台改商品 → outbox → Kafka → 索引的 trace（沿用階段 C 的做法） |
 | 告警 | `search.fallback` 與索引延遲（沿用 consumer lag 告警，group 為 `product-service-search`）實際 firing 一次 |
+
+D7 驗收摘要與證據見[實作紀錄](search-implementation-record.md#d7-kind-部署與故障恢復驗收)及 `evidence/phase-d/d7-tempo-and-gateway.txt`。kind 停機、恢復、重建、NetworkPolicy、告警、完整 reactor、Tempo trace、Gateway 搜尋與使用者人工操作前端均已驗證；前端操作無截圖，且非自動化 E2E。告警 resolved 狀態維持未驗證，不影響計畫要求的 firing 驗收。
 
 ---
 

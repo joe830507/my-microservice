@@ -86,6 +86,8 @@ spec:
               value: jdbc:postgresql://product-db:5432/product_db
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: kafka:9092
+            - name: ELASTICSEARCH_ENDPOINT
+              value: http://elasticsearch:9200
             - name: DB_USERNAME
               valueFrom:
                 secretKeyRef:

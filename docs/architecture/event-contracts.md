@@ -19,7 +19,7 @@ IDE 使用 localhost:9094；Compose 容器與 kind 使用 kafka:9092。
 | product.events | ProductCreated、ProductUpdated、ProductStatusChanged | productId | productId、sku、name、description、brand、createdAt、price、categoryId、status、version | product-service 搜尋索引與快取更新 |
 | user.events | UserRegistered | userId | userId、email、displayName | 預留給通知服務 |
 
-商品快照的 description、brand 與 categoryId 未設定時使用空字串；createdAt 是商品建立時間的 ISO-8601 UTC 字串；price 是 JSON 數字，payload.version 是商品的樂觀鎖整數版本。事件信封的 version 則是契約版本，兩者意義不同。商品更新先 flush 再寫 outbox，確保 payload.version 是本次提交後的版本，同一商品的事件版本嚴格遞增。
+商品快照的 description、brand 與 categoryId 未設定時使用空字串；createdAt 是商品建立時間的 ISO-8601 UTC 字串；price 是 JSON 數字，payload.version 是商品的樂觀鎖整數版本。事件信封的 version 則是契約版本，兩者意義不同。商品更新先 flush 再寫 outbox，確保 payload.version 是本次提交後的版本，同一商品的事件版本嚴格遞增。搜尋索引消費者不使用 `processed_event`：它把 payload.version 傳給 Elasticsearch 的 `external_gte`，因此重複事件可冪等覆寫，較舊快照會被略過。索引處理結果以 `search.index.events{result=indexed|stale_skipped|failed}` 計數；consumer lag 監控 `product-service-search` 群組，ES 查詢失敗則由搜尋服務退回 SQL 並記錄原因。
 
 業務更新與 outbox 寫入共用交易。Relay 每批最多十筆，每筆等待 ACK 最多三秒，期間持有 DB 連線與資料列鎖，作為低流量雛型的簡化取捨。ACK 後提交失敗仍會重送；執行資料庫副作用的消費者以 `processed_event` 去重。商品搜尋索引是刻意的例外：不寫 `processed_event`，而以商品的 payload.version 作 ES `external_gte` 版本，讓索引覆寫冪等並拒絕舊快照。已發布事件保留七天，未發布事件持續保留。
 

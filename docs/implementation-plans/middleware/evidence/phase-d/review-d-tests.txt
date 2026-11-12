@@ -1,0 +1,9 @@
+date=2026-11-12
+command=mvn -o -Dmaven.repo.local=C:\Users\joe83\.m2\repository -pl spring-product-service -am -Dtest=ProductEventContractIntegrationTests,ProductIndexEventListenerIntegrationTests,ProductIndexManagerIntegrationTests,ProductIndexRebuildIntegrationTests,ProductSearchFallbackIntegrationTests,ProductSearchIntegrationTests,ProductSearchServiceTest -Dsurefire.failIfNoSpecifiedTests=false test
+classes=7
+tests=34
+failures=0
+errors=0
+result=BUILD_SUCCESS
+total_time=04:38
+log=review-all-d.log

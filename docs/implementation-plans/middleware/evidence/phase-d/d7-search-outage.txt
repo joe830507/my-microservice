@@ -1,0 +1,41 @@
+context=kind-my-microservice
+start_utc=2026-11-12T00:48:12.1446159Z
+elasticsearch_replicas_during_outage=0
+query_interval_seconds=5
+successful_queries=66
+failed_queries=0
+query_loop_elapsed_seconds=330
+
+# Checkpoints were emitted every six requests (about 30 seconds), not every minute.
+checkpoint_30s_1 searches_ok=6 searches_failed=0
+checkpoint_30s_2 searches_ok=12 searches_failed=0
+checkpoint_30s_3 searches_ok=18 searches_failed=0
+checkpoint_30s_4 searches_ok=24 searches_failed=0
+checkpoint_30s_5 searches_ok=30 searches_failed=0
+checkpoint_30s_6 searches_ok=36 searches_failed=0
+checkpoint_30s_7 searches_ok=42 searches_failed=0
+checkpoint_30s_8 searches_ok=48 searches_failed=0
+checkpoint_30s_9 searches_ok=54 searches_failed=0
+checkpoint_30s_10 searches_ok=60 searches_failed=0
+checkpoint_30s_11 searches_ok=66 searches_failed=0
+
+# Product-service Prometheus counters captured after the outage.
+search_fallback_total{application="product-service",reason="breaker_open"} 14
+search_fallback_total{application="product-service",reason="error"} 75
+search_requests_total{application="product-service",engine="es"} 20
+search_requests_total{application="product-service",engine="sql"} 89
+
+# Grafana Alertmanager reported mm-search-fallback as active for both reasons.
+alert_uid=mm-search-fallback
+alert_status=active
+alert_application=product-service
+alert_error_reason=error
+alert_severity=warning
+alert_error_started_utc=2026-11-12T00:54:20Z
+alert_breaker_reason=breaker_open
+alert_breaker_started_utc=2026-11-12T00:55:20Z
+recovery_alert_status=not_verified
+recovery_note=Grafana active-alert query later returned empty; it does not prove the firing-to-resolved transition.
+
+elasticsearch_replicas_after_recovery=1
+restored_utc=2026-11-12T00:56:53.7799542Z

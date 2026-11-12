@@ -230,6 +230,6 @@ Kafka 使用單節點 KRaft。業務資料與事件在同一個 PostgreSQL 交�
 開發時仍用 IDE 跑服務、用 compose 起 DB 與 Redis；K8s 用來驗證部署與服務之間的連線。
 
 
-## 階段 D：搜尋基礎設施（進行中）
+## 階段 D：搜尋基礎設施（D1–D6 完成，D7 驗收中）
 
-Elasticsearch 9.4.5 搭配官方 SmartCN 外掛，已加入 Compose 與 kind；只允許商品服務連線，Kibana 僅限本機開發 profile。目前完成 D1 分詞與網路驗收，商品列表仍走既有 SQL；事件索引器與搜尋切換將依 D2–D7 逐步導入。詳見 [搜尋實作紀錄](../implementation-plans/middleware/search-implementation-record.md)。
+Elasticsearch 9.4.5 搭配官方 SmartCN 外掛，已加入 Compose 與 kind；NetworkPolicy 只允許商品服務連線，Kibana 僅限本機開發 profile。商品服務以 `product.events` 維護搜尋索引，前台關鍵字查詢使用 Elasticsearch 並在不可用時退回 SQL；回表資料仍以 PostgreSQL 為準。Grafana 儀表板顯示搜尋引擎用量、退回原因、ES 平均延遲、索引事件、重建文件數與過期命中，持續退回 SQL 有專屬告警；索引延遲使用既有 Kafka consumer lag 告警。SEC-14 記錄了目前僅適用隔離開發環境的明文 HTTP 限制。詳見[搜尋實作紀錄](../implementation-plans/middleware/search-implementation-record.md)與[事件契約](event-contracts.md)。

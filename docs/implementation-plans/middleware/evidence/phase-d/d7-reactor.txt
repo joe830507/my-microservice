@@ -1,0 +1,9 @@
+command=mvn -o -Dmaven.repo.local=C:\Users\joe83\.m2\repository clean test
+working_directory=backend
+finished_local=2026-11-12 09:25:05 +08:00
+total_time=11:01
+reactor_modules=9
+result=BUILD SUCCESS
+failures=0
+errors=0
+module_results=common:SUCCESS,observability:SUCCESS,product-service:SUCCESS,user-service:SUCCESS,inventory-service:SUCCESS,order-service:SUCCESS,payment-service:SUCCESS,api-gateway:SUCCESS,backend:SUCCESS
