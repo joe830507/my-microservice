@@ -176,6 +176,8 @@ CREATE INDEX idx_outbox_event_aggregate_pending_seq
 
 ## 9.（中）商品前台列表缺少複合索引
 
+> 2026-11-13 修正註記：新增 status/created_at/id 及 category_id/status/created_at/id 複合索引，移除前綴重複的 status 單欄索引。五萬商品 EXPLAIN ANALYZE 確認兩條查詢皆不再排序：全站約 6.798ms → 0.032ms，單分類約 0.569ms → 0.044ms。詳見第 6 點 evidence，時間僅代表此測試資料分布，不是正式環境 SLA。
+
 位置：`backend/spring-product-service/src/main/resources/db/migration/`（目前只有 `idx_product_status`、`idx_product_category` 單欄索引）
 
 問題：前台最常見的查詢是 `WHERE status = 'ACTIVE' [AND category_id IN (...)] ORDER BY created_at DESC, id LIMIT 20`，加上 Spring Data 的 `count(*)`。單欄索引只能先篩出全部 ACTIVE 再排序，商品多時每次都要排序整個結果。
