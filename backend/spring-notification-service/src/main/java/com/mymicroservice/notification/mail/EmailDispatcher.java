@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import jakarta.mail.internet.AddressException;
 import jakarta.mail.internet.MimeMessage;
 
 import org.springframework.beans.factory.ObjectProvider;
@@ -131,6 +132,7 @@ public class EmailDispatcher {
         pending.add(failure);
         while (!pending.isEmpty()) {
             Throwable current = pending.removeFirst();
+            if (current instanceof AddressException) return true;
             String name = current.getClass().getSimpleName();
             if (name.equals("MailAuthenticationException") || name.equals("MailParseException")
                     || name.equals("MailPreparationException") || name.equals("SMTPAddressFailedException")) {

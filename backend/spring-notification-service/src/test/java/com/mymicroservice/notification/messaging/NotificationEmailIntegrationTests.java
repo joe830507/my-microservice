@@ -74,8 +74,13 @@ class NotificationEmailIntegrationTests {
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry properties) {
         properties.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
-        properties.add("spring.mail.host", MAILPIT::getHost);
+        properties.add("spring.mail.host", NotificationEmailIntegrationTests::smtpHost);
         properties.add("spring.mail.port", () -> MAILPIT.getMappedPort(1025));
+    }
+
+    private static String smtpHost() {
+        String host = MAILPIT.getHost();
+        return "localhost".equalsIgnoreCase(host) ? "127.0.0.1" : host;
     }
 
     @Autowired JdbcTemplate jdbc;
@@ -108,14 +113,14 @@ class NotificationEmailIntegrationTests {
         jdbc.execute("TRUNCATE notification_service.processed_event, notification_service.user_contact, "
                 + "notification_service.order_ref, notification_service.email_message");
         request("DELETE", "/api/v1/messages");
-        mailSender.setHost(MAILPIT.getHost());
+        mailSender.setHost(smtpHost());
         mailSender.setPort(MAILPIT.getMappedPort(1025));
         listeners.start();
     }
 
     @Test
     void eventsQueueDeduplicatedMessagesAndDeliverAllTemplatesThroughMailpit() throws Exception {
-        assertThat(mailSender.getHost()).isEqualTo(MAILPIT.getHost());
+        assertThat(mailSender.getHost()).isEqualTo(smtpHost());
         assertThat(mailSender.getPort()).isEqualTo(MAILPIT.getMappedPort(1025));
 
         UUID userId = UUID.randomUUID();

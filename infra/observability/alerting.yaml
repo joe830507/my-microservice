@@ -631,7 +631,7 @@
               "datasourceUid": "prometheus",
               "model": {
                 "refId": "A",
-                "expr": "increase(notification_emails_total{result=\"failed\"}[10m])",
+                "expr": "sum(increase(notification_emails_total{result=\"failed\"}[10m]))",
                 "instant": true,
                 "intervalMs": 1000,
                 "maxDataPoints": 43200
@@ -691,7 +691,7 @@
               "datasourceUid": "prometheus",
               "model": {
                 "refId": "A",
-                "expr": "notification_email_oldest_pending_seconds",
+                "expr": "max(notification_email_oldest_pending_seconds)",
                 "instant": true,
                 "intervalMs": 1000,
                 "maxDataPoints": 43200

@@ -4,7 +4,7 @@
 > 分支：實作時開 `feature/notification-phase-e`（從階段 D 合併後的 `main` 切出；階段 D 尚未合併時，從 `feature/search-phase-d` 切出並做 stacked PR）
 > 對應：[middleware-roadmap.md](middleware-roadmap.md)「階段 E」、[event-contracts.md](../../architecture/event-contracts.md)
 > 前置：階段 C 完成（`user.events`、`order.events`、`payment.events` 已經在發送）；階段 D 完成（本階段沿用其文件與驗收規範）
-> Status: E1-E3 complete; E4/E5 implemented with SMTP delivery validation pending; E6 partially verified in kind (ordered deployments and purchase E2E pass, but SMTP delivery and remaining outage/policy/alert checks are blocked); E7 not started.
+> Status: E1-E3 complete; E4/E5 implemented and SMTP delivery verified in kind; E6 acceptance mostly complete, with the full Maven reactor blocked by Windows Docker Desktop Testcontainers SMTP greeting timeout and cross-service Tempo trace evidence pending; E7 not started.
 
 這份文件是給實作者（Codex 或任何人）照著做的**唯一依據**。分成兩半：前半說明「做什麼、為什麼這樣設計」，後半（[實作規範](#實作規範)）說明「怎麼做、哪些事不能做」。**開始實作前兩半都要讀完。** 遇到文件沒寫到、或發現文件有錯的地方，不要自己默默決定，先照[計畫變更](#計畫變更紀錄)的規則處理。
 

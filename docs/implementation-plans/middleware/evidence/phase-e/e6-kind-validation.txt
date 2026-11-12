@@ -2,35 +2,33 @@ E6 kind validation
 Date: 2026-11-12
 
 Deployment
-- Built current inventory, order, payment, and notification images and loaded them into kind.
-- Rolled out in dependency order: inventory, order, notification (payment refreshed between order and notification because the running image had an outdated schema).
-- inventory-service, order-service, payment-service, and notification-service each reached 2/2 Ready.
-- Order migration V8, payment migration V6, and notification's four migrations validated at startup.
-- No DLT alert firing was observed during the deployment, but alert state was not exhaustively checked.
+- Built and loaded current inventory, order, payment, and notification images into kind. Rolled out inventory -> order -> notification; each deployment reached 2/2 Ready. Refreshed order/payment schemas migrated (V8/V6); notification migrations validated.
+- The running user-service image was stale and had not published registration events. Rebuilt and restarted it; new UserRegistered events populated notification contact data. No credential values were recorded.
 
-Customer flow
-- Ran: npm run test:e2e -- --project=chromium e2e/purchase-flow.spec.ts
-- Target: kind customer frontend through localhost port-forward.
-- Result: 1 passed. Browse, add to cart, register, checkout, payment success, and management shipment succeeded.
-- The E2E admin credentials came from the existing bootstrap-admin Kubernetes Secret; values were not printed or stored here.
+Customer and management E2E
+- Customer purchase flow: `npm run test:e2e -- --project=chromium e2e/purchase-flow.spec.ts` passed 1/1 (browse, cart, registration, checkout, payment success, shipment).
+- Notification event flow: `notification-events.spec.ts` passed 1/1 and exercised payment failure and cancellation.
+- Management shipment UI: `notification-order-shipment.spec.ts` passed 1/1; the manager used the UI ship action and the order reached SHIPPED.
+- The customer purchase produced `order-created`, `order-paid`, and `order-shipped`; all corresponding notification rows reached SENT and appeared in Mailpit. The payment-failure and cancellation rows also reached SENT. Mailpit was restarted during recovery checks, so its in-memory message history is not a cumulative audit count.
 
-Email delivery
-- Read-only notification DB inspection after the flow found three rows: order-created, order-paid, order-shipped.
-- All three were PENDING with 4 attempts. Mailpit HTTP API returned 0 messages.
-- Therefore SMTP delivery and recovery are NOT PASS. The flow verifies order/payment/shipment only.
-- Mailpit's Service exposes SMTP port 1025 only; its UI was inspected through a temporary direct pod port-forward.
+Recovery checks
+- Mailpit SMTP scaled to zero: three new notification rows remained PENDING during the outage. After Mailpit returned, all three became SENT; no duplicate delivery was observed for these rows.
+- notification-service scaled to zero during a purchase: Kafka order.events accumulated. After scaling notification-service back to two replicas, consumer lag returned to zero and the three queued email rows became SENT; Mailpit count increased by three.
+- order-service scaled to zero and restored; a subsequent purchase/notification flow passed.
 
-Automated tests
-- Ran the full offline reactor: mvn -o clean test (equivalent backend Maven wrapper command with offline Maven installation).
-- Elapsed about 12m06s. All modules reached before notification passed; notification had 2 failures in NotificationEmailIntegrationTests due SMTP greeting timeout. api-gateway was not reached because the reactor stopped at notification.
-- The notification resilience tests passed. Do not count the full reactor as passing.
-- Ran the remaining API gateway tests independently with required local dependency: mvn -o -pl spring-api-gateway -am test. Result: BUILD SUCCESS; api-gateway 111 tests passed (observability dependency had no tests).
+NetworkPolicy
+- A diagnostic pod labeled as notification-service connected to mailpit:1025 and notification-db:5432.
+- An untrusted diagnostic pod was blocked from both mailpit:1025 and notification-db:5432.
+- Temporary diagnostic pods were removed after the probes.
 
-Still pending
-- SMTP unavailable/recovery and one-message assertion.
-- Notification and order outage/recovery checks; payment-failure email.
-- Positive/negative NetworkPolicy connectivity probes for Mailpit and notification-db.
-- DLT/FAILED/pending-age alert firing and resolution, and Tempo trace inspection.
-- Full reactor rerun after fixing SMTP reachability; run api-gateway tests independently meanwhile.
+Alert checks
+- Applied current generated observability configuration to my-microservice. Grafana loaded 12 rules, including `mm-notification-failed` and `mm-notification-backlog`.
+- Controlled synthetic FAILED and stale PENDING rows made each notification alert fire once. Removing the synthetic rows resolved both alerts. Synthetic rows and their test-only contacts/references were deleted afterward.
 
-No recipient address, password, customer name, message body, or secret value is recorded in this evidence.
+Tracing
+- Tempo search returned notification-service `notification.email.send` / dispatch spans. A single trace showing the complete outbox -> Kafka -> notification consumer path was not conclusively identified; this remains pending.
+
+Automated tests and limitation
+- `mvn -o clean test` ran the 10-module reactor for about 12 minutes and failed two `NotificationEmailIntegrationTests` SMTP cases. The Testcontainers Mailpit mapped port accepted TCP, but the server-first SMTP greeting timed out in the Windows Docker Desktop test JVM. The failure persists when using IPv4; kind SMTP delivery works. Do not report the full reactor as passing.
+- Separately, `mvn -o -pl spring-api-gateway -am test` passed; api-gateway reported 111 tests.
+- No recipient address, password, customer name, message body, or secret value is recorded here.

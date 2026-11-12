@@ -241,10 +241,10 @@ alerts = {"apiVersion": 1, "groups": [{
              'sum(increase(events_dlt_published_total[5m]))',
              "gt", 0, "0s", "事件進入 dead-letter topic；請檢查消費端錯誤", "critical"),
         rule("mm-notification-failed", "Notification email permanently failed",
-             'increase(notification_emails_total{result="failed"}[10m])',
+             'sum(increase(notification_emails_total{result="failed"}[10m]))',
              "gt", 0, "0s", "Notification emails entered FAILED; inspect SMTP and last_error."),
         rule("mm-notification-backlog", "Notification email backlog",
-             'notification_email_oldest_pending_seconds',
+             'max(notification_email_oldest_pending_seconds)',
              "gt", 600, "5m", "The oldest pending notification email is over 10 minutes old."),
     ],
 }]}

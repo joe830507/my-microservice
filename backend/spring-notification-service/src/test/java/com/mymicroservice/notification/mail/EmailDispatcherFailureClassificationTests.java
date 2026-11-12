@@ -16,4 +16,11 @@ class EmailDispatcherFailureClassificationTests {
         assertThat(EmailDispatcher.isPermanent(permanent)).isTrue();
         assertThat(EmailDispatcher.isPermanent(transientFailure)).isFalse();
     }
+
+    @Test
+    void invalidRecipientAddressIsPermanent() throws Exception {
+        var failure = new jakarta.mail.internet.AddressException("invalid recipient");
+
+        assertThat(EmailDispatcher.isPermanent(failure)).isTrue();
+    }
 }

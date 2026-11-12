@@ -1,7 +1,7 @@
 # Notification 實作紀錄
 
 > 更新日期：2026-11-12
-> Status: E1-E3 complete; E4/E5 implemented with SMTP delivery validation pending; E6 partially verified in kind (purchase flow passes but SMTP delivery and outage/policy/alert checks remain incomplete); E7 not started.
+> Status: E1-E3 complete; E4/E5 implemented and SMTP delivery verified in kind; E6 acceptance mostly complete with Maven/Testcontainers SMTP greeting and cross-service Tempo trace evidence still pending; E7 not started.
 > 計畫：[notification-implementation-plan.md](notification-implementation-plan.md)
 
 ## E1：基礎設施與服務骨架
@@ -93,7 +93,7 @@ Mailpit 在 `readOnlyRootFilesystem` 下需要可寫暫存目錄，kind manifest
 
 - Offline Maven compile of notification-service and dependencies: BUILD SUCCESS.
 - Kafka/PostgreSQL/Mailpit Testcontainers integration test was added. It confirmed event processing and six unique queued emails, including a duplicate `OrderPaid` eventId producing one row; `PaymentSucceeded` was not recorded.
-- SMTP delivery validation is pending. Mailpit logs show SMTP listening on `0.0.0.0:1025` and its HTTP API is reachable, but the test JVM times out reading SMTP responses through the mapped port. A separate temporary Mailpit container published on local port 1025 also accepted TCP but returned no SMTP greeting. No messages appeared in Mailpit. This is not a passing delivery test.
+- SMTP delivery is verified in the kind cluster: customer purchase and payment failure/cancellation flows delivered messages to Mailpit and their database rows reached `SENT`. The separate Testcontainers SMTP test remains blocked on this Windows Docker Desktop host because the mapped SMTP port accepts TCP but the test JVM times out before the server greeting.
 - Test inputs use reserved `example.com` addresses. This record contains no recipient address, customer name, or message content.
 
 ### Follow-up and limitations
@@ -114,7 +114,7 @@ Mailpit 在 `readOnlyRootFilesystem` 下需要可寫暫存目錄，kind manifest
 ### Validation
 
 - Added integration coverage for missing order, missing contact, retry progression, and terminal failure. Test outcomes are recorded in `evidence/phase-e/e5-notification-resilience.txt`.
-- SMTP success remains unverified because the local Testcontainers mapped SMTP endpoint accepts TCP but does not provide the SMTP greeting; this is the existing E4 environment issue.
+- SMTP success is verified in kind, including Mailpit outage/recovery. Local Testcontainers SMTP integration remains blocked by the mapped-port greeting timeout described under E4.
 - Dashboard generator compiles and regenerates the dashboard and alert rules.
 
 
@@ -127,7 +127,9 @@ Mailpit 在 `readOnlyRootFilesystem` 下需要可寫暫存目錄，kind manifest
 
 ### Validation and limits
 
-- The purchase created three email rows (`order-created`, `order-paid`, `order-shipped`), but all remained `PENDING` after four attempts; Mailpit reported zero messages. This is a failed SMTP delivery check, not a successful end-to-end email validation. See `evidence/phase-e/e6-kind-validation.txt`.
-- `mvn -o clean test` completed the reactor through notification-service and failed two `NotificationEmailIntegrationTests` because the Testcontainers Mailpit SMTP connection timed out before greeting. Earlier modules passed; api-gateway was not reached in that reactor run.
-- Ran api-gateway separately with its local dependency: `mvn -o -pl spring-api-gateway -am test`; BUILD SUCCESS, 111 api-gateway tests passed.
-- The planned SMTP-down/recovery, notification-down/recovery, order-down, failure-email, alert firing/resolution, NetworkPolicy connectivity probes, and Tempo trace checks remain incomplete. Do not mark E6 complete until these checks pass or their blockers are resolved and recorded.
+- Customer purchase flow delivered `order-created`, `order-paid`, and `order-shipped` to Mailpit; all corresponding `email_message` rows reached `SENT`. A separate E2E verified `payment-failed` and `order-cancelled`; the management UI shipment test passed (1/1).
+- SMTP outage/recovery retained three rows as `PENDING` and delivered them after Mailpit returned; notification outage/recovery consumed the Kafka backlog and delivered the three queued messages once. Order-service outage/recovery was also exercised.
+- NetworkPolicy probes confirmed notification-service can reach Mailpit SMTP and notification-db while an untrusted pod is blocked from both. The notification FAILED and backlog Grafana alerts each fired once under controlled synthetic conditions and resolved after the synthetic rows were removed.
+- The generated Tempo data source returned notification dispatch spans, but a trace proving the complete outbox-to-Kafka-to-notification-consumer path was not isolated. This evidence remains pending.
+- Two offline full-reactor runs (`mvn -o clean test`) stopped at two `NotificationEmailIntegrationTests`: on this Windows Docker Desktop setup, the mapped Mailpit SMTP port accepts TCP but its server-first greeting times out in the test JVM. The other modules before notification passed. `mvn -o -pl spring-api-gateway -am test` passed independently (111 gateway tests). This is an environment-level test blocker; the full reactor is not recorded as passing.
+- See `evidence/phase-e/e6-kind-validation.txt` for commands and acceptance evidence. E6 remains open until the full reactor and cross-service trace evidence are complete.
