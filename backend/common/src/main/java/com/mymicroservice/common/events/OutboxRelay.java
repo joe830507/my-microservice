@@ -111,6 +111,10 @@ public class OutboxRelay {
             log.warn("Outbox relay cycle failed", exception);
         }
 
+    }
+
+    @Scheduled(fixedDelayString = "${app.events.outbox-metrics-interval:15000}")
+    public void refreshMetrics() {
         metrics.refreshPendingCount(jdbc, schema);
     }
 

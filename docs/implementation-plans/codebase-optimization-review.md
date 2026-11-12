@@ -269,6 +269,8 @@ CREATE INDEX idx_product_category_status_created ON product_service.product (cat
 
 ## 17.（低）OutboxMetrics 每 500ms 一次 `count(*)`
 
+> 2026-11-13 修正註記：pending count 移至獨立排程，預設每 15 秒，可用 app.events.outbox-metrics-interval 調整；發布輪詢與追趕批次不再 count(*)。
+
 位置：`backend/common/src/main/java/com/mymicroservice/common/events/OutboxMetrics.java`、`OutboxRelay.java` 的 `metrics.refreshPendingCount`
 
 問題：每個服務每個副本每 500ms 都 `count(*)` 一次，Prometheus 一般 15～30 秒才抓一次，絕大多數結果沒被用到；積壓時（正是需要看指標的時候）`count(*)` 也最慢。
