@@ -12,6 +12,35 @@
 
 ## 優先順序總覽
 
+### 修正進度（optimize/codebase-review）
+
+20 項均已逐項處理；採用的替代方案、暫緩範圍與原因記在各節註記。
+
+| 議題 | 狀態 | 驗證 |
+|---|---|---|
+| 1 商品列表固定排序 | 完成 | 同價商品跨頁整合測試 |
+| 2 前台相關性排序 | 完成 | query 單元＋Chrome 請求參數；真實部署 e2e 範圍見註記 |
+| 3 登入交易範圍 | 完成 | bcrypt 交易範圍及 refresh cookie／DB 整合測試 |
+| 4 去重資料清理 | 完成 | 三個實際消費服務啟用；清理邊界與 cron 驗證 |
+| 5 Outbox 批次發布 | 完成 | 部分 ACK 保留及 aggregate 順序測試 |
+| 6 Outbox 索引 | 完成 | 五萬筆 EXPLAIN ANALYZE 使用新索引 |
+| 7 圖片縮小 | 完成（方案一） | 單元＋Chrome 真實 canvas；獨立縮圖暫緩 |
+| 8 郵件交易範圍 | 完成 | SMTP／租約及多副本整合測試 |
+| 9 商品列表索引 | 完成 | 全站及單分類查詢計畫 |
+| 10 購物車跨分頁同步 | 完成 | 單元＋Chrome 雙分頁 |
+| 11 子分類快取 | 完成 | 保留停用分類語意及 afterCommit 失效 |
+| 12 詳情圖片並行 | 完成 | Chrome 延遲商品回應時圖片已發出 |
+| 13 首頁計數 | 完成（短期方案） | 30 秒 TTL、請求共用及帳號切換測試；統計 API 暫緩 |
+| 14 狀態轉換查詢 | 完成 | 訂單與付款整合測試 |
+| 15 完成訂單交易 | 完成 | 完成、冪等及錯誤狀態整合測試 |
+| 16 登入 Redis 往返 | 完成 | MGET／雙 key Lua 與門檻、故障放行測試 |
+| 17 Outbox 指標 | 完成 | 獨立 15 秒排程，發布路徑不再 count |
+| 18 映像分層 | 完成；CDS／AOT 暫緩 | Docker 建置及隔離資料庫實際啟動 |
+| 19 暫時事件錯誤重試 | 完成 | PostgreSQL 暫停五秒後成功，DLT 無增加 |
+| 20 DLT 維運與重放 | 完成 | 手冊、確認流程與真實 Kafka 二進位保留測試 |
+
+後端 819 個測試、前端 603 個單元測試及四個 Chrome 檢查通過；兩個前端型別檢查／正式打包與 Docker 建置／啟動亦通過。詳細命令、範圍及計數見 [驗證紀錄](evidence/codebase-optimization-validation.md)。
+
 | # | 優先 | 範圍 | 類型 | 項目 |
 |---|---|---|---|---|
 | 1 | 高 | 後端 | 正確性 | 商品列表的資料庫查詢沒有 tie-breaker，翻頁會重複或漏掉商品 |
@@ -320,6 +349,8 @@ RUN java -Djarmode=tools -jar /src/spring-${SERVICE}/target/${SERVICE}-0.0.1-SNA
 - 補一段到 `docs/architecture/event-contracts.md` 的錯誤處理說明，改寫「暫時性錯誤重試三次」的描述。
 
 ## 20.（中）DLT 只有告警，沒有處理手冊與重放工具
+
+> 2026-11-13 修正註記：事件契約加入 Compose／kind 查看指令、headers 判讀、錯誤分流、負責人與人工退款結案要求。新增 dlt-replay.sh＋Java 21 工具，指定 partition 與 offset 半開區間，先預覽並輸入 REPLAY，保留二進位 key、value、headers、原 partition 與 eventId，逐筆 ACK、不提交 DLT offset。真實 Kafka 整合測試涵蓋取消零發送及確認後資料完全保留。自動退款／自動 DLT listener 維持原審查建議暫緩。
 
 位置：`infra/observability/alerting.yaml`（`mm-kafka-dlt`）；目前沒有任何程式消費 `*.DLT`
 

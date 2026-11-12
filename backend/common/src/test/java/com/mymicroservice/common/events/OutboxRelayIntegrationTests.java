@@ -177,6 +177,58 @@ class OutboxRelayIntegrationTests {
         }
     }
 
+    @Test
+    void replayToolRequiresConfirmationAndPreservesBinaryKeyPayloadAndHeaders() throws Exception {
+        String topic = "replay-tool-test";
+        try (var admin = AdminClient.create(Map.of("bootstrap.servers", kafka.getBootstrapServers()))) {
+            admin.createTopics(List.of(new NewTopic(topic, 1, (short) 1), new NewTopic(topic + ".DLT", 1, (short) 1))).all().get();
+        }
+        byte[] key = {0, 1, -1};
+        byte[] value = "{\"eventId\":\"unchanged\",\"payload\":\"hello\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var headers = new org.apache.kafka.common.header.internals.RecordHeaders();
+        headers.add("kafka_dlt-original-topic", topic.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        headers.add("kafka_dlt-original-partition", java.nio.ByteBuffer.allocate(4).putInt(0).array());
+        headers.add("traceparent", "trace-value".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var config = Map.<String, Object>of("bootstrap.servers", kafka.getBootstrapServers(),
+                "key.serializer", org.apache.kafka.common.serialization.ByteArraySerializer.class,
+                "value.serializer", org.apache.kafka.common.serialization.ByteArraySerializer.class);
+        try (var producer = new org.apache.kafka.clients.producer.KafkaProducer<byte[], byte[]>(config)) {
+            producer.send(new org.apache.kafka.clients.producer.ProducerRecord<>(topic + ".DLT", 0, null, key, value, headers)).get();
+        }
+        String javaExecutable = java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java").toString();
+        String source = java.nio.file.Path.of("..", "..", "infra", "scripts", "DltReplay.java").toAbsolutePath().normalize().toString();
+        for (String confirmation : List.of("CANCEL", "REPLAY")) {
+            var outputFile = java.nio.file.Files.createTempFile("dlt-replay-test", ".log");
+            var process = new ProcessBuilder(javaExecutable, "--class-path", System.getProperty("surefire.test.class.path", System.getProperty("java.class.path")),
+                    source, kafka.getBootstrapServers(), topic + ".DLT", "0", "0", "1")
+                    .redirectErrorStream(true).redirectOutput(outputFile.toFile()).start();
+            try (var input = process.outputWriter()) { input.write(confirmation + "\n"); }
+            assertThat(process.waitFor(45, TimeUnit.SECONDS)).isTrue();
+            String output = java.nio.file.Files.readString(outputFile);
+            java.nio.file.Files.delete(outputFile);
+            assertThat(process.exitValue()).as(output).isZero();
+            try (var admin = AdminClient.create(Map.of("bootstrap.servers", kafka.getBootstrapServers()))) {
+                long count = admin.listOffsets(Map.of(new org.apache.kafka.common.TopicPartition(topic, 0),
+                        org.apache.kafka.clients.admin.OffsetSpec.latest())).all().get().values().iterator().next().offset();
+                assertThat(count).isEqualTo(confirmation.equals("REPLAY") ? 1 : 0);
+            }
+        }
+        var consumerConfig = Map.<String, Object>of("bootstrap.servers", kafka.getBootstrapServers(),
+                "key.deserializer", org.apache.kafka.common.serialization.ByteArrayDeserializer.class,
+                "value.deserializer", org.apache.kafka.common.serialization.ByteArrayDeserializer.class);
+        try (var consumer = new org.apache.kafka.clients.consumer.KafkaConsumer<byte[], byte[]>(consumerConfig)) {
+            var partition = new org.apache.kafka.common.TopicPartition(topic, 0);
+            consumer.assign(List.of(partition));
+            consumer.seekToBeginning(List.of(partition));
+            var records = consumer.poll(Duration.ofSeconds(10));
+            assertThat(records.count()).isEqualTo(1);
+            var record = records.iterator().next();
+            assertThat(record.key()).isEqualTo(key);
+            assertThat(record.value()).isEqualTo(value);
+            assertThat(record.headers().toArray()).containsExactly(headers.toArray());
+        }
+    }
+
     @AfterAll
     static void closeProducer() {
         if (kafkaTemplate != null) kafkaTemplate.destroy();

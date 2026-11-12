@@ -27,6 +27,30 @@ IDE 使用 localhost:9094；Compose 容器與 kind 使用 kafka:9092。
 
 DefaultErrorHandler 負責重試與 DLT。暫時性資料存取錯誤、資料庫資源故障、無法建立交易及 5xx AppException 採 1 秒起、倍增至 30 秒的無限重試，保留 partition 內事件順序；未分類錯誤仍重試三次、間隔 500ms；JSON、參數及業務規則錯誤直接進入來源 topic 加上 .DLT 的死信佇列。退避上限 30 秒低於預設 `max.poll.interval.ms=300000`；若調低 poll interval 或延長處理逾時，須一併重新評估。整合測試暫停 PostgreSQL 五秒後恢復，驗證重試完成且 DLT 計數與 topic offset 不增加。DLT 發送失敗向外拋出，保留原事件。付款成功但訂單已取消時，需人工追蹤退款；自動退款隨真實金流（路線圖階段 F）暫緩。
 
+## DLT 處理與重放
+
+告警的當班維運人員先建立追蹤紀錄，記下 topic、partition、offset、例外、orderId／paymentId 與負責人。以下命令只讀取，不提交消費 offset；輸出可能含個資，勿貼到公開工單。
+
+```sh
+# Compose，依實際 compose 檔路徑加上 -f
+docker compose -f infra/docker-compose.yml exec kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic payment.events.DLT --partition 0 --offset earliest --max-messages 10 --property print.headers=true --property print.key=true --property print.offset=true
+# kind，namespace 依部署環境調整
+kubectl -n my-microservice exec kafka-0 -- /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic payment.events.DLT --partition 0 --offset earliest --max-messages 10 --property print.headers=true --property print.key=true --property print.offset=true
+```
+
+讀取 `kafka_dlt-original-topic`、`kafka_dlt-original-partition`、`kafka_dlt-original-offset`、`kafka_dlt-exception-fqcn`、`kafka_dlt-exception-message`；partition／offset header 是二進位整數，console 顯示可能不是十進位。格式錯誤先修發送端，勿反覆重放原本的壞訊息；業務衝突交由業務負責人處理；基礎設施故障先確認已恢復，再重放。付款成功但訂單已取消時，訂單／付款負責人須核對金流結果、執行人工退款，將 orderId、paymentId、退款憑證與處理時間記入追蹤紀錄後才結案，單純重放不能解決衝突。
+
+重放工具使用專案相同的 Kafka Java client，Java 21 即可執行。先從 common 產生 classpath，Windows 使用 `mvnw.cmd` 並以 PowerShell 讀取 classpath 後呼叫 `java --class-path $cp infra/scripts/DltReplay.java ...`。
+
+```sh
+cd backend
+./mvnw -q -pl common dependency:build-classpath -Dmdep.outputFile=target/replay-classpath.txt
+cd ..
+export KAFKA_CLIENT_CLASSPATH="$(cat backend/common/target/replay-classpath.txt)"
+bash infra/scripts/dlt-replay.sh localhost:9094 payment.events.DLT 0 12 15
+```
+
+最後三個參數是 partition、起始 offset（含）、結束 offset（不含）。工具先完整讀取並驗證範圍（最多 10000 個 offset），列出 offset、來源 topic、key 與長度，輸入 `REPLAY` 才送出；key、value（含 eventId）、headers 與原 partition 均保留，逐筆等待 broker ACK 並列出新 offset。不提交 DLT 消費位置，也不刪除死信。中途失敗可依已列出的成功 offset 縮小範圍後重試；去重窗口內已處理的事件會被略過。先小範圍執行，再核對訂單、庫存、消費 lag 與 DLT 告警，完成後在追蹤紀錄標明重放範圍及結果。不要啟用自動 DLT 重放 listener。
 
 事件為唯一的付款與庫存狀態通知路徑。R3 部署驗收通過後已移除旗標、舊重試工作與補償欄位。升級 migration 先將未完成的舊通知補入 outbox，再刪除欄位；已部署的歷史 migration 保留校驗碼。
 
