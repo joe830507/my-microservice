@@ -1,17 +1,24 @@
 package com.mymicroservice.notification.mail;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
+import jakarta.mail.MessagingException;
 import jakarta.mail.internet.AddressException;
 import jakarta.mail.internet.MimeMessage;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.mail.MailException;
+import org.springframework.mail.MailAuthenticationException;
+import org.springframework.mail.MailParseException;
+import org.springframework.mail.MailPreparationException;
+import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -26,27 +33,23 @@ import io.opentelemetry.context.Scope;
 
 @Component
 public class EmailDispatcher {
-    private static final Map<String, String> SUBJECTS = Map.of(
-            "order-created", "訂單已成立",
-            "order-paid", "付款成功",
-            "order-shipped", "訂單已出貨",
-            "order-cancelled", "訂單已取消",
-            "payment-failed", "付款失敗");
-
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;
     private final JavaMailSender mailSender;
     private final NotificationProperties properties;
     private final EmailMetrics metrics;
+    private final EmailTemplateRenderer templates;
     private final OpenTelemetry telemetry;
 
     public EmailDispatcher(JdbcTemplate jdbc, TransactionTemplate transactions, JavaMailSender mailSender,
-            NotificationProperties properties, EmailMetrics metrics, ObjectProvider<OpenTelemetry> telemetry) {
+            NotificationProperties properties, EmailMetrics metrics, EmailTemplateRenderer templates,
+            ObjectProvider<OpenTelemetry> telemetry) {
         this.jdbc = jdbc;
         this.transactions = transactions;
         this.mailSender = mailSender;
         this.properties = properties;
         this.metrics = metrics;
+        this.templates = templates;
         this.telemetry = telemetry.getIfAvailable(OpenTelemetry::noop);
     }
 
@@ -122,41 +125,53 @@ public class EmailDispatcher {
         metrics.result(message.template(), "retry");
     }
 
-    private java.time.Duration retryDelay(int attempt) {
-        List<java.time.Duration> delays = properties.dispatch().retryDelays();
+    private Duration retryDelay(int attempt) {
+        List<Duration> delays = properties.dispatch().retryDelays();
         return delays.get(Math.min(Math.max(attempt - 1, 0), delays.size() - 1));
     }
 
+    // 收件地址無效、認證失敗、SMTP 5xx 屬永久性錯誤，重試沒有意義；其餘（連線、逾時、4xx）視為暫時性。
+    // SMTP 實作類別（org.eclipse.angus.mail.smtp）只在執行期classpath，編譯期看不到，所以這兩個類別以名稱判斷，
+    // 其他例外型別一律用 instanceof。
     static boolean isPermanent(Throwable failure) {
-        java.util.ArrayDeque<Throwable> pending = new java.util.ArrayDeque<>();
+        Deque<Throwable> pending = new ArrayDeque<>();
         pending.add(failure);
         while (!pending.isEmpty()) {
             Throwable current = pending.removeFirst();
-            if (current instanceof AddressException) return true;
-            String name = current.getClass().getSimpleName();
-            if (name.equals("MailAuthenticationException") || name.equals("MailParseException")
-                    || name.equals("MailPreparationException") || name.equals("SMTPAddressFailedException")) {
+            if (current instanceof MailAuthenticationException || current instanceof MailParseException
+                    || current instanceof MailPreparationException || current instanceof AddressException
+                    || current.getClass().getSimpleName().equals("SMTPAddressFailedException")) {
                 return true;
             }
-            if (name.equals("SMTPSendFailedException")) {
-                try {
-                    Object code = current.getClass().getMethod("getReturnCode").invoke(current);
-                    if (code instanceof Number number && number.intValue() >= 500) return true;
-                } catch (ReflectiveOperationException ignored) {
-                    // Unknown SMTP response is treated as transient.
-                }
+            if (isSmtpFiveHundred(current)) {
+                return true;
             }
-            if (current.getCause() != null) pending.addLast(current.getCause());
-            if (current instanceof jakarta.mail.MessagingException messaging
-                    && messaging.getNextException() != null) pending.addLast(messaging.getNextException());
-            if (current instanceof org.springframework.mail.MailSendException mailFailure) {
-                mailFailure.getFailedMessages().values().forEach(pending::addLast);
+            if (current.getCause() != null) {
+                pending.addLast(current.getCause());
+            }
+            if (current instanceof MessagingException messaging && messaging.getNextException() != null) {
+                pending.addLast(messaging.getNextException());
+            }
+            if (current instanceof MailSendException mailFailure) {
+                pending.addAll(mailFailure.getFailedMessages().values());
             }
         }
         return false;
     }
 
-    private void sendTraced(PendingEmail message) throws jakarta.mail.MessagingException {
+    private static boolean isSmtpFiveHundred(Throwable failure) {
+        if (!failure.getClass().getSimpleName().equals("SMTPSendFailedException")) {
+            return false;
+        }
+        try {
+            Object code = failure.getClass().getMethod("getReturnCode").invoke(failure);
+            return code instanceof Number number && number.intValue() >= 500;
+        } catch (ReflectiveOperationException unknownResponse) {
+            return false;
+        }
+    }
+
+    private void sendTraced(PendingEmail message) throws MessagingException {
         Span span = telemetry.getTracer("notification-service")
                 .spanBuilder("notification.email.send")
                 .startSpan();
@@ -164,7 +179,7 @@ public class EmailDispatcher {
         try (Scope ignored = span.makeCurrent()) {
             span.setAttribute("template", message.template());
             send(message);
-        } catch (jakarta.mail.MessagingException | RuntimeException failure) {
+        } catch (MessagingException | RuntimeException failure) {
             span.recordException(failure);
             span.setStatus(StatusCode.ERROR);
             throw failure;
@@ -174,42 +189,20 @@ public class EmailDispatcher {
         }
     }
 
-    private void send(PendingEmail message) throws jakarta.mail.MessagingException {
-        String subject = SUBJECTS.get(message.template());
-        if (subject == null) throw new IllegalStateException("Unknown email template");
-        String name = sanitizeName(message.displayName());
-        String reason = "timeout".equals(message.reason()) ? "逾時未付款" : "已取消";
-        String body = loadTemplate(message.template())
-                .replace("{{orderId}}", String.valueOf(message.orderId()))
-                .replace("{{amount}}", message.totalAmount().toPlainString())
-                .replace("{{reason}}", reason)
-                .replace("{{name}}", name);
-
+    private void send(PendingEmail message) throws MessagingException {
         MimeMessage mail = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(mail, false, StandardCharsets.UTF_8.name());
         helper.setFrom(properties.mail().from());
         helper.setTo(message.email());
-        helper.setSubject(subject);
-        helper.setText(body, false);
+        helper.setSubject(templates.subject(message.template()));
+        helper.setText(templates.body(message.template(), message.displayName(), message.orderId(),
+                message.totalAmount(), message.reason()), false);
+        // JavaMailSenderImpl 在 saveChanges 之後會還原這個值，所以重寄時 Message-ID 相同
         mail.setHeader("Message-ID", "<" + message.id() + "@my-microservice.local>");
         mailSender.send(mail);
     }
 
-    private static String loadTemplate(String template) {
-        try (var input = new ClassPathResource("templates/mail/" + template + ".txt").getInputStream()) {
-            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (Exception failure) {
-            throw new IllegalStateException("Unable to load email template", failure);
-        }
-    }
-
-    private static String sanitizeName(String name) {
-        if (name == null || name.isBlank()) return "顧客";
-        String sanitized = name.replaceAll("[\\p{Cc}\\p{Cf}]", " ").replaceAll("\\s+", " ").trim();
-        return sanitized.isEmpty() ? "顧客" : sanitized;
-    }
-
     private record PendingEmail(UUID id, String template, UUID orderId, String reason,
-            String email, String displayName, java.math.BigDecimal totalAmount,
+            String email, String displayName, BigDecimal totalAmount,
             UUID resolvedOrderId, UUID resolvedUserId, int attempts) { }
 }
