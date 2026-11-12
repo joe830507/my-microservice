@@ -85,7 +85,7 @@ export interface ProductPage {
   totalPages: number
 }
 
-export type ProductSortBy = 'createdAt' | 'price'
+export type ProductSortBy = 'createdAt' | 'price' | 'relevance'
 export type SortDirection = 'asc' | 'desc'
 
 // GET /products 的查詢參數（page 從 0 開始）
@@ -99,5 +99,5 @@ export interface ProductQueryParams {
   page: number
   size: number
   sortBy: ProductSortBy
-  sortDirection: SortDirection
+  sortDirection?: SortDirection
 }

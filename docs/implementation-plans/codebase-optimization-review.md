@@ -59,6 +59,8 @@ return PageRequest.of(page, size, Sort.by(direction(), column).and(Sort.by(Sort.
 
 ## 2.（高）前台搜尋永遠送 `sortBy=createdAt`，相關性排序沒被用到
 
+> 2026-11-13 修正註記：搜尋預設 `relevance`、不送排序方向，無關鍵字退回 `latest`。query 單元測試及實際 Chrome 的搜尋參數測試通過；既有真實後端 browse e2e 也已補上斷言，但本次未啟動整套部署執行該套測試。
+
 位置：`frontend/vue-customer/src/features/catalog/query.ts`（`SORT_OPTIONS`、`DEFAULT_PRODUCT_QUERY`、`toApiParams`）
 
 問題：前台的排序選項只有「最新上架／價格由低到高／價格由高到低」，預設 `latest`，而 `toApiParams` 把 `latest` 轉成 `sortBy: 'createdAt'` 一定會送出。後端的設計是「有關鍵字、沒傳 sortBy 時依相關性排序」（`ProductQueryRequest` 的註解、`ProductSearchService.buildSort` 的 `relevance`），但前端從來不會不傳，所以搜尋「跑鞋」時，名稱完全符合的商品可能排在只在描述裡提到的新商品後面。階段 C 調整的 ES 權重（sku 5、name 3、brand 2…）在前台完全沒有作用。

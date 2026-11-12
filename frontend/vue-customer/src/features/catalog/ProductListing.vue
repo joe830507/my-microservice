@@ -123,7 +123,13 @@ function onSortChange(event: Event): void {
       <div class="listing__sort">
         <label for="sort">排序</label>
         <select id="sort" :value="state.sort" @change="onSortChange">
-          <option v-for="option in SORT_OPTIONS" :key="option.value" :value="option.value">
+          <option
+            v-for="option in SORT_OPTIONS.filter(
+              (option) => option.value !== 'relevance' || state.q.trim(),
+            )"
+            :key="option.value"
+            :value="option.value"
+          >
             {{ option.label }}
           </option>
         </select>
