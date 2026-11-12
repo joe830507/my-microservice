@@ -55,6 +55,11 @@ notification:
 app:
   events:
     schema: notification_service
+    processed-cleanup-enabled: true
+    processed-retention: 14d
+  scheduling:
+    lock:
+      table: notification_service.shedlock
 
 management:
   endpoints:

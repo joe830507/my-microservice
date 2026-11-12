@@ -12,7 +12,7 @@ import tools.jackson.core.JacksonException;
 
 @AutoConfiguration
 @EnableScheduling
-@Import({OutboxRelay.class, OutboxMetrics.class, ProcessedEventHandler.class, ResilientEventConsumer.class})
+@Import({ProcessedEventCleanup.class, OutboxRelay.class, OutboxMetrics.class, ProcessedEventHandler.class, ResilientEventConsumer.class})
 public class EventsAutoConfiguration {
     @Bean
     public DefaultErrorHandler kafkaErrorHandler(

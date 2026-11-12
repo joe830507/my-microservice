@@ -70,7 +70,7 @@ class OutboxRelayIntegrationTests {
                 + "payload JSONB NOT NULL, traceparent VARCHAR(100), created_at TIMESTAMPTZ NOT NULL DEFAULT now(), "
                 + "published_at TIMESTAMPTZ)");
         jdbc.execute("CREATE INDEX idx_event_test_pending ON event_test.outbox_event (occurred_at) WHERE published_at IS NULL");
-        jdbc.execute("CREATE TABLE event_test.processed_event(event_id UUID PRIMARY KEY, event_type TEXT NOT NULL)");
+        jdbc.execute("CREATE TABLE event_test.processed_event(event_id UUID PRIMARY KEY, event_type TEXT NOT NULL, processed_at TIMESTAMPTZ NOT NULL DEFAULT now())");
         jdbc.execute("CREATE TABLE event_test.business_counter(id INT PRIMARY KEY, value INT NOT NULL)");
         jdbc.execute("INSERT INTO event_test.business_counter VALUES(1, 0)");
 
@@ -90,6 +90,16 @@ class OutboxRelayIntegrationTests {
         writer = new OutboxEventWriter(jdbc, mapper, "event_test");
         OutboxMetrics metrics = new OutboxMetrics(new SimpleMeterRegistry());
         relay = new OutboxRelay(jdbc, kafkaTemplate, transactions, metrics, "event_test");
+    }
+
+    @Test
+    void cleanupKeepsRecentDedupeAndDeletesOnlyExpiredRows() {
+        jdbc.execute("TRUNCATE event_test.processed_event");
+        jdbc.update("INSERT INTO event_test.processed_event VALUES (?, 'test', now()-interval '15 days'), (?, 'test', now()-interval '13 days')",
+                UUID.randomUUID(), UUID.randomUUID());
+        new ProcessedEventCleanup(jdbc, "event_test", Duration.ofDays(14)).purge();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM event_test.processed_event", Long.class)).isEqualTo(1L);
+        jdbc.execute("TRUNCATE event_test.processed_event");
     }
 
     @AfterAll

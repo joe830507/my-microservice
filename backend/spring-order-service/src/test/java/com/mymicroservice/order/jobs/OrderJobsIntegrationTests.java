@@ -120,7 +120,8 @@ class OrderJobsIntegrationTests {
         assertThat(scheduledTaskHolder.getScheduledTasks())
                 .map(scheduledTask -> scheduledTask.getTask())
                 .filteredOn(task -> task instanceof CronTask)
-                .hasSize(2);
+                .map(task -> ((CronTask) task).getExpression())
+                .containsExactlyInAnyOrder("0 0 0 1 1 *", "0 20 3 * * *", "0 40 3 * * *");
     }
 
     // ---------- helpers ----------

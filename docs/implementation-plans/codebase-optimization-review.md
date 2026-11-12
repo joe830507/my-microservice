@@ -89,6 +89,8 @@ return PageRequest.of(page, size, Sort.by(direction(), column).and(Sort.by(Sort.
 
 ## 4.（高）`processed_event` 從不清理
 
+> 2026-11-13 修正註記：新增 ProcessedEventCleanup，在 order、inventory、notification 三個實際有 processed_event 的消費服務啟用；payment 只發布事件，沒有該表，故不啟用。預設保留 14 天且要求超過預設七天 Kafka 保留期；加入 BRIN 與 ShedLock，補齊 product／notification 的鎖表設定。清理邊界整合測試通過；訂單排程測試亦更新為驗證新增清理排程的 cron。人工重放超過去重窗口須另確認業務冪等性。
+
 位置：`backend/common/src/main/java/com/mymicroservice/common/events/ProcessedEventHandler.java`；order、inventory、notification、payment 的 migration
 
 問題：`outbox_event` 有每天清理（`OutboxRelay.purgePublishedEvents`），但每個消費者的 `processed_event` 只增不減。每筆事件一列，長期會成為各服務最大的表，主鍵索引也會一直變大，`INSERT ... ON CONFLICT` 會越來越慢。

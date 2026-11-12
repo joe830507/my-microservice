@@ -44,6 +44,9 @@ spring:
 app:
   events:
     schema: product_service
+  scheduling:
+    lock:
+      table: product_service.shedlock
 search:
   elasticsearch:
     endpoint: ${ELASTICSEARCH_ENDPOINT:http://localhost:9200}
