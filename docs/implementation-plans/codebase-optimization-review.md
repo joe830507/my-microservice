@@ -75,6 +75,8 @@ return PageRequest.of(page, size, Sort.by(direction(), column).and(Sort.by(Sort.
 
 ## 3.（高）登入／註冊的 bcrypt 在 DB 交易內執行
 
+> 2026-11-13 修正註記：移除類別層級交易；bcrypt 與 Redis 操作在交易外，只有使用者＋outbox 寫入及 token 簽發採短交易。保留 refresh 的 noRollbackFor 與 logout 交易，findByEmail 已有 roles EntityGraph。新增 bcrypt 交易範圍、失敗登入不寫 token，以及 cookie token 與 DB 雜湊一致的整合測試。
+
 位置：`backend/spring-user-service/src/main/java/com/mymicroservice/user/service/impl/AuthServiceImpl.java:39`（類別層級 `@Transactional`）、`:70` `register`、`:94` `login`
 
 問題：`JpaTransactionManager` 開始交易時就向 Hikari 拿連線，所以整個 `login` 期間（Redis 查鎖定 → 查使用者 → bcrypt 比對 → Redis 記錄失敗）都佔著一條 DB 連線；`register` 的 `passwordEncoder.encode` 也是。bcrypt 刻意設計成慢（數十到上百毫秒），預設連線池只有 10 條，登入尖峰或有人暴力猜密碼時，連線池會先被耗盡，連帶拖慢 `/users/me` 等其他 API。失敗的登入（最常見的攻擊情境）完全不需要寫 DB，卻也佔著連線。

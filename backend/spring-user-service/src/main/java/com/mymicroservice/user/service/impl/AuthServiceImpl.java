@@ -14,6 +14,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.mymicroservice.common.exception.AppException;
 import com.mymicroservice.common.events.OutboxEventWriter;
@@ -36,7 +37,6 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-@Transactional
 public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -46,6 +46,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtProperties jwtProperties;
     private final LoginAttemptService loginAttemptService;
     private final OutboxEventWriter outbox;
+    private final TransactionTemplate transactions;
 
     // 帳號不存在時拿來比對的假雜湊，讓回應時間與「帳號存在但密碼錯」相近
     // 否則 bcrypt 比對約需數十毫秒，可從回應快慢推測 email 是否已註冊
@@ -54,7 +55,7 @@ public class AuthServiceImpl implements AuthService {
     public AuthServiceImpl(UserRepository userRepository, RefreshTokenRepository refreshTokenRepository,
             RefreshTokenGenerator refreshTokenGenerator, PasswordEncoder passwordEncoder,
             JwtEncoder jwtEncoder, JwtProperties jwtProperties, LoginAttemptService loginAttemptService,
-            OutboxEventWriter outbox) {
+            OutboxEventWriter outbox, TransactionTemplate transactions) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.refreshTokenGenerator = refreshTokenGenerator;
@@ -63,6 +64,7 @@ public class AuthServiceImpl implements AuthService {
         this.jwtProperties = jwtProperties;
         this.loginAttemptService = loginAttemptService;
         this.outbox = outbox;
+        this.transactions = transactions;
         this.dummyPasswordHash = passwordEncoder.encode(UUID.randomUUID().toString());
     }
 
@@ -82,11 +84,13 @@ public class AuthServiceImpl implements AuthService {
         user.setStatus(UserStatus.ACTIVE);
         user.getRoles().add(Role.CUSTOMER);
 
-        User savedUser = userRepository.save(user);
-        outbox.append("user.events", "UserRegistered", savedUser.getId().toString(),
-                Map.of("userId", savedUser.getId().toString(),
-                        "email", savedUser.getEmail(), "displayName", savedUser.getDisplayName()));
-        return RegisterResDto.from(savedUser);
+        return transactions.execute(status -> {
+            User savedUser = userRepository.save(user);
+            outbox.append("user.events", "UserRegistered", savedUser.getId().toString(),
+                    Map.of("userId", savedUser.getId().toString(),
+                            "email", savedUser.getEmail(), "displayName", savedUser.getDisplayName()));
+            return RegisterResDto.from(savedUser);
+        });
     }
 
     // 會寫入 refresh token，不能是 readOnly
@@ -121,7 +125,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // 5. 簽發 access token 與 refresh token
-        return issueTokens(user, Instant.now());
+        return transactions.execute(status -> issueTokens(user, Instant.now()));
     }
 
     // 輪替：舊的 refresh token 作廢，換發新的 access token 與 refresh token
@@ -180,6 +184,7 @@ public class AuthServiceImpl implements AuthService {
     // 不存在、已撤銷、已過期都直接結束，不回錯誤：結果都是「這個 token 不能再用」，也不讓呼叫者探測 token 狀態
     // access token 無法撤銷，會在到期（最多 15 分鐘）前繼續有效，前端登出時要自行丟掉
     @Override
+    @Transactional
     public void logout(RefreshReqDto refreshReqDto) {
         refreshTokenRepository.revokeByTokenHashIfActive(
                 refreshTokenGenerator.hash(refreshReqDto.refreshToken()), Instant.now());
