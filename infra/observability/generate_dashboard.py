@@ -137,8 +137,8 @@ panels.append(series("搜尋退回 SQL（每分鐘，依原因）", [
     ('sum by (reason) (rate(search_fallback_total[5m])) * 60', "{{reason}}"),
 ], 8, y, 8, 8, desc="ES 逾時、熔斷、索引未就緒或其他錯誤所造成的退回"))
 panels.append(series("Elasticsearch 搜尋平均延遲", [
-    ('sum(rate(search_es_duration_seconds_sum[5m])) / sum(rate(search_es_duration_seconds_count[5m]))', "平均"),
-], 16, y, 8, 8, unit="s", desc="search.es.duration 目前以 summary 匯出，顯示觀測期間平均值"))
+    ('sum(rate(search_es_duration_milliseconds_sum[5m])) / sum(rate(search_es_duration_milliseconds_count[5m]))', "平均"),
+], 16, y, 8, 8, unit="ms", desc="search.es.duration 以毫秒匯出（search_es_duration_milliseconds_*）；目前只有 +Inf bucket，沒有可用的百分位數"))
 y += 8
 panels.append(series("搜尋索引事件（每分鐘）", [
     ('sum by (result) (rate(search_index_events_total[5m])) * 60', "{{result}}"),
