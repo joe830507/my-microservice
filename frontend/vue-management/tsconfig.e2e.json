@@ -1,7 +1,7 @@
 // Playwright E2E（e2e/ 與 playwright.config.ts）：在 Node 執行，但 page.evaluate 的回呼會在瀏覽器裡執行，所以要有 DOM 型別
 {
   "extends": "./tsconfig.node.json",
-  "include": ["e2e/**/*", "playwright.config.ts"],
+  "include": ["e2e/**/*", "browser-tests/**/*", "playwright*.config.ts"],
   "compilerOptions": {
     "lib": ["ES2024", "DOM"],
     "types": ["node"],

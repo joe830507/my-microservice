@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { optimizeImage } from './resize'
 import { ApiError, toApiError } from '@/api/errors'
 import apiClient from '@/api/http'
 import type {
@@ -95,6 +96,7 @@ export async function uploadProductImage(
   file: File,
   onProgress?: (percent: number) => void,
 ): Promise<ProductImage> {
+  file = await optimizeImage(file)
   const upload = await createUploadUrl(productId, {
     contentType: file.type,
     contentLength: file.size,

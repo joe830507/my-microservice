@@ -142,6 +142,8 @@ CREATE INDEX idx_outbox_event_aggregate_pending_seq
 
 ## 7.（中）商品圖片沒有縮圖，列表直接載入原圖
 
+> 2026-11-13 修正註記：採建議方案一：後台上傳前長邊最多 1600px、WebP 品質 0.85；轉換失敗、不支援或變大均保留原檔，bitmap 在 finally 釋放。單元測試及 Chrome 真實 canvas 轉換通過。方案二的獨立 400px 縮圖暫緩：已採本次建議的第一方案，避免擴張 API、儲存與刪除契約；既有圖片不會回溯轉換。
+
 位置：
 
 - `frontend/vue-customer/src/components/ProductCard.vue`（列表卡片用 `primaryImageUrl`）
