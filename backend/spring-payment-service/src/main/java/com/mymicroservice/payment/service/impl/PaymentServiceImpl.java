@@ -99,22 +99,22 @@ public class PaymentServiceImpl implements PaymentService {
         boolean completed = paymentRepository.completeIfPending(paymentId, target,
                 Instant.now(),
                 auditorAware.getCurrentAuditor().orElseThrow()) == 1;
+        payment = paymentRepository.findById(paymentId).orElseThrow();
         if (completed) {
             Metrics.counter("payments.completed", "result", success ? "succeeded" : "failed").increment();
         } else {
-            payment = paymentRepository.findById(paymentId).orElseThrow();
             if (payment.getStatus() != target) {
                 throw new AppException(PaymentErrorCode.PAYMENT_ALREADY_COMPLETED, paymentId, payment.getStatus());
             }
         }
         if (completed) {
-            Payment current = paymentRepository.findById(paymentId).orElseThrow();
+            Payment current = payment;
             outbox.append("payment.events", success ? "PaymentSucceeded" : "PaymentFailed",
                     current.getOrderId().toString(), Map.of("paymentId", paymentId.toString(),
                             "orderId", current.getOrderId().toString(), "status", target.name(),
                             "amount", current.getAmount()));
         }
-        return PaymentResDto.from(paymentRepository.findById(paymentId).orElseThrow());
+        return PaymentResDto.from(payment);
     }
 
     private Payment findVisiblePayment(UUID paymentId, UUID userId, boolean admin) {

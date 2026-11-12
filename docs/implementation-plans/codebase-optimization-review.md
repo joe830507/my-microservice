@@ -236,6 +236,8 @@ CREATE INDEX idx_product_category_status_created ON product_service.product (cat
 
 ## 14.（低）狀態轉換流程有重複查詢
 
+> 2026-11-13 修正註記：markPaid、shipOrder、completeOrder 移除僅為判斷 404 的前置讀取，條件 UPDATE 後只讀一次；payment callback 保留擁有者檢查後只重讀一次並共用回傳及事件資料。cancelOrder 經檢查原本每條分支最多兩次讀取，失敗分支已直接 return，保留擁有者檢查與既有行為。
+
 位置：
 
 - `OrderServiceImpl.markPaid`（`:179`）：`findById` → UPDATE → `findById`（成功時又一次）＝ 3 次查詢；第一次 `findById` 只用來判斷存在，可以拿掉，改成 UPDATE 回 0 時再查一次判斷「不存在／已取消／已付款」。
