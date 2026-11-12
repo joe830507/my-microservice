@@ -160,7 +160,7 @@ powershell -NoProfile -File infra/k8s/scripts/verify-phase-d.ps1
 
 ## D6 可觀測性與文件同步
 
-- `infra/observability/generate_dashboard.py` 新增「商品搜尋（Elasticsearch）」區塊：每分鐘 ES／SQL 搜尋量、依原因分類的 SQL 退回量、Elasticsearch 搜尋平均延遲、索引事件結果、重建文件數與過期命中。平均延遲使用 timer summary 的 `_sum / _count`，不使用目前未輸出的 histogram bucket。儀表板 JSON 由產生器更新，沒有直接手改產生檔。
+- `infra/observability/generate_dashboard.py` 新增「商品搜尋（Elasticsearch）」區塊：每分鐘 ES／SQL 搜尋量、依原因分類的 SQL 退回量、Elasticsearch 搜尋平均延遲、索引事件結果、重建文件數與過期命中。平均延遲使用 timer 的 `_sum / _count`；指標實際匯出名稱帶單位字尾 `search_es_duration_milliseconds_*`（毫秒），面板單位為 `ms`。目前 `_bucket` 只有 `+Inf` 一個桶，沒有可用的百分位數，所以不顯示 p95。（2026-11-12 審查發現原面板誤用 `_seconds_` 名稱而永遠沒有資料，已修正並以 Prometheus 實測平均約 65 毫秒。）儀表板 JSON 由產生器更新，沒有直接手改產生檔。
 - 新增 Grafana 告警 `mm-search-fallback`：`search_fallback_total` 每分鐘速率連續 5 分鐘大於 0 時告警，帶出 `application` 與退回原因。既有 `mm-circuit-open` 告警適用包括 `elasticsearch-search` 的 Resilience4j 熔斷器；Kafka consumer lag 告警涵蓋搜尋消費群組的索引延遲。實際 firing 與恢復驗收留在 D7 kind 驗收。
 - 同步架構文件、事件契約、roadmap、`docs/README.md`；SEC-14 已描述 ES 開發環境未啟用 TLS／認證的限制，本步補上架構文件引用，未變更安全設定。
 - 產生器執行：`python infra/observability/generate_dashboard.py`，成功輸出儀表板 35 個 panels、告警 10 條 rules。D7 已在 kind 實際載入，並驗證告警 firing。

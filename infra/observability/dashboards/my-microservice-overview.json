@@ -1298,7 +1298,7 @@
       "id": 30,
       "type": "timeseries",
       "title": "Elasticsearch 搜尋平均延遲",
-      "description": "search.es.duration 目前以 summary 匯出，顯示觀測期間平均值",
+      "description": "search.es.duration 以毫秒匯出（search_es_duration_milliseconds_*）；目前只有 +Inf bucket，沒有可用的百分位數",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1311,7 +1311,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(search_es_duration_seconds_sum[5m])) / sum(rate(search_es_duration_seconds_count[5m]))",
+          "expr": "sum(rate(search_es_duration_milliseconds_sum[5m])) / sum(rate(search_es_duration_milliseconds_count[5m]))",
           "legendFormat": "平均",
           "refId": "A",
           "datasource": {
@@ -1322,7 +1322,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
+          "unit": "ms",
           "custom": {
             "fillOpacity": 0,
             "stacking": {
