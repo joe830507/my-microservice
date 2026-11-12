@@ -4,7 +4,7 @@
 > 分支：實作時開 `feature/notification-phase-e`（從階段 D 合併後的 `main` 切出；階段 D 尚未合併時，從 `feature/search-phase-d` 切出並做 stacked PR）
 > 對應：[middleware-roadmap.md](middleware-roadmap.md)「階段 E」、[event-contracts.md](../../architecture/event-contracts.md)
 > 前置：階段 C 完成（`user.events`、`order.events`、`payment.events` 已經在發送）；階段 D 完成（本階段沿用其文件與驗收規範）
-> 狀態：E1–E6 已實作並驗收；E7（真實信箱驗證）暫緩，待使用者配合；結果記錄在 [notification-implementation-record.md](notification-implementation-record.md)，審查見 [phase-e-review.md](phase-e-review.md)
+> 狀態：E1–E6 已實作並驗收；E7（真實信箱驗證）暫緩，待使用者配合；結果記錄在 [notification-implementation-record.md](notification-implementation-record.md)，審查見 [階段 E 原始審查](notification-implementation-record.md#review-e)
 
 這份文件是給實作者（Codex 或任何人）照著做的**唯一依據**。分成兩半：前半說明「做什麼、為什麼這樣設計」，後半（[實作規範](#實作規範)）說明「怎麼做、哪些事不能做」。**開始實作前兩半都要讀完。** 遇到文件沒寫到、或發現文件有錯的地方，不要自己默默決定，先照[計畫變更](#計畫變更紀錄)的規則處理。
 
@@ -304,7 +304,7 @@ inventory-service 同時消費 `order.events`：**必須在 order-service 開始
 
 ### 流程
 
-- 開始前先讀：[middleware-roadmap.md](middleware-roadmap.md)、[event-implementation-plan.md](event-implementation-plan.md)、[event-contracts.md](../../architecture/event-contracts.md)、[search-implementation-plan.md](search-implementation-plan.md) 的實作規範與 [phase-d-review.md](phase-d-review.md)（上一階段審查的教訓），以及 inventory-service 的 `OrderEventListener`、common 的 outbox／consumer 元件與測試風格
+- 開始前先讀：[middleware-roadmap.md](middleware-roadmap.md)、[event-implementation-plan.md](event-implementation-plan.md)、[event-contracts.md](../../architecture/event-contracts.md)、[search-implementation-plan.md](search-implementation-plan.md) 的實作規範與 [階段 D 原始審查](search-implementation-record.md#review-d)（上一階段審查的教訓），以及 inventory-service 的 `OrderEventListener`、common 的 outbox／consumer 元件與測試風格
 
 ### 實作紀錄與文件
 

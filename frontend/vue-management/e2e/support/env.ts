@@ -2,7 +2,9 @@
 export function requiredEnv(name: string): string {
   const value = process.env[name]
   if (!value) {
-    throw new Error(`缺少環境變數 ${name}：E2E 需要後端的管理員帳號（見 step-12-e2e.md）`)
+    throw new Error(
+      `缺少環境變數 ${name}：E2E 需要後端的管理員帳號（見 docs/implementation-plans/vue-management/README.md#step-12）`,
+    )
   }
   return value
 }

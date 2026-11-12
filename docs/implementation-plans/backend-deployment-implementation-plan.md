@@ -5,7 +5,7 @@
 > 位置：`backend/Dockerfile`、`infra/k8s/`
 > 狀態：完成（在本機 kind 上驗證，含 NetworkPolicy 的實際攔截）
 
-把整個系統（6 個後端服務、5 個 PostgreSQL、3 個 Redis、物件儲存、商店與後台兩個前端）放進 K8s。服務探索用 K8s 原生（Service 名稱 + ConfigMap／Secret），不用註冊中心，這是之前定好的做法。前端的部署見 [vue-customer Step 11](vue-customer/step-11-deployment.md)、[vue-management Step 11](vue-management/step-11-deployment.md)。
+把整個系統（6 個後端服務、5 個 PostgreSQL、3 個 Redis、物件儲存、商店與後台兩個前端）放進 K8s。服務探索用 K8s 原生（Service 名稱 + ConfigMap／Secret），不用註冊中心，這是之前定好的做法。前端的部署見 [vue-customer Step 11](vue-customer/README.md#step-11)、[vue-management Step 11](vue-management/README.md#step-11)。
 
 ## 內容
 

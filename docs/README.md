@@ -11,7 +11,7 @@
 
 新增文件時依上表分類，使用相對路徑連結、繁體中文與 UTF-8 無 BOM。
 
-先讀架構與安全事項，再進入對應計畫。計畫保留要求與決策，實作紀錄保存結果、限制與證據；`phase-*-review.md` 是審查當時的發現，後續處理以實作紀錄為準。歷史的「現況」與測試數字不代表目前狀態，不因整理文件而重新宣稱驗證通過。
+先讀架構與安全事項，再進入對應計畫。計畫保留要求與決策，實作紀錄保存結果、限制與證據；原始審查已收進各階段紀錄末尾，保留審查當時的發現，後續處理以紀錄前段為準。歷史的「現況」與測試數字不代表目前狀態，不因整理文件而重新宣稱驗證通過。
 
 ## 架構
 
@@ -32,7 +32,7 @@
 | [inventory-service-implementation-plan.md](implementation-plans/backend/inventory-service-implementation-plan.md) | 完成：庫存、預扣、確認、釋放、預扣逾時釋放 |
 | [order-service-implementation-plan.md](implementation-plans/backend/order-service-implementation-plan.md) | 完成：建單、查詢、取消、付款通知、付款逾時 |
 | [payment-service-implementation-plan.md](implementation-plans/backend/payment-service-implementation-plan.md) | 完成：建立付款、模擬金流回呼、通知重試；含完整下單流程的實測 |
-| [product-image-upload-implementation-plan.md](implementation-plans/backend/product-image-upload-implementation-plan.md) | 完成：商品圖片上傳（相容 S3 的物件儲存，本機用 SeaweedFS），商品能正常上架 |
+| [product-image-upload-implementation-plan.md](implementation-plans/backend/product-image-upload-implementation-plan.md) | 商品圖片上傳的設計、實作與驗收（相容 S3，本機用 SeaweedFS）；完成並可正常上架 |
 | [vue-management/](implementation-plans/vue-management/README.md) | 完成（Step 0–12）：後台前端（Vue 3 + TS + Element Plus），登入、商品、圖片、庫存、訂單、使用者 |
 | [vue-customer/](implementation-plans/vue-customer/README.md) | 完成（Step 0–12）：顧客用的商店前台（Vue 3 + TS），瀏覽、購物車、下單、模擬付款、我的訂單 |
 | [backend-deployment-implementation-plan.md](implementation-plans/backend-deployment-implementation-plan.md) | 完成：後端 6 個服務與資料庫、Redis、物件儲存、兩個前端放進 K8s（kind 驗證）；NetworkPolicy、Secret；含實際攔截測試 |
@@ -45,10 +45,17 @@
 | 文件 | 狀態 |
 |---|---|
 | [product-service-middleware-evaluation.md](design/product-service-middleware-evaluation.md) | 原始技術評估、取捨與延後理由；已採用方案與進度見路線圖 |
-| [product-image-upload-design.md](design/product-image-upload-design.md) | 商品圖片上傳（MinIO / S3，本機改用 SeaweedFS）；已實作 |
 
 ## 安全
 
 | 文件 | 內容 |
 |---|---|
 | [known-issues.md](security/known-issues.md) | 已知的安全問題與 SEC 編號追蹤、驗證過沒有問題的項目、還沒檢查的範圍；**上線前必讀** |
+
+## 文件維護
+
+2026-11-12 整合：Markdown 由 55 份減為 24 份。前後台各自的 Step 0–12 與後台 API 實測收進各自 README；C／D／E 原始審查收進對應實作紀錄；圖片上傳設計收進實作文件。31 份被完整取代的舊檔已移除，引用改為章節連結，決策、限制、測試結果與原始證據保留。
+
+後續同一功能的補充直接更新既有章節，避免再拆成逐步小檔。跨服務架構、事件契約、安全清單與共用規範保持獨立，讓其他文件可共用引用；搜尋與通知的計畫、實作紀錄分開，以區分驗收要求與實測結果。
+
+整理驗證：逐行對照 31 份舊檔，除標題層級、引用路徑與重複導覽外，正文與 10 段程式碼區塊均保留；246 個本機連結及 114 個章節引用通過檢查。24 份 Markdown 通過 UTF-8 無 BOM／替代字元檢查，`git diff --check` 通過。前後台 E2E 設定與環境變數錯誤提示中的文件路徑同步更新，四個檔案的 Prettier 檢查通過；未重跑應用程式測試。

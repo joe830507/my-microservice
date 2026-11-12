@@ -116,7 +116,7 @@ ES 的資料同步要靠訊息佇列（見第 3 點），**先有 MQ 再上 ES**
 - 圖片放在 S3 / MinIO（本機開發用 MinIO），前面掛 CDN
 - 上傳流程：後端發 presigned URL → 前端直接上傳到物件儲存 → 再呼叫 API 寫入 `ProductImage`
 - 上傳流程最好早點定案，避免之後改 API
-- 詳細設計見 [product-image-upload-design.md](product-image-upload-design.md)
+- 詳細設計見 [圖片上傳設計](../implementation-plans/backend/product-image-upload-implementation-plan.md#image-design)
 
 ---
 

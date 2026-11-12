@@ -123,7 +123,7 @@
 | C6 | `product.events`、`user.events` 先開始發送（還沒有消費者），給 D、E 使用 | 事件出現在 topic 裡，格式符合規格 | 完成：契約整合測試與實際 topic 檢查 |
 | C7 | 可觀測：Outbox relay 與 listener 明確傳遞 W3C context，trace 跨過 Kafka 不斷；指標加 consumer lag、outbox 待發送數量、DLT 數量 | 一張訂單的 trace 包含非同步的部分；lag 有告警 | 完成：Tempo 看到跨 Kafka 的 trace；lag 與 DLT 告警實測 firing |
 
-驗收證據在 [evidence/phase-c/](evidence/phase-c/)。
+驗收證據在 [evidence/phase-c/](evidence/phase-c)。
 
 注意：
 
@@ -137,11 +137,11 @@
 
 目標：商店前台的關鍵字搜尋改用 Elasticsearch（中文斷詞、相關性排序）；ES 掛掉時退回 SQL。後台列表與沒有關鍵字的列表維持 SQL。
 
-D1–D7 已完成。步驟與驗收要求見[搜尋計畫](search-implementation-plan.md#步驟)，實測結果與限制見[搜尋紀錄](search-implementation-record.md)，原始證據在 [phase-d](evidence/phase-d/)。前端驗收為使用者人工操作，無截圖，並非自動化 E2E。
+D1–D7 已完成。步驟與驗收要求見[搜尋計畫](search-implementation-plan.md#步驟)，實測結果與限制見[搜尋紀錄](search-implementation-record.md)，原始證據在 [phase-d](evidence/phase-d)。前端驗收為使用者人工操作，無截圖，並非自動化 E2E。
 
 ## 階段 E：通知（notification-service）
 
-E1–E6 已實作並驗收；E7 真實信箱驗證暫緩，需使用者配合，**不是結案條件**。步驟、事件訂閱與驗收要求見[通知計畫](notification-implementation-plan.md#步驟)，結果與限制見[通知紀錄](notification-implementation-record.md)，原始證據在 [phase-e](evidence/phase-e/)。
+E1–E6 已實作並驗收；E7 真實信箱驗證暫緩，需使用者配合，**不是結案條件**。步驟、事件訂閱與驗收要求見[通知計畫](notification-implementation-plan.md#步驟)，結果與限制見[通知紀錄](notification-implementation-record.md)，原始證據在 [phase-e](evidence/phase-e)。
 
 - 部署順序：inventory → order → notification；每階段前後檢查 DLT／dead-letter 告警。這是時間點檢查，不代表持續監測。
 - 前端驗收採 Playwright 自動化，未另做人工點擊；SMTP 成功須由 Mailpit 實際收信確認。
@@ -185,6 +185,6 @@ E1–E6 已實作並驗收；E7 真實信箱驗證暫緩，需使用者配合，
 
 | 階段 | 審查 | 後續紀錄 |
 |---|---|---|
-| C | [階段 C 審查](phase-c-review.md) | [事件紀錄](event-implementation-plan.md) |
-| D | [階段 D 審查](phase-d-review.md) | [搜尋紀錄](search-implementation-record.md) |
-| E | [階段 E 審查](phase-e-review.md) | [通知紀錄](notification-implementation-record.md) |
+| C | [階段 C 審查](event-implementation-plan.md#review-c) | [事件紀錄](event-implementation-plan.md) |
+| D | [階段 D 審查](search-implementation-record.md#review-d) | [搜尋紀錄](search-implementation-record.md) |
+| E | [階段 E 審查](notification-implementation-record.md#review-e) | [通知紀錄](notification-implementation-record.md) |
