@@ -120,43 +120,6 @@ class PaymentOrderClientResilienceIntegrationTests {
                 .isEqualTo(CircuitBreaker.State.CLOSED);
     }
 
-    @Test
-    void notifyPaid_failsOnceThenRecovers_isRetriedAndNotified() {
-        ORDER_SERVICE.stubFor(post(urlPathMatching("/internal/v1/orders/.+/paid")).inScenario("flaky")
-                .whenScenarioStateIs(Scenario.STARTED).willReturn(aResponse().withStatus(503))
-                .willSetStateTo("up"));
-        ORDER_SERVICE.stubFor(post(urlPathMatching("/internal/v1/orders/.+/paid")).inScenario("flaky")
-                .whenScenarioStateIs("up").willReturn(aResponse().withStatus(200)));
-
-        assertThat(orderClient.notifyPaid(orderId)).isEqualTo(OrderClient.NotifyResult.NOTIFIED);
-
-        ORDER_SERVICE.verify(2, postRequestedFor(urlPathMatching("/internal/v1/orders/.+/paid")));
-    }
-
-    @Test
-    void notifyPaid_breakerOpen_returnsFailedWithoutCalling() {
-        callers.circuitBreakers().circuitBreaker("order-service").transitionToOpenState();
-
-        assertThat(orderClient.notifyPaid(orderId)).isEqualTo(OrderClient.NotifyResult.FAILED);
-
-        ORDER_SERVICE.verify(0, postRequestedFor(urlPathMatching("/internal/v1/orders/.+/paid")));
-    }
-
-    @Test
-    void notifyPaid_orderCancelled_409IsTheBusinessResultNotAFailure() {
-        ORDER_SERVICE.stubFor(post(urlPathMatching("/internal/v1/orders/.+/paid")).willReturn(aResponse()
-                .withStatus(409).withHeader("Content-Type", "application/problem+json")
-                .withBody("{\"status\":409,\"code\":\"ORDER_ALREADY_CANCELLED\"}")));
-
-        for (int i = 0; i < 6; i++) {
-            assertThat(orderClient.notifyPaid(orderId)).isEqualTo(OrderClient.NotifyResult.REJECTED);
-        }
-
-        ORDER_SERVICE.verify(6, postRequestedFor(urlPathMatching("/internal/v1/orders/.+/paid")));
-        assertThat(callers.circuitBreakers().circuitBreaker("order-service").getState())
-                .isEqualTo(CircuitBreaker.State.CLOSED);
-    }
-
     // ---------- helpers ----------
 
     private com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder orderJson() {

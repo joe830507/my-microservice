@@ -1,0 +1,15 @@
+INSERT 0 1
+INSERT 0 1
+deployment.apps/order-service scaled
+pod/order-service-67f6db97f6-qwxn8 condition met
+pod/order-service-67f6db97f6-zkp4g condition met
+C4 payment succeeded while order stopped: 01a1ca82-7d70-7c12-9469-a2c397e0cc69
+deployment.apps/order-service scaled
+C4 recovered: PAID; reservation CONFIRMED
+deployment.apps/inventory-service scaled
+pod/inventory-service-dd5d8bf5f-fm4tj condition met
+pod/inventory-service-dd5d8bf5f-q49mj condition met
+C5 payment and cancellation succeeded while inventory stopped
+deployment.apps/inventory-service scaled
+C5 recovered: CONFIRMED, RELEASED; available=18 reserved=0
+C5_READY user=51ce0a7f-44eb-4790-b96e-27c0cecd1de4 paidOrder=01a1ca82-8068-77a4-b6e1-2cd57e53176a cancelOrder=01a1ca82-80bd-7c3c-aa1a-eefa1a12cc11 payment=01a1ca82-8320-7fdb-ae24-0f340a37c76a sku=phase-c-b1e9ecc83607 traceparent=00-83c66c2341d14ea3a0a4dd12b208365e-0123456789abcdef-01

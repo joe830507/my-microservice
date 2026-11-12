@@ -80,48 +80,51 @@ class PaymentControllerMockCallbackIntegrationTests {
     // ---------- 成功 ----------
 
     @Test
-    void success_marksSucceededAndNotifiesOrder() throws Exception {
+    void success_marksSucceededAndWritesEvent() throws Exception {
         callback(paymentId, ALICE, "SUCCESS")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUCCEEDED"))
                 .andExpect(jsonPath("$.completedAt").isNotEmpty());
 
-        ORDER_SERVICE.verify(1, postRequestedFor(paidUrl()));
+        ORDER_SERVICE.verify(0, postRequestedFor(paidUrl()));
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM payment_service.outbox_event WHERE aggregate_id = ? AND event_type = 'PaymentSucceeded'", Long.class, orderId.toString())).isEqualTo(1);
         Map<String, Object> row = findPayment();
         assertThat(row.get("status")).isEqualTo("SUCCEEDED");
-        assertThat(row.get("order_notification")).isEqualTo("DONE");
+
         assertThat(row.get("completed_at")).isNotNull();
         assertThat(row.get("version")).isEqualTo(1L);
     }
 
     @Test
-    void success_twice_returns200AndNotifiesOnce() throws Exception {
+    void success_twice_returns200AndWritesOneEvent() throws Exception {
         callback(paymentId, ALICE, "SUCCESS").andExpect(status().isOk());
         callback(paymentId, ALICE, "SUCCESS")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUCCEEDED"));
 
-        ORDER_SERVICE.verify(1, postRequestedFor(paidUrl()));
+        ORDER_SERVICE.verify(0, postRequestedFor(paidUrl()));
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM payment_service.outbox_event WHERE aggregate_id = ? AND event_type = 'PaymentSucceeded'", Long.class, orderId.toString())).isEqualTo(1);
     }
 
     @Test
-    void success_orderServiceDown_staysPendingNotificationAndRetriesOnNextCallback() throws Exception {
+    void success_orderServiceDown_commitsEventOnce() throws Exception {
         // 付款結果不能因為 order-service 掛掉而失敗；通知留給排程或下一次回呼重試
         stubPaid(500, null);
         callback(paymentId, ALICE, "SUCCESS")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUCCEEDED"));
-        assertThat(findPayment().get("order_notification")).isEqualTo("PENDING");
+
 
         stubPaid(200, null);
         callback(paymentId, ALICE, "SUCCESS").andExpect(status().isOk());
 
-        ORDER_SERVICE.verify(2, postRequestedFor(paidUrl()));
-        assertThat(findPayment().get("order_notification")).isEqualTo("DONE");
+        ORDER_SERVICE.verify(0, postRequestedFor(paidUrl()));
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM payment_service.outbox_event WHERE aggregate_id = ? AND event_type = 'PaymentSucceeded'", Long.class, orderId.toString())).isEqualTo(1);
+
     }
 
     @Test
-    void success_orderAlreadyCancelled_marksRejected() throws Exception {
+    void success_doesNotSynchronouslyCheckOrder() throws Exception {
         // 錢收了但訂單已取消：記成 REJECTED（之後要退款），不再重試
         stubPaid(409, "ORDER_ALREADY_CANCELLED");
 
@@ -129,7 +132,6 @@ class PaymentControllerMockCallbackIntegrationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUCCEEDED"));
 
-        assertThat(findPayment().get("order_notification")).isEqualTo("REJECTED");
     }
 
     // ---------- 失敗 ----------
@@ -143,7 +145,7 @@ class PaymentControllerMockCallbackIntegrationTests {
         ORDER_SERVICE.verify(0, anyRequestedFor(anyUrl()));
         Map<String, Object> row = findPayment();
         assertThat(row.get("status")).isEqualTo("FAILED");
-        assertThat(row.get("order_notification")).isNull();
+
     }
 
     @Test
@@ -174,7 +176,8 @@ class PaymentControllerMockCallbackIntegrationTests {
         assertThat(statuses).containsExactlyInAnyOrder(200, 409);
         Map<String, Object> row = findPayment();
         if ("SUCCEEDED".equals(row.get("status"))) {
-            ORDER_SERVICE.verify(1, postRequestedFor(paidUrl()));
+            ORDER_SERVICE.verify(0, postRequestedFor(paidUrl()));
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM payment_service.outbox_event WHERE aggregate_id = ? AND event_type = 'PaymentSucceeded'", Long.class, orderId.toString())).isEqualTo(1);
         } else {
             assertThat(row.get("status")).isEqualTo("FAILED");
             ORDER_SERVICE.verify(0, anyRequestedFor(anyUrl()));

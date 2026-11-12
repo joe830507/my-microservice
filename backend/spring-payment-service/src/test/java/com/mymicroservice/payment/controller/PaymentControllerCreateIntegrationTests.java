@@ -90,7 +90,7 @@ class PaymentControllerCreateIntegrationTests {
         assertThat(row.get("user_id")).isEqualTo(ALICE);
         assertThat((BigDecimal) row.get("amount")).isEqualByComparingTo("399.98");
         assertThat(row.get("status")).isEqualTo("PENDING");
-        assertThat(row.get("order_notification")).isNull();
+
         assertThat(row.get("created_by")).isEqualTo(ALICE);
     }
 
@@ -116,7 +116,7 @@ class PaymentControllerCreateIntegrationTests {
 
     @Test
     void createPayment_afterFailedPayment_createsNewOne() throws Exception {
-        insertPayment(orderId, "FAILED", null);
+        insertPayment(orderId, "FAILED");
 
         createAs(ALICE, orderId).andExpect(status().isCreated());
 
@@ -125,7 +125,7 @@ class PaymentControllerCreateIntegrationTests {
 
     @Test
     void createPayment_alreadySucceeded_returns409() throws Exception {
-        insertPayment(orderId, "SUCCEEDED", "DONE");
+        insertPayment(orderId, "SUCCEEDED");
         stubOrder(orderId, ALICE, "PAID", "399.98");
 
         createAs(ALICE, orderId)
@@ -214,12 +214,12 @@ class PaymentControllerCreateIntegrationTests {
                         """.formatted(orderId, userId, status, amount))));
     }
 
-    private void insertPayment(UUID orderId, String status, String orderNotification) {
+    private void insertPayment(UUID orderId, String status) {
         jdbcTemplate.update("""
                 INSERT INTO payment_service.payment
-                    (id, order_id, user_id, amount, status, order_notification, created_by, updated_by)
-                VALUES (?, ?, ?, 399.98, ?, ?, ?, ?)
-                """, UUID.randomUUID(), orderId, ALICE, status, orderNotification, SYSTEM, SYSTEM);
+                    (id, order_id, user_id, amount, status, created_by, updated_by)
+                VALUES (?, ?, ?, 399.98, ?, ?, ?)
+                """, UUID.randomUUID(), orderId, ALICE, status, SYSTEM, SYSTEM);
     }
 
     private ResultActions createAs(UUID userId, UUID orderId) throws Exception {

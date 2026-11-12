@@ -1,5 +1,7 @@
 # order-service 實作步驟
 
+> 此文件保留初版實作歷史。階段 C 已改為唯一事件路徑，舊同步通知、重試工作與補償欄位已移除；現行流程與升級驗收見 [事件實作紀錄](../middleware/event-implementation-plan.md)。
+
 > 建立日期：2026-11-09
 > 分支：`feature/order-service`
 > 對應：[microservice-architecture.md](../../architecture/microservice-architecture.md)「order-service」、「服務互動：下單流程」

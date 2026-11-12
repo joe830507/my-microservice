@@ -6,8 +6,6 @@ import java.util.UUID;
 
 import com.mymicroservice.payment.entities.Payment;
 import com.mymicroservice.payment.enums.PaymentStatus;
-
-// 不含 orderNotification 等內部同步用的欄位
 public record PaymentResDto(
         UUID id,
 

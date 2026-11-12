@@ -1,0 +1,8 @@
+{"type": "ProductCreated", "eventId": "01a1ca6a-02ed-7f89-a409-ad6160f63f8f", "payload": {"sku": "phase-c-contract-c74acf3d", "name": "Phase C contract", "price": 10, "status": "DRAFT", "version": 0, "productId": "01a1ca6a-02d1-7ba4-99e5-0d25c43df269", "categoryId": "", "description": ""}, "version": 1, "occurredAt": "2026-11-11T11:41:47.629785039Z", "aggregateId": "01a1ca6a-02d1-7ba4-99e5-0d25c43df269"}
+kubectl : Processed a total of 1 messages
+位於 線路:2 字元:691
++ ... esult.json; kubectl --context kind-my-microservice -n my-microservice ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Processed a total of 1 messages:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

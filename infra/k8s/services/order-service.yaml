@@ -84,6 +84,8 @@ spec:
               value: json-logs
             - name: SPRING_DATASOURCE_URL
               value: jdbc:postgresql://order-db:5432/order_db
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: kafka:9092
             - name: DB_USERNAME
               valueFrom:
                 secretKeyRef:

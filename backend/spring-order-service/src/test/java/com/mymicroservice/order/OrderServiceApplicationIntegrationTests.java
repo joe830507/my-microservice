@@ -53,7 +53,7 @@ class OrderServiceApplicationIntegrationTests {
                 ORDER BY table_name
                 """, String.class);
 
-        assertThat(tables).containsExactly("order_item", "orders", "shedlock");
+        assertThat(tables).containsExactly("order_item", "orders", "outbox_event", "processed_event", "shedlock");
     }
 
     @Test
@@ -104,8 +104,8 @@ class OrderServiceApplicationIntegrationTests {
         UUID orderId = UUID.randomUUID();
         jdbcTemplate.update("""
                 INSERT INTO order_service.orders
-                    (id, user_id, status, reservation_status, reservation_synced, total_amount, created_by, updated_by)
-                VALUES (?, ?, ?, ?, true, ?::numeric, ?, ?)
+                    (id, user_id, status, reservation_status, total_amount, created_by, updated_by)
+                VALUES (?, ?, ?, ?, ?::numeric, ?, ?)
                 """, orderId, UUID.randomUUID(), status, reservationStatus, totalAmount, SYSTEM, SYSTEM);
         return orderId;
     }

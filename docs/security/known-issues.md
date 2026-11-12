@@ -22,6 +22,7 @@
 | [SEC-10](#sec-10-建單沒有冪等-key) | 建單沒有冪等 key | 低 | **已處理**：`POST /orders` 支援 `Idempotency-Key`，結帳頁會帶 | — |
 | [SEC-11](#sec-11-productsbatch-洩漏非上架商品的內容) | `/products/batch` 洩漏非上架商品的內容 | 中 | **已修正** | `0139c00` |
 | [SEC-12](#sec-12-非-dev-環境沒有建立管理員的方式) | 非 dev 環境沒有建立管理員的方式 | 中 | **已處理**：由設定開關 `app.bootstrap-admin.enabled` 控制 | — |
+| [SEC-13](#sec-13-kafka-尚未啟用用戶端認證) | Kafka 尚未啟用用戶端認證與 ACL | 中 | **限制已記錄**：目前依 NetworkPolicy 限制叢集內連線，外部環境上線前要補認證 | 階段 C |
 
 ---
 
@@ -159,3 +160,7 @@
 ## 探測遺留的測試資料
 
 探測與對接測試在開發資料庫留下測試帳號：`sec-*`、`flood-*`（本次約 17 個）、`api-*`（先前的 API 對接檢查），以及這些帳號的訂單。都沒有刪除；`E2E` 開頭的舊分類與商品只在商店隱藏（分類停用、商品封存）。要徹底清除需要直接操作資料庫，需要你確認清單後才做。
+
+## SEC-13 Kafka 尚未啟用用戶端認證
+
+階段 C 的本機與 kind Kafka 使用明文 listener，服務來源以 NetworkPolicy 限制；叢集內已授權的 Pod 仍可直接連線，topic 沒有 ACL。這套設定只適用本機與隔離的示範叢集。對外或多租戶環境部署前，需啟用 TLS 與 SASL/SCRAM（或等效機制）、topic ACL，並把憑證放入 Secret。

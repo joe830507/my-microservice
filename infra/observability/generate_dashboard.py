@@ -194,6 +194,12 @@ alerts = {"apiVersion": 1, "groups": [{
         rule("mm-reservation-rejected", "預扣被拒偏多",
              'sum(increase(reservations_total{result="rejected"}[10m]))',
              "gt", 20, "0s", "10 分鐘內超過 20 次預扣被拒：庫存不足或被刷"),
+        rule("mm-kafka-consumer-lag", "Kafka consumer lag 偏高",
+             'max by (service_name) (kafka_consumer_fetch_manager_records_lag_max)',
+             "gt", 1000, "5m", "{{ $labels.service_name }} 的 Kafka consumer lag 持續超過 1000 筆"),
+        rule("mm-kafka-dlt", "Kafka 事件進入 DLT",
+             'sum(increase(events_dlt_published_total[5m]))',
+             "gt", 0, "0s", "事件進入 dead-letter topic；請檢查消費端錯誤", "critical"),
     ],
 }]}
 out2 = pathlib.Path(__file__).parent / "alerting.yaml"

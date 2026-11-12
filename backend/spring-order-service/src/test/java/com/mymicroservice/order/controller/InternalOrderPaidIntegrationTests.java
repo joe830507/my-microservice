@@ -74,7 +74,7 @@ class InternalOrderPaidIntegrationTests {
     }
 
     @Test
-    void paid_pending_marksPaidAndConfirmsReservation() throws Exception {
+    void paid_pending_marksPaidAndWritesPaidEvent() throws Exception {
         UUID orderId = OrderTestData.insertOrder(jdbcTemplate, ALICE, "PENDING_PAYMENT");
 
         paid(orderId)
@@ -82,18 +82,19 @@ class InternalOrderPaidIntegrationTests {
                 .andExpect(jsonPath("$.id").value(orderId.toString()))
                 .andExpect(jsonPath("$.status").value("PAID"));
 
-        INVENTORY_SERVICE.verify(1, postRequestedFor(urlEqualTo(RESERVATIONS + orderId + "/confirm")));
+        INVENTORY_SERVICE.verify(0, postRequestedFor(urlEqualTo(RESERVATIONS + orderId + "/confirm")));
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM order_service.outbox_event WHERE aggregate_id = ? AND event_type = \'OrderPaid\'", Long.class, orderId.toString())).isEqualTo(1);
         Map<String, Object> row = findOrder(orderId);
         assertThat(row.get("status")).isEqualTo("PAID");
         assertThat(row.get("paid_at")).isNotNull();
         assertThat(row.get("reservation_status")).isEqualTo("CONFIRMED");
-        assertThat(row.get("reservation_synced")).isEqualTo(true);
+
         // 內部呼叫沒有使用者身分，記為系統使用者
         assertThat(row.get("updated_by")).isEqualTo(SYSTEM);
     }
 
     @Test
-    void paid_inventoryDown_stillMarksPaidButLeavesUnsynced() throws Exception {
+    void paid_inventoryDown_stillMarksPaidAndWritesEvent() throws Exception {
         // 付款已經成功，不能因為 inventory 掛掉就回錯誤；確認由排程重試
         stubInventory(500);
         UUID orderId = OrderTestData.insertOrder(jdbcTemplate, ALICE, "PENDING_PAYMENT");
@@ -102,11 +103,10 @@ class InternalOrderPaidIntegrationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PAID"));
 
-        assertThat(findOrder(orderId).get("reservation_synced")).isEqualTo(false);
     }
 
     @Test
-    void paid_twice_returns200AndConfirmsOnce() throws Exception {
+    void paid_twice_returns200AndWritesOneEvent() throws Exception {
         UUID orderId = OrderTestData.insertOrder(jdbcTemplate, ALICE, "PENDING_PAYMENT");
 
         paid(orderId).andExpect(status().isOk());
@@ -114,11 +114,12 @@ class InternalOrderPaidIntegrationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PAID"));
 
-        INVENTORY_SERVICE.verify(1, postRequestedFor(urlEqualTo(RESERVATIONS + orderId + "/confirm")));
+        INVENTORY_SERVICE.verify(0, postRequestedFor(urlEqualTo(RESERVATIONS + orderId + "/confirm")));
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM order_service.outbox_event WHERE aggregate_id = ? AND event_type = \'OrderPaid\'", Long.class, orderId.toString())).isEqualTo(1);
     }
 
     @Test
-    void paid_againAfterConfirmFailed_retriesConfirm() throws Exception {
+    void paid_again_doesNotDuplicateEvent() throws Exception {
         stubInventory(500);
         UUID orderId = OrderTestData.insertOrder(jdbcTemplate, ALICE, "PENDING_PAYMENT");
         paid(orderId).andExpect(status().isOk());
@@ -126,8 +127,9 @@ class InternalOrderPaidIntegrationTests {
         stubInventory(200);
         paid(orderId).andExpect(status().isOk());
 
-        INVENTORY_SERVICE.verify(2, postRequestedFor(urlEqualTo(RESERVATIONS + orderId + "/confirm")));
-        assertThat(findOrder(orderId).get("reservation_synced")).isEqualTo(true);
+        INVENTORY_SERVICE.verify(0, postRequestedFor(urlEqualTo(RESERVATIONS + orderId + "/confirm")));
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM order_service.outbox_event WHERE aggregate_id = ? AND event_type = \'OrderPaid\'", Long.class, orderId.toString())).isEqualTo(1);
+
     }
 
     @ParameterizedTest
@@ -176,10 +178,12 @@ class InternalOrderPaidIntegrationTests {
         if ("PAID".equals(row.get("status"))) {
             assertThat(row.get("reservation_status")).isEqualTo("CONFIRMED");
             INVENTORY_SERVICE.verify(0, postRequestedFor(urlPathMatching(".*/release")));
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM order_service.outbox_event WHERE aggregate_id = ? AND event_type = \'OrderPaid\'", Long.class, orderId.toString())).isEqualTo(1);
         } else {
             assertThat(row.get("status")).isEqualTo("CANCELLED");
             assertThat(row.get("reservation_status")).isEqualTo("RELEASED");
             INVENTORY_SERVICE.verify(0, postRequestedFor(urlPathMatching(".*/confirm")));
+            assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM order_service.outbox_event WHERE aggregate_id = ? AND event_type = 'OrderCancelled'", Long.class, orderId.toString())).isEqualTo(1);
         }
     }
 

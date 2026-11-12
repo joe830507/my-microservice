@@ -7,7 +7,6 @@ import java.util.UUID;
 import org.hibernate.Hibernate;
 
 import com.mymicroservice.common.entity.CommonEntity;
-import com.mymicroservice.payment.enums.OrderNotification;
 import com.mymicroservice.payment.enums.PaymentStatus;
 
 import jakarta.persistence.Column;
@@ -46,9 +45,6 @@ public class Payment extends CommonEntity {
     @Column(name = "status", nullable = false)
     private PaymentStatus status;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "order_notification")
-    private OrderNotification orderNotification;
 
     @Column(name = "completed_at")
     private Instant completedAt;

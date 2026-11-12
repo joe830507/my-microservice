@@ -73,7 +73,7 @@ class OrderControllerCancelIntegrationTests {
     }
 
     @Test
-    void cancel_pending_cancelsAndReleasesReservation() throws Exception {
+    void cancel_pending_cancelsAndWritesCancellationEvent() throws Exception {
         UUID orderId = OrderTestData.insertOrder(jdbcTemplate, ALICE, "PENDING_PAYMENT");
 
         cancelAs(orderId, ALICE, "CUSTOMER")
@@ -82,17 +82,18 @@ class OrderControllerCancelIntegrationTests {
                 .andExpect(jsonPath("$.status").value("CANCELLED"))
                 .andExpect(jsonPath("$.cancelledAt").isNotEmpty());
 
-        INVENTORY_SERVICE.verify(1, postRequestedFor(releaseUrl(orderId)));
+        INVENTORY_SERVICE.verify(0, postRequestedFor(releaseUrl(orderId)));
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM order_service.outbox_event WHERE aggregate_id = ? AND event_type = \'OrderCancelled\'", Long.class, orderId.toString())).isEqualTo(1);
         Map<String, Object> row = findOrder(orderId);
         assertThat(row.get("status")).isEqualTo("CANCELLED");
         assertThat(row.get("reservation_status")).isEqualTo("RELEASED");
-        assertThat(row.get("reservation_synced")).isEqualTo(true);
+
         assertThat(row.get("updated_by")).isEqualTo(ALICE);
         assertThat(row.get("version")).isEqualTo(1L);
     }
 
     @Test
-    void cancel_inventoryDown_stillCancelsButLeavesUnsynced() throws Exception {
+    void cancel_inventoryDown_stillCancelsAndWritesEvent() throws Exception {
         // 取消不能因為 inventory 掛掉而失敗；沒釋放成功的由排程重試
         stubRelease(500);
         UUID orderId = OrderTestData.insertOrder(jdbcTemplate, ALICE, "PENDING_PAYMENT");
@@ -103,11 +104,11 @@ class OrderControllerCancelIntegrationTests {
 
         Map<String, Object> row = findOrder(orderId);
         assertThat(row.get("reservation_status")).isEqualTo("RELEASED");
-        assertThat(row.get("reservation_synced")).isEqualTo(false);
+
     }
 
     @Test
-    void cancel_alreadyCancelledAndSynced_returns200WithoutCallingInventory() throws Exception {
+    void cancel_alreadyCancelled_returns200WithoutCallingInventory() throws Exception {
         UUID orderId = OrderTestData.insertOrder(jdbcTemplate, ALICE, "CANCELLED");
 
         cancelAs(orderId, ALICE, "CUSTOMER")
@@ -118,7 +119,7 @@ class OrderControllerCancelIntegrationTests {
     }
 
     @Test
-    void cancel_againAfterReleaseFailed_retriesRelease() throws Exception {
+    void cancel_again_doesNotDuplicateEvent() throws Exception {
         stubRelease(500);
         UUID orderId = OrderTestData.insertOrder(jdbcTemplate, ALICE, "PENDING_PAYMENT");
         cancelAs(orderId, ALICE, "CUSTOMER").andExpect(status().isOk());
@@ -126,8 +127,9 @@ class OrderControllerCancelIntegrationTests {
         stubRelease(200);
         cancelAs(orderId, ALICE, "CUSTOMER").andExpect(status().isOk());
 
-        INVENTORY_SERVICE.verify(2, postRequestedFor(releaseUrl(orderId)));
-        assertThat(findOrder(orderId).get("reservation_synced")).isEqualTo(true);
+        INVENTORY_SERVICE.verify(0, postRequestedFor(releaseUrl(orderId)));
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM order_service.outbox_event WHERE aggregate_id = ? AND event_type = \'OrderCancelled\'", Long.class, orderId.toString())).isEqualTo(1);
+
     }
 
     @ParameterizedTest
@@ -210,8 +212,9 @@ class OrderControllerCancelIntegrationTests {
         // 只有一個請求真的取消（version 只加 1）；釋放至少呼叫一次（重複呼叫 inventory 也沒關係）
         Map<String, Object> row = findOrder(orderId);
         assertThat(row.get("version")).isEqualTo(1L);
-        assertThat(row.get("reservation_synced")).isEqualTo(true);
-        assertThat(INVENTORY_SERVICE.findAll(postRequestedFor(releaseUrl(orderId)))).isNotEmpty();
+
+        assertThat(INVENTORY_SERVICE.findAll(postRequestedFor(releaseUrl(orderId)))).isEmpty();
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM order_service.outbox_event WHERE aggregate_id = ? AND event_type = 'OrderCancelled'", Long.class, orderId.toString())).isEqualTo(1);
     }
 
     // ---------- helpers ----------

@@ -51,41 +51,33 @@ class PaymentServiceApplicationIntegrationTests {
                 WHERE table_schema = 'payment_service' AND table_name <> 'flyway_schema_history'
                 """, String.class);
 
-        assertThat(tables).containsExactlyInAnyOrder("payment", "shedlock");
+        assertThat(tables).containsExactlyInAnyOrder("payment", "shedlock", "outbox_event");
     }
 
     @Test
     void oneOrder_allowsOnlyOneActivePayment() {
         UUID orderId = UUID.randomUUID();
-        insert(orderId, "PENDING", null);
+        insert(orderId, "PENDING");
 
         // 進行中的付款還在，不能再建一筆
-        assertThatThrownBy(() -> insert(orderId, "PENDING", null))
+        assertThatThrownBy(() -> insert(orderId, "PENDING"))
                 .isInstanceOf(DataIntegrityViolationException.class);
-        assertThatThrownBy(() -> insert(orderId, "SUCCEEDED", "DONE"))
+        assertThatThrownBy(() -> insert(orderId, "SUCCEEDED"))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
     void oneOrder_allowsRetryAfterFailedPayments() {
         UUID orderId = UUID.randomUUID();
-        insert(orderId, "FAILED", null);
-        insert(orderId, "FAILED", null);
+        insert(orderId, "FAILED");
+        insert(orderId, "FAILED");
 
-        assertThatCode(() -> insert(orderId, "PENDING", null)).doesNotThrowAnyException();
-    }
-
-    @Test
-    void succeededPayment_mustHaveNotificationStatus() {
-        assertThatThrownBy(() -> insert(UUID.randomUUID(), "SUCCEEDED", null))
-                .isInstanceOf(DataIntegrityViolationException.class);
-        assertThatThrownBy(() -> insert(UUID.randomUUID(), "PENDING", "PENDING"))
-                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatCode(() -> insert(orderId, "PENDING")).doesNotThrowAnyException();
     }
 
     @Test
     void unknownStatusOrNegativeAmount_isRejectedByDb() {
-        assertThatThrownBy(() -> insert(UUID.randomUUID(), "REFUNDED", null))
+        assertThatThrownBy(() -> insert(UUID.randomUUID(), "REFUNDED"))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThatThrownBy(() -> jdbcTemplate.update("""
                 INSERT INTO payment_service.payment (id, order_id, user_id, amount, status, created_by, updated_by)
@@ -94,11 +86,11 @@ class PaymentServiceApplicationIntegrationTests {
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
-    private void insert(UUID orderId, String status, String orderNotification) {
+    private void insert(UUID orderId, String status) {
         jdbcTemplate.update("""
                 INSERT INTO payment_service.payment
-                    (id, order_id, user_id, amount, status, order_notification, created_by, updated_by)
-                VALUES (?, ?, ?, 100.00, ?, ?, ?, ?)
-                """, UUID.randomUUID(), orderId, UUID.randomUUID(), status, orderNotification, SYSTEM, SYSTEM);
+                    (id, order_id, user_id, amount, status, created_by, updated_by)
+                VALUES (?, ?, ?, 100.00, ?, ?, ?)
+                """, UUID.randomUUID(), orderId, UUID.randomUUID(), status, SYSTEM, SYSTEM);
     }
 }
