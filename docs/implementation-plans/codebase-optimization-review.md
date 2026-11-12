@@ -39,6 +39,8 @@
 
 ## 1.（高）商品列表的資料庫查詢沒有 tie-breaker
 
+> 2026-11-13 修正註記：已加入 `id ASC`；同價商品跨頁測試確認固定順序、無重複或遺漏。
+
 位置：`backend/spring-product-service/src/main/java/com/mymicroservice/product/dto/product/getProductList/ProductQueryRequest.java:77`
 
 ```java

@@ -88,6 +88,22 @@ class ProductListPrimaryImageIntegrationTests {
                 .andExpect(jsonPath("$.items.length()").value(0));
     }
 
+    @Test
+    void equalPrices_haveStableOrderAcrossPages() throws Exception {
+        java.util.List<String> expected = new java.util.ArrayList<>();
+        for (int i = 0; i < 7; i++) expected.add(createActiveProduct("Same"));
+        expected.sort(String::compareTo);
+        java.util.List<String> actual = new java.util.ArrayList<>();
+        for (int page = 0; page < 4; page++) {
+            String response = mockMvc.perform(get("/api/v1/products")
+                    .param("sortBy", "price").param("sortDirection", "asc")
+                    .param("page", String.valueOf(page)).param("size", "2"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            actual.addAll(JsonPath.<java.util.List<String>>read(response, "$.items[*].id"));
+        }
+        org.assertj.core.api.Assertions.assertThat(actual).containsExactlyElementsOf(expected);
+    }
+
     private String createActiveProduct(String name) throws Exception {
         String body = """
                 {"sku": "SKU-%s-%s", "name": "%s", "price": 100}
