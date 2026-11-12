@@ -4,7 +4,7 @@
 > 分支：實作時開 `feature/notification-phase-e`（從階段 D 合併後的 `main` 切出；階段 D 尚未合併時，從 `feature/search-phase-d` 切出並做 stacked PR）
 > 對應：[middleware-roadmap.md](middleware-roadmap.md)「階段 E」、[event-contracts.md](../../architecture/event-contracts.md)
 > 前置：階段 C 完成（`user.events`、`order.events`、`payment.events` 已經在發送）；階段 D 完成（本階段沿用其文件與驗收規範）
-> 狀態：E1 完成；E2–E7 尚未開始
+> 狀態：E1–E2 完成；E3–E7 尚未開始
 
 這份文件是給實作者（Codex 或任何人）照著做的**唯一依據**。分成兩半：前半說明「做什麼、為什麼這樣設計」，後半（[實作規範](#實作規範)）說明「怎麼做、哪些事不能做」。**開始實作前兩半都要讀完。** 遇到文件沒寫到、或發現文件有錯的地方，不要自己默默決定，先照[計畫變更](#計畫變更紀錄)的規則處理。
 
@@ -164,7 +164,7 @@ inventory-service 同時消費 `order.events`：**必須在 order-service 開始
 | Step | 內容 | 驗收 |
 | ---- | ---- | ---- |
 | E1 | **infra 與服務骨架**：Mailpit（compose 與 kind）、`notification-db`、`spring-notification-service`模組、NetworkPolicy、SEC-15 | **完成**：kind 中 notification-service 2/2 Ready、Mailpit 1/1 Ready；Flyway V1/V2 通過；notification 可連 DB、Kafka:9092、Mailpit:1025；product-service 連這兩個埠皆由 NetworkPolicy 阻擋 |
-| E2 | **收件人資料**：消費 `user.events` 的 `UserRegistered`，upsert `user_contact`；`processed_event` 去重；格式錯誤進 DLT | 真實 Kafka＋PostgreSQL 測試：同一事件送兩次只有一筆；重複 userId 以最新為準；缺欄位進 DLT |
+| E2 | **收件人資料**：消費 `user.events` 的 `UserRegistered`，upsert `user_contact`；`processed_event` 去重；格式錯誤進 DLT | **完成**：真實 Kafka/PostgreSQL 整合測試 3 項通過；重複 eventId 保留單筆；同 userId 新事件更新收件人；缺 email 的事件進 `user.events.DLT` |
 | E3 | **訂單事件契約**：inventory 先忽略 `OrderCreated`／`OrderShipped`；order-service 發 `OrderCreated`、`OrderShipped`（`shipOrder` 改交易）；更新 `event-contracts.md` | 見 [E3](#e3-訂單事件契約) |
 | E4 | **發件匣與寄信**：消費 `OrderCreated`（建 `order_ref`）、`OrderPaid`、`OrderShipped`、`OrderCancelled`、`PaymentFailed`（寫 `email_message`）；範本；派送器與 SMTP | 見 [E4](#e4-發件匣與寄信) |
 | E5 | **失敗處理與可觀測**：退避重試、`SKIPPED`／`FAILED`、指標、儀表板、告警；文件同步（`microservice-architecture.md`、`event-contracts.md`、`known-issues.md`、`docs/README.md`、roadmap） | 見 [E5](#e5-失敗處理與可觀測) |

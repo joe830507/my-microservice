@@ -1,7 +1,7 @@
 # Notification 實作紀錄
 
 > 更新日期：2026-11-12
-> 狀態：E1 完成；E2–E7 尚未開始。
+> 狀態：E1–E2 完成；E3–E7 尚未開始。
 > 計畫：[notification-implementation-plan.md](notification-implementation-plan.md)
 
 ## E1：基礎設施與服務骨架
@@ -41,3 +41,19 @@ Mailpit 在 `readOnlyRootFilesystem` 下需要可寫暫存目錄，kind manifest
 - `outbox_event` V2 是否完整符合 `common` relay 未來演進需要的欄位與索引。
 - Mailpit 的暫存資料庫是 Pod ephemeral；Pod 重建會清空測試信件。
 - kind 測得的 NetworkPolicy 行為受目前叢集 CNI 影響；已用 notification 與 product Pod 作正反對照。
+
+
+## E2：收件人資料
+
+### 實作
+
+- `UserEventListener` 消費 `user.events`，只處理版本 1 的 `UserRegistered`。
+- 驗證 eventId、type、version、occurredAt、aggregateId 和 payload 必要欄位；比對 payload.userId 與 aggregateId，錯誤資料不做寫入而送進 DLT。
+- 通過 common `ProcessedEventHandler` 在同一 PostgreSQL transaction 中寫入 `processed_event` 並 upsert `user_contact`，保證事件重送不重複處理。
+
+### 驗證
+
+- 執行：`mvn.cmd -o -Dmaven.repo.local=C:\Users\joe83\.m2\repository -pl spring-notification-service -am test`。
+- 結果：notification-service Kafka/PostgreSQL 整合測試 3 項通過（duplicate eventId、同 userId 新事件 upsert、缺欄位進 DLT）；common 模組 52 項通過；BUILD SUCCESS。
+- 測試結果檔：[e2-user-events.txt](evidence/phase-e/e2-user-events.txt)。
+- 未新增 topic；`user.events` 與 `user.events.DLT` 已由既有 Kafka topic init 建立。

@@ -26,7 +26,7 @@
 | `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](../implementation-plans/backend/inventory-service-implementation-plan.md) |
 | `spring-order-service` | 訂單、商品快照、訂單狀態 | 已實作；步驟見 [order-service-implementation-plan.md](../implementation-plans/backend/order-service-implementation-plan.md) |
 | `spring-payment-service` | 付款（雛型階段用模擬金流） | 已實作；步驟見 [payment-service-implementation-plan.md](../implementation-plans/backend/payment-service-implementation-plan.md) |
-| `spring-notification-service` | 消費使用者、訂單與付款事件，透過 SMTP 發送通知；沒有業務 HTTP API | E1 基礎設施與服務骨架完成；E2–E7 尚未開始；步驟見 [notification-implementation-plan.md](../implementation-plans/middleware/notification-implementation-plan.md) |
+| `spring-notification-service` | 消費使用者、訂單與付款事件，透過 SMTP 發送通知；沒有業務 HTTP API | E1–E2 基礎設施與使用者事件消費完成；E3–E7 尚未開始；步驟見 [notification-implementation-plan.md](../implementation-plans/middleware/notification-implementation-plan.md) |
 
 ### 暫不拆分
 
@@ -34,7 +34,7 @@
 |---|---|
 | cart-service | 先放在前端或 order-service 用 Redis 存，邏輯變複雜再拆 |
 | search-service | 依中介軟體評估文件，ES 讀取先放在 product-service，由 MQ 同步 |
-| notification-service | E1 基礎設施與服務骨架完成；E2–E7 尚未開始 |
+| notification-service | E1–E2 基礎設施與使用者事件消費完成；E3–E7 尚未開始 |
 
 ---
 
