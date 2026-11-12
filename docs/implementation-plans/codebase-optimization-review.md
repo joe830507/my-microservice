@@ -193,6 +193,8 @@ CREATE INDEX idx_product_category_status_created ON product_service.product (cat
 
 ## 10.（低）購物車在多個分頁之間不同步
 
+> 2026-11-13 修正註記：監聽其他分頁的 localStorage storage 事件（含 clear），重新載入正規化購物車；store dispose 時移除監聽，不反寫造成循環。單元測試及 Chrome 雙分頁同步／移除測試通過。
+
 位置：`frontend/vue-customer/src/features/cart/store.ts`
 
 問題：購物車在 store 建立時從 localStorage 讀一次，之後每次修改都把**整份** `items` 寫回去。同時開兩個分頁時：分頁 A 加入商品 X → 分頁 B（記憶體裡還是舊的清單）改了某個商品的數量 → B 把舊清單整份寫回，X 就從購物車消失。頂部列的件數在另一個分頁也不會更新。

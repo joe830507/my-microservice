@@ -183,3 +183,16 @@ describe('localStorage 不能用', () => {
     expect(cart.count).toBe(2)
   })
 })
+
+it('synchronizes another tab and removes the listener on disposal', () => {
+  const cart = createStore()
+  localStorage.setItem(CART_KEY, JSON.stringify([{ productId: 'other', qty: 3 }]))
+  const event = () => new StorageEvent('storage', { key: CART_KEY, storageArea: localStorage })
+  window.dispatchEvent(event())
+  expect(cart.items).toEqual([{ productId: 'other', qty: 3 }])
+  expect(cart.count).toBe(3)
+  cart.$dispose()
+  localStorage.clear()
+  window.dispatchEvent(event())
+  expect(cart.count).toBe(3)
+})

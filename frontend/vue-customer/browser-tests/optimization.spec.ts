@@ -34,3 +34,15 @@ test('search defaults to relevance and clearing the keyword restores latest', as
   await expect(page.locator('#sort option[value="relevance"]')).toHaveCount(0)
 })
 
+test('cart updates across browser tabs without a reload', async ({ page, context }) => {
+  await page.goto('/')
+  const second = await context.newPage()
+  await second.goto('/')
+  await page.evaluate(() =>
+    localStorage.setItem('vue-customer.cart', JSON.stringify([{ productId: 'other', qty: 3 }])),
+  )
+  await expect(second.locator('.store-nav__badge')).toHaveText('3')
+  await page.evaluate(() => localStorage.removeItem('vue-customer.cart'))
+  await expect(second.locator('.store-nav__badge')).toHaveCount(0)
+})
+
