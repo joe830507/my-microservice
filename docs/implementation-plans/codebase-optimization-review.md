@@ -223,6 +223,8 @@ CREATE INDEX idx_product_category_status_created ON product_service.product (cat
 
 ## 13.（低）後台首頁一次發 9 個請求
 
+> 2026-11-13 修正註記：採短期方案：新增 Pinia 計數快取 30 秒，共享進行中的請求，失敗不快取，切換／登出帳號時清除並防止舊請求回填。新增 TTL、共用請求與失敗重試測試。GROUP BY 統計 API 暫緩：本次用既有 API 消除切頁重複請求，後續資料量／監控顯示瓶頸時再變更跨服務 API。待辦列表維持即時。
+
 位置：`frontend/vue-management/src/views/HomeView.vue`
 
 問題：7 個計數（`size: 1` 取 `totalElements`）加 2 個待辦清單，共 9 個請求。每個計數請求在後端都會跑一次「查一頁＋`count(*)`」，商品三種狀態、訂單三種狀態各自分開查。目前資料量小沒有感覺，但每次回到首頁都會重來一次。
