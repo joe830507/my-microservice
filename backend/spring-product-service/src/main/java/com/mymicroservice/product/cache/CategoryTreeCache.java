@@ -2,6 +2,14 @@ package com.mymicroservice.product.cache;
 
 import java.time.Duration;
 import java.util.Optional;
+import java.util.List;
+import java.util.UUID;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.function.Supplier;
+import com.mymicroservice.product.entity.Category;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.springframework.dao.DataAccessException;
@@ -21,6 +29,7 @@ import tools.jackson.databind.json.JsonMapper;
 @RequiredArgsConstructor
 public class CategoryTreeCache {
     public static final String KEY = "product:category:tree:v1";
+    public static final String LINKS_KEY = "product:category:links:v1";
     private final StringRedisTemplate redisTemplate;
     private final JsonMapper jsonMapper;
 
@@ -51,9 +60,41 @@ public class CategoryTreeCache {
         }
     }
 
+    // Include inactive categories: the public tree deliberately omits them.
+    public Set<UUID> descendantIds(UUID root, Supplier<List<Category>> loader) {
+        CategoryLink[] links = null;
+        try {
+            String cached = redisTemplate.opsForValue().get(LINKS_KEY);
+            if (cached != null) links = jsonMapper.readValue(cached, CategoryLink[].class);
+        } catch (Exception failure) {
+            log.warn("Failed to read category links cache", failure);
+        }
+        if (links == null) {
+            links = loader.get().stream().map(c -> new CategoryLink(c.getId(), c.getParentId()))
+                    .toArray(CategoryLink[]::new);
+            try {
+                redisTemplate.opsForValue().set(LINKS_KEY, jsonMapper.writeValueAsString(links), Duration.ofHours(1));
+            } catch (Exception failure) {
+                log.warn("Failed to write category links cache", failure);
+            }
+        }
+        var children = Arrays.stream(links).filter(link -> link.parentId() != null)
+                .collect(java.util.stream.Collectors.groupingBy(CategoryLink::parentId));
+        Set<UUID> result = new HashSet<>();
+        var pending = new ArrayDeque<UUID>();
+        pending.add(root);
+        while (!pending.isEmpty()) {
+            UUID id = pending.pop();
+            if (result.add(id)) children.getOrDefault(id, List.of()).forEach(link -> pending.add(link.id()));
+        }
+        return result;
+    }
+
+    public record CategoryLink(UUID id, UUID parentId) {}
+
     void evict() {
         try {
-            redisTemplate.delete(KEY);
+            redisTemplate.delete(List.of(KEY, LINKS_KEY));
         } catch (Exception e) {
             log.warn("Failed to delete redis key {}", KEY, e);
         }

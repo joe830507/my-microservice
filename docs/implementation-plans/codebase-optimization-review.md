@@ -203,6 +203,8 @@ CREATE INDEX idx_product_category_status_created ON product_service.product (cat
 
 ## 11.（低）子分類展開每次都讀全部分類
 
+> 2026-11-13 修正註記：新增獨立的全分類父子關係快取，含停用分類，避免誤用僅含啟用分類的公開樹而改變查詢語意。Redis 故障仍查 DB，既有 afterCommit 同時失效兩個 key。新增命中不查 DB、停用節點及修改後失效測試。
+
 位置：`backend/spring-product-service/src/main/java/com/mymicroservice/product/service/impl/ProductServiceImpl.java:151` `withDescendants`
 
 問題：前台點上層分類（`includeSubcategories=true`，前台分類頁一定會帶）時，每個請求都 `categoryRepository.findAll()`。分類樹已經有 Redis 快取（`CategoryTreeCache`），這裡沒用到。

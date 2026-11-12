@@ -1,10 +1,7 @@
 package com.mymicroservice.product.service.impl;
 
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.EnumSet;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,7 +28,6 @@ import com.mymicroservice.product.dto.product.getProductList.ProductQueryRespons
 import com.mymicroservice.product.dto.product.getProductsByIds.GetProductsByIdsRes;
 import com.mymicroservice.product.dto.product.updateOneProduct.UpdateOneProductReq;
 import com.mymicroservice.product.dto.product.updateOneProduct.UpdateOneProductRes;
-import com.mymicroservice.product.entity.Category;
 import com.mymicroservice.product.entity.Product;
 import com.mymicroservice.product.entity.ProductImage;
 import com.mymicroservice.product.entity.ProductStatus;
@@ -56,6 +52,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final EntityManager entityManager;
     private final CategoryRepository categoryRepository;
+    private final com.mymicroservice.product.cache.CategoryTreeCache categoryTreeCache;
     private final ProductImageRepository productImageRepository;
     private final ProductDetailCache productDetailCache;
     private final ImageStorage imageStorage;
@@ -149,19 +146,7 @@ public class ProductServiceImpl implements ProductService {
     // 分類自己加上所有子孫分類的 id（含停用的，商品的可見性另外由狀態決定）
     // 分類數量有限，一次讀出全部再往下展開；用 result 記錄看過的 id，資料有循環也不會無限迴圈
     private Set<UUID> withDescendants(UUID rootId) {
-        Map<UUID, List<UUID>> childrenByParentId = categoryRepository.findAll().stream()
-                .filter(category -> category.getParentId() != null)
-                .collect(Collectors.groupingBy(Category::getParentId,
-                        Collectors.mapping(Category::getId, Collectors.toList())));
-        Set<UUID> result = new HashSet<>();
-        Deque<UUID> pending = new ArrayDeque<>(List.of(rootId));
-        while (!pending.isEmpty()) {
-            UUID current = pending.pop();
-            if (result.add(current)) {
-                pending.addAll(childrenByParentId.getOrDefault(current, List.of()));
-            }
-        }
-        return result;
+        return categoryTreeCache.descendantIds(rootId, categoryRepository::findAll);
     }
 
     // 一次查出這一頁商品的主圖（每個商品最多一張主圖），轉成公開網址
