@@ -31,6 +31,20 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     listener:
       observation-enabled: true
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    properties:
+      mail.smtp.connectiontimeout: 3000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
+notification:
+  mail:
+    from: ${NOTIFICATION_MAIL_FROM:no-reply@my-microservice.local}
+  dispatch:
+    interval: ${NOTIFICATION_DISPATCH_INTERVAL:5s}
+    batch-size: ${NOTIFICATION_DISPATCH_BATCH_SIZE:10}
 
 app:
   events:

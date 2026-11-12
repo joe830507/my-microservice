@@ -3,7 +3,7 @@
 > 建立日期：2026-11-11
 > 分支：計畫在 `feature/middleware-roadmap`；每個階段實作時各自開分支（階段 C：`feature/event-driven-phase-c`）
 > 對應：[product-service-middleware-evaluation.md](../../design/product-service-middleware-evaluation.md)「建議導入順序」、[microservice-architecture.md](../../architecture/microservice-architecture.md)「之後：事件驅動」
-> 狀態：階段 A–D 完成；E 進行中（E1–E3 完成，E4–E7 未開始）；F 尚未開始
+> 狀態：階段 A–D 完成；E 進行中（E1–E3 完成；E4 實作完成、SMTP 驗收待排除本機 Testcontainers 連線問題；E5–E7 未開始）；F 尚未開始
 
 從雛型的「同步 REST + 排程補償」走向「事件驅動 + 可觀測 + 可水平擴充」。每個階段都要能在本機 compose 與 kind 上跑起來並驗證，做法和之前一樣：每一步附測試，測試通過後單獨 commit。
 
@@ -158,7 +158,7 @@
 | E1 | 基礎設施與服務骨架：Mailpit（compose/kind）、notification-db、notification-service、NetworkPolicy、SEC-15 | **完成**：notification 2/2、Mailpit 1/1 Ready；Flyway V1/V2 通過；SMTP/Kafka/DB 可達，product-service 被策略阻擋 |
 | E2 | 收件人資料：消費 `UserRegistered`、去重並 upsert 本地收件人資料 | **完成**：Kafka/PostgreSQL 整合測試 3 項通過，重複事件不重寫，欄位錯誤進 DLT |
 | E3 | 訂單事件契約：`OrderCreated`/`OrderShipped` outbox、inventory 向後相容 | **完成**：訂單事件原子發送與庫存 consumer 相容；order/inventory 整合測試通過 |
-| E4   | 發件匣與寄信：消費 `order.events`（下單、付款成功、出貨、取消）與 `payment.events` 的 `PaymentFailed`（**不消費 `PaymentSucceeded`**，付款成功信由 `OrderPaid` 觸發）；以 `eventId` 去重，同一事件不會寄兩封 | Mailpit 收到各種信 |
+| E4   | 發件匣與寄信：消費 `order.events`（下單、付款成功、出貨、取消）與 `payment.events` 的 `PaymentFailed`（**不消費 `PaymentSucceeded`**，付款成功信由 `OrderPaid` 觸發）；以 `eventId` 去重，同一事件不會寄兩封 | **實作完成、驗收待辦**：Mailpit HTTP API 可用；本機 Testcontainers SMTP 映射端口不回應，端到端寄信未通過 |
 | E5   | 寄信失敗退避重試；收件人不存在記錄後略過；指標、儀表板、告警 | SMTP 停掉時信件延後寄出，不遺失 |
 | E6   | kind 部署驗收與 E2E（部署順序：inventory → order → notification） | 見計畫；完整流程在 Mailpit 收到信 |
 | E7   | 真實信箱驗證（暫緩，需使用者配合；不是結案條件） | 使用者提供信箱後，五種信在真實郵件客戶端正常顯示 |

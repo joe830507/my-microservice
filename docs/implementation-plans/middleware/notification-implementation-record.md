@@ -1,7 +1,7 @@
 # Notification 實作紀錄
 
 > 更新日期：2026-11-12
-> 狀態：E1–E3 完成；E4–E7 尚未開始。
+> 狀態：E1–E3 完成；E4 實作完成、SMTP 整合驗收待排除本機 Testcontainers 連線問題；E5–E7 尚未開始。
 > 計畫：[notification-implementation-plan.md](notification-implementation-plan.md)
 
 ## E1：基礎設施與服務骨架
@@ -78,3 +78,25 @@ Mailpit 在 `readOnlyRootFilesystem` 下需要可寫暫存目錄，kind manifest
 ### 實作觀察
 
 一開始為 `shipOrder` 加上交易後，測試發現條件式 bulk update 後仍讀到舊的 JPA managed entity。將 `markShippedIfPaid` 設為 flush 後清除 persistence context，使回讀使用資料庫新狀態，並保證並發出貨只產生單筆事件。
+
+
+## E4: Outbox and email delivery
+
+### Implementation
+
+- Added `OrderEventListener` and `PaymentEventListener`. `OrderCreated` atomically upserts `order_ref` and queues `order-created`; `OrderPaid`, `OrderShipped`, `OrderCancelled`, and `PaymentFailed` queue their matching templates. Known `PaymentSucceeded` is ignored. Business updates and `processed_event` use `ProcessedEventHandler` in the same transaction.
+- Added idempotent email queue insertion backed by the existing `(event_id, template)` unique constraint. Added Flyway V3 to persist cancellation reason and render `timeout` as the Traditional Chinese timeout label.
+- Added five UTF-8 plain text templates and scheduled dispatcher. Defaults are 5 seconds and 10 messages per batch. It claims eligible rows with `FOR UPDATE SKIP LOCKED`, resolves the contact, renders, sends SMTP, and updates status in one transaction. `Message-ID` is stable per email row. SMTP timeouts are 3 seconds to connect and 5 seconds for read/write. Missing contact/order references remain pending and are retried later.
+- Customer names have control/format characters removed and are flattened to one line; missing names use the generic customer label. Subjects are fixed and do not include user input. Failed rows record only exception type, not address, name, or message body.
+
+### Validation
+
+- Offline Maven compile of notification-service and dependencies: BUILD SUCCESS.
+- Kafka/PostgreSQL/Mailpit Testcontainers integration test was added. It confirmed event processing and six unique queued emails, including a duplicate `OrderPaid` eventId producing one row; `PaymentSucceeded` was not recorded.
+- SMTP delivery validation is pending. Mailpit logs show SMTP listening on `0.0.0.0:1025` and its HTTP API is reachable, but the test JVM times out reading SMTP responses through the mapped port. A separate temporary Mailpit container published on local port 1025 also accepted TCP but returned no SMTP greeting. No messages appeared in Mailpit. This is not a passing delivery test.
+- Test inputs use reserved `example.com` addresses. This record contains no recipient address, customer name, or message content.
+
+### Follow-up and limitations
+
+- Resolve local Testcontainers SMTP reachability and rerun delivery assertions for all templates; add a concurrent two-dispatcher `SKIP LOCKED` test.
+- SMTP retry backoff, maximum attempts, missing-recipient transition to SKIPPED, metrics, and alerts are E5. SMTP and database commits are not atomic; a process failure after SMTP accepts a message and before the SENT update can cause a retry. Stable `Message-ID` helps identify duplicates.
