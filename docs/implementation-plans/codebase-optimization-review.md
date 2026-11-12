@@ -5,6 +5,7 @@
   - backend：common、order、inventory、product、payment、user、notification、gateway
   - frontend：vue-customer、vue-management（API 用戶端、狀態管理、主要頁面、打包產物、nginx）
   - 部署：Dockerfile、K8s 資源設定
+  - 2026-11-12 追加：Kafka 消費失敗與死信（DLT）的處理，見第 19、20 點
 - 方式：靜態閱讀，未執行測試或壓測；以下問題都附上檔案位置與建議做法，交給 Codex 修正後再審查
 
 整體來說，程式的一致性很好。後端的冪等鍵、條件式 UPDATE、outbox／去重、熔斷、快取失效時機（afterCommit）、遠端呼叫不佔 DB 連線等，大部分都已經處理；前端的競態保護（只採用最後一次請求）、refresh 單一化、結帳冪等鍵、付款結果以後端為準，也都做得很完整。以下是還能改進的地方，依優先順序排列。
@@ -31,6 +32,8 @@
 | 16 | 低 | 後端 | 效能 | LoginAttemptService 每次 2～4 次 Redis 往返 |
 | 17 | 低 | 後端 | 效能 | OutboxMetrics 每 500ms 執行一次 `count(*)` |
 | 18 | 低 | 部署 | 建置 | 後端映像檔沒有分層，啟動也沒用 CDS／AOT cache |
+| 19 | 高 | 後端 | 正確性 | 暫時性錯誤只重試約 1.5 秒就進 DLT，逾時排程會把已付款的訂單取消、釋放已付款的庫存 |
+| 20 | 中 | 後端／文件 | 維運 | DLT 只有告警，沒有處理手冊與重放工具 |
 
 ---
 
@@ -256,6 +259,46 @@ RUN java -Djarmode=tools -jar /src/spring-${SERVICE}/target/${SERVICE}-0.0.1-SNA
 
 再評估 CDS（`-XX:SharedArchiveFile`，Spring Boot 文件有 training run 的作法）以縮短啟動時間。這項不影響功能，可以排在最後或標「暫緩」。
 
+## 19.（高）暫時性錯誤只重試約 1.5 秒就進 DLT
+
+位置：`backend/common/src/main/java/com/mymicroservice/common/events/EventsAutoConfiguration.java:17-26`；受影響的消費者：`spring-inventory-service/.../messaging/OrderEventListener.java`、`spring-order-service/.../messaging/PaymentEventListener.java`、notification 的三個 listener
+
+問題：共用的 `DefaultErrorHandler` 用 `FixedBackOff(500L, 3L)`。除了明列不可重試的例外（`IllegalArgumentException`、`JacksonException`、`EventRejectedException`）以外，其他例外——包含 DB 連線中斷的 `DataAccessException`、5xx 的 `AppException`——重試 3 次、總共約 1.5 秒後就送進 `<topic>.DLT`。DB 重啟、failover、連線池暫時用完，通常都超過 1.5 秒，訊息內容本身沒有錯，卻被當成死信。
+
+後果不只是「晚一點處理」，而是會被逾時排程做出相反的決定：
+
+1. `PaymentSucceeded` 進 DLT → 訂單停在 `PENDING_PAYMENT` → `PaymentTimeoutJob`（預設 30 分鐘）把**已付款的訂單取消**，並發出 `OrderCancelled` 釋放庫存。
+2. `OrderPaid` 進 DLT → 預扣停在 `RESERVED` → `ReservationExpiryJob`（預設 1 小時）把**已付款訂單的庫存還回 available**，之後可能超賣。
+3. notification 的事件進 DLT → 收件人或訂單關聯缺漏，後續信件變成 `SKIPPED`。
+
+目前只有 `events.dlt.published` 告警，要靠人在逾時前發現並重送，實際上很難趕上。
+
+建議：
+
+- 讓暫時性錯誤不要進 DLT，DLT 只留「重試也沒用」的訊息。比照搜尋索引的 `ProductSearchKafkaConfig`：把暫時性例外（至少 `TransientDataAccessException`、`DataAccessResourceFailureException`、`CannotCreateTransactionException`、5xx 的 `AppException`）改成指數退避、不限次數或上限拉到數分鐘以上；其他未分類的例外維持有限次數後進 DLT。
+- 不限次數重試會卡住同一個 partition，這是刻意的：順序比吞吐量重要，且 consumer lag 已有告警可以看到。要確認 `max.poll.interval.ms` 與退避上限搭配不會觸發 rebalance（Spring Kafka 的 `DefaultErrorHandler` 會在退避期間 pause/seek，正常情況不會，但要寫進測試說明）。
+- 若不想阻塞 partition，替代做法是 Spring Kafka 的 `@RetryableTopic`（非阻塞重試 topic）；但會打亂同一 aggregate 的事件順序，例如 `OrderPaid` 與 `OrderCancelled`，需要另外評估，**不建議**作為第一選擇。
+- 測試：Testcontainers 中暫停 PostgreSQL（`docker pause` 或 Toxiproxy）超過 1.5 秒再恢復，驗證事件最終被處理、沒有進 DLT、`events.dlt.published` 未增加；另保留「格式錯誤直接進 DLT」的既有測試。
+- 補一段到 `docs/architecture/event-contracts.md` 的錯誤處理說明，改寫「暫時性錯誤重試三次」的描述。
+
+## 20.（中）DLT 只有告警，沒有處理手冊與重放工具
+
+位置：`infra/observability/alerting.yaml`（`mm-kafka-dlt`）；目前沒有任何程式消費 `*.DLT`
+
+問題：死信目前停在 Kafka 裡，沒有程式消費，這本身是常見做法——死信多半需要人判斷，自動重新消費容易在原 topic 與 DLT 之間無限循環。但目前缺少兩樣東西：
+
+1. **處理手冊**：告警響了之後，沒有文件說明怎麼查看死信、怎麼從 header（`kafka_dlt-original-topic`、`kafka_dlt-original-offset`、`kafka_dlt-exception-message` 等）判斷原因、修好後怎麼處理。
+2. **重放工具**：第 19 點修正前，暫時性錯誤造成的死信內容沒有問題，只需要送回原 topic；目前沒有工具，只能手動用 console producer 拼訊息。
+
+另外，「付款成功但訂單已取消」（`order/messaging/PaymentEventListener.java:45`）是**預期中**會進 DLT 的業務衝突，需要人工退款，但沒有寫明由誰追蹤、怎麼確認已處理。
+
+建議：
+
+- 新增處理手冊，放在既有文件的章節裡（例如 `docs/architecture/event-contracts.md` 加一節「DLT 處理」，或 `infra/k8s/README.md`），不另開新檔。內容：如何列出死信（kind 與 Compose 各一個指令範例）、如何讀 header、依例外類型分流（格式錯誤 → 修發送端；業務衝突 → 人工處理；暫時性錯誤 → 重放）、重放的步驟與注意事項。
+- 加一支重放腳本（例如 `infra/scripts/dlt-replay.sh`）：指定 DLT topic 與 offset 範圍，把訊息**原樣**（含 key，不改 `eventId`）送回原 topic。消費端有 `processed_event` 去重，重放已處理過的事件是安全的；腳本要先列出將重放的訊息並要求確認。
+- 「付款成功但訂單已取消」：手冊寫明這類死信要記錄 orderId／paymentId 並人工退款，處理完才算結案；自動退款仍屬路線圖階段 F，維持「暫緩」。
+- 不建議寫自動消費 DLT 再重新處理的 listener。
+
 ---
 
 ## 看過但不建議改的地方
@@ -270,6 +313,6 @@ RUN java -Djarmode=tools -jar /src/spring-${SERVICE}/target/${SERVICE}-0.0.1-SNA
 
 ## 修正後請回報
 
-- 每一點各自一個 commit（第 1～4 點優先），附上跑過的測試（後端 `mvn test` 的相關模組、前端 `npm run test:unit` 與相關的 e2e）。
+- 每一點各自一個 commit（第 1～4 點與第 19 點優先），附上跑過的測試（後端 `mvn test` 的相關模組、前端 `npm run test:unit` 與相關的 e2e）。
 - 第 6、9 點附上 `EXPLAIN` 結果。
 - 決定不做或暫緩的項目，在這份文件對應段落下方註明原因。
