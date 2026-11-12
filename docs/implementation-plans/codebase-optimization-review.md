@@ -99,6 +99,8 @@ return PageRequest.of(page, size, Sort.by(direction(), column).and(Sort.by(Sort.
 
 ## 5.（中）Outbox relay 逐筆同步等待 ACK，單一失敗整批回滾
 
+> 2026-11-13 修正註記：批次預設 100，可設定；先送出 futures，整批共用三秒 ACK 等待窗口，再一次 ANY(uuid[]) 標記成功項目。失敗不回滾成功事件，每個 aggregate 只取最早事件；取滿立即續跑，最多十批以免排程壟斷。purge 加 ShedLock。部分成功及同 aggregate 不越序整合測試通過。
+
 位置：`backend/common/src/main/java/com/mymicroservice/common/events/OutboxRelay.java:48-86`
 
 問題：

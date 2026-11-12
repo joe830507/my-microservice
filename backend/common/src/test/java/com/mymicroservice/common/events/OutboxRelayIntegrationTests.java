@@ -93,6 +93,28 @@ class OutboxRelayIntegrationTests {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void partialPublishKeepsSuccessAndPreservesAggregateOrder() {
+        jdbc.execute("TRUNCATE event_test.outbox_event");
+        writer.append("payment.events", "test", "partial-a", Map.of("sequence", 1));
+        writer.append("payment.events", "test", "partial-b", Map.of("sequence", 1));
+        writer.append("payment.events", "test", "partial-b", Map.of("sequence", 2));
+        KafkaTemplate<String, String> template = mock(KafkaTemplate.class);
+        when(template.send(any(org.apache.kafka.clients.producer.ProducerRecord.class))).thenAnswer(invocation -> {
+            var record = (org.apache.kafka.clients.producer.ProducerRecord<String, String>) invocation.getArgument(0);
+            if (record.key().equals("partial-b")) return java.util.concurrent.CompletableFuture.failedFuture(new IllegalStateException("broker unavailable"));
+            return java.util.concurrent.CompletableFuture.completedFuture(null);
+        });
+        var partialRelay = new OutboxRelay(jdbc, template, transactions,
+                new OutboxMetrics(new SimpleMeterRegistry()), "event_test");
+        partialRelay.publishPending();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM event_test.outbox_event WHERE published_at IS NOT NULL", Long.class)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM event_test.outbox_event WHERE aggregate_id='partial-b' AND published_at IS NULL", Long.class)).isEqualTo(2L);
+        org.mockito.Mockito.verify(template, org.mockito.Mockito.times(2)).send(any(org.apache.kafka.clients.producer.ProducerRecord.class));
+        jdbc.execute("TRUNCATE event_test.outbox_event");
+    }
+
+    @Test
     void cleanupKeepsRecentDedupeAndDeletesOnlyExpiredRows() {
         jdbc.execute("TRUNCATE event_test.processed_event");
         jdbc.update("INSERT INTO event_test.processed_event VALUES (?, 'test', now()-interval '15 days'), (?, 'test', now()-interval '13 days')",
