@@ -168,4 +168,10 @@
 
 ## SEC-14 Elasticsearch 尚未啟用認證與 TLS
 
-階段 D 的本機與 kind ES 使用明文 HTTP，未啟用用戶端認證。Compose 只綁 127.0.0.1:9200；kind 以 NetworkPolicy 只允許 product-service 連線。Kibana 僅供本機 dev-tools profile，未部署到 kind。這些設定限本機與隔離的示範環境；對外或多租戶環境前必須補 TLS、認證與最小權限帳號，憑證放入 Secret。Pod 標籤不是用戶端身分認證。
+階段 D 的本機與 kind ES 使用明文 HTTP，未啟用用戶端認證。Compose 只綁 127.0.0.1:9200；kind 以 NetworkPolicy 只允許 product-service 連線。Kibana 僅供本機 dev-tools profile，未部署到 kind。這些設定限本機與隔離的示範環境；對外或多租戶環境前必須補 TLS、認證與最小權限帳號，憑證放入 Secret。Pod 標籤不是用戶端身分認證。搜尋服務的索引延遲與退回 SQL 監控已納入 D6 儀表板與告警設定；kind 實際 firing 驗收已於 D7 完成。見[搜尋實作紀錄](../implementation-plans/middleware/search-implementation-record.md)。
+
+## SEC-15 通知服務的測試 SMTP 與 Email 個資保護
+
+階段 E 的 Compose 與 kind 使用 Mailpit，不啟用 SMTP 認證或 TLS；Mailpit UI 也沒有登入保護。Compose 僅將 SMTP 1025 與 UI 8025 綁到 `127.0.0.1`；kind 以 NetworkPolicy 僅允許 notification-service 連 SMTP，UI 不建立 Service，只能透過 port-forward 使用。這些設定只供本機與隔離的示範環境。對外環境必須改用啟用認證與 TLS 的 SMTP，並使用 Secret 管理憑證。
+
+notification-service 的 `user_contact` 與 `email_message` 會保存 Email、顯示名稱及通知狀態，目前沒有資料保留期限或自動清理機制。資料庫只允許 notification-service 存取；上線前需決定保留期限、清理流程與資料存取稽核。Mailpit 內文與測試證據不得放入真實個資。

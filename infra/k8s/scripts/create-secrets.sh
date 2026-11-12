@@ -32,7 +32,7 @@ ensure() {
 echo "Secret（namespace: $NS）"
 
 # 每個服務各自的資料庫帳密
-for svc in user product inventory order payment; do
+for svc in user product inventory order payment notification; do
   if kc get secret "$svc-db" >/dev/null 2>&1; then
     echo "  跳過 $svc-db（已存在）"
   else

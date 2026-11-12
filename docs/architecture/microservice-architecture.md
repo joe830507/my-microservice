@@ -26,6 +26,7 @@
 | `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](../implementation-plans/backend/inventory-service-implementation-plan.md) |
 | `spring-order-service` | 訂單、商品快照、訂單狀態 | 已實作；步驟見 [order-service-implementation-plan.md](../implementation-plans/backend/order-service-implementation-plan.md) |
 | `spring-payment-service` | 付款（雛型階段用模擬金流） | 已實作；步驟見 [payment-service-implementation-plan.md](../implementation-plans/backend/payment-service-implementation-plan.md) |
+| `spring-notification-service` | 消費使用者、訂單與付款事件，透過 SMTP 發送通知；沒有業務 HTTP API | E1 基礎設施與服務骨架完成；E2–E7 尚未開始；步驟見 [notification-implementation-plan.md](../implementation-plans/middleware/notification-implementation-plan.md) |
 
 ### 暫不拆分
 
@@ -33,7 +34,7 @@
 |---|---|
 | cart-service | 先放在前端或 order-service 用 Redis 存，邏輯變複雜再拆 |
 | search-service | 依中介軟體評估文件，ES 讀取先放在 product-service，由 MQ 同步 |
-| notification-service | 等 Kafka 事件機制建立後再做 |
+| notification-service | E1 基礎設施與服務骨架完成；E2–E7 尚未開始 |
 
 ---
 
@@ -57,6 +58,7 @@
 | inventory-service | 8083 | 5434 | — |
 | user-service | 8084 | 5435 | 6380（登入失敗計數） |
 | payment-service | 8085 | 5436 | — |
+| notification-service（僅 actuator，叢集內） | 8086 | 5437 | — |
 | observability（Grafana LGTM，compose） | Grafana 3000、OTLP 4317／4318 | — | — |
 
 > 現有的 `GET /api/v1/products/batch` 給 order-service（建單檢查與快照）和前台購物車（購物車不需登入，訪客也會呼叫）使用。不是 ADMIN 時，非上架中（ACTIVE）的商品只回 `id` 與 `status`，`sku`、`name`、`price` 為 `null`，呼叫端只需要知道「不能買」。之後可以搬到 `/internal/v1/products/batch`，或是對內、對外各留一支；雛型階段先不動。
@@ -72,6 +74,7 @@ backend/
 ├── observability/             可觀測性的共用設定與依賴（指標、追蹤、log），6 個服務都依賴，包含 Gateway
 ├── spring-product-service/    parent：spring-boot-starter-parent，依賴 common
 ├── spring-user-service/       同上
+├── spring-notification-service/ 同上（通知寄信與事件消費）
 ├── ...
 └── spring-api-gateway/        不依賴 common（reactive、沒有 JPA）
 ```

@@ -95,6 +95,30 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+  notification-db:
+    image: postgres:18.6
+    container_name: my-microservice-notification-db
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      TZ: UTC
+    ports:
+      - "127.0.0.1:5437:5432"
+    volumes:
+      - notification-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  # Mailpit 只收本機測試信；UI 與 SMTP 都只綁 loopback，避免區網使用者查看或投遞郵件。
+  mailpit:
+    image: ghcr.io/axllent/mailpit:v1.33.1
+    container_name: my-microservice-mailpit
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
   # 相容 S3 的物件儲存（商品圖片）；MinIO 已不提供免費映像，改用 SeaweedFS
   # 帳號與匿名讀取權限在 seaweedfs/s3.json：只有 products/ 開放匿名讀，tmp/ 私有
   object-storage:
@@ -265,3 +289,4 @@ volumes:
   inventory-db-data:
   order-db-data:
   payment-db-data:
+  notification-db-data:
