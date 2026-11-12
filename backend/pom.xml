@@ -13,6 +13,7 @@
 
 	<modules>
 		<module>common</module>
+		<module>observability</module>
 		<module>spring-product-service</module>
 		<module>spring-user-service</module>
 		<module>spring-inventory-service</module>

@@ -1,0 +1,112 @@
+# 可觀測性（階段 A）：OpenTelemetry Collector + Prometheus + Tempo + Loki + Grafana 在同一個容器（grafana/otel-lgtm）。
+# 本機／示範用，資料放 emptyDir（Pod 重啟就沒了）；正式環境改用 kube-prometheus-stack、Tempo、Loki 等各自部署。
+# 服務用 OTLP/HTTP 送到 observability:4318；Grafana 沒有對外，用 port-forward 連：
+#   kubectl -n my-microservice port-forward svc/observability 3000:3000   → http://localhost:3000
+# 映像檔以 root 執行（內含五個程式，各自寫 /data 與 /tmp），所以沒有 runAsNonRoot；其他限制照常。
+apiVersion: v1
+kind: Service
+metadata:
+  name: observability
+  labels:
+    app: observability
+spec:
+  selector:
+    app: observability
+  ports:
+    - name: grafana
+      port: 3000
+      targetPort: grafana
+    - name: otlp-grpc
+      port: 4317
+      targetPort: otlp-grpc
+    - name: otlp-http
+      port: 4318
+      targetPort: otlp-http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: observability
+  labels:
+    app: observability
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: observability
+  template:
+    metadata:
+      labels:
+        app: observability
+    spec:
+      containers:
+        - name: observability
+          image: grafana/otel-lgtm:0.40.0
+          ports:
+            - name: grafana
+              containerPort: 3000
+            - name: otlp-grpc
+              containerPort: 4317
+            - name: otlp-http
+              containerPort: 4318
+          env:
+            # 匿名只能看，不能改（compose 版預設是 Admin，因為只綁本機）
+            - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+              value: Viewer
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: observability
+                  key: grafana-admin-password
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: grafana
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 40
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: grafana
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 200m
+              memory: 768Mi
+            limits:
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: dashboards
+              mountPath: /otel-lgtm/dashboards
+              readOnly: true
+            - name: provisioning
+              mountPath: /otel-lgtm/grafana/conf/provisioning/dashboards/my-microservice.yaml
+              subPath: dashboards.yaml
+              readOnly: true
+            - name: provisioning
+              mountPath: /otel-lgtm/grafana/conf/provisioning/alerting/my-microservice.yaml
+              subPath: alerting.yaml
+              readOnly: true
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: dashboards
+          configMap:
+            name: observability-dashboards
+        - name: provisioning
+          configMap:
+            name: observability-provisioning

@@ -12,23 +12,20 @@ public final class PaymentTestData {
 
     private PaymentTestData() {
     }
-
-    // 金額固定 399.98；SUCCEEDED 時 orderNotification 不能是 null（DB 約束）
-    public static UUID insertPayment(JdbcTemplate jdbcTemplate, UUID orderId, UUID userId, String status,
-            String orderNotification, Instant updatedAt) {
+    public static UUID insertPayment(JdbcTemplate jdbcTemplate, UUID orderId, UUID userId, String status, Instant updatedAt) {
         UUID paymentId = UUID.randomUUID();
         jdbcTemplate.update("""
                 INSERT INTO payment_service.payment
-                    (id, order_id, user_id, amount, status, order_notification, completed_at,
+                    (id, order_id, user_id, amount, status, completed_at,
                      created_at, updated_at, created_by, updated_by)
-                VALUES (?, ?, ?, 399.98, ?, ?, ?, ?, ?, ?, ?)
-                """, paymentId, orderId, userId, status, orderNotification,
+                VALUES (?, ?, ?, 399.98, ?, ?, ?, ?, ?, ?)
+                """, paymentId, orderId, userId, status,
                 "PENDING".equals(status) ? null : Timestamp.from(updatedAt),
                 Timestamp.from(updatedAt), Timestamp.from(updatedAt), userId, userId);
         return paymentId;
     }
 
     public static UUID insertPendingPayment(JdbcTemplate jdbcTemplate, UUID orderId, UUID userId) {
-        return insertPayment(jdbcTemplate, orderId, userId, "PENDING", null, Instant.now());
+        return insertPayment(jdbcTemplate, orderId, userId, "PENDING", Instant.now());
     }
 }

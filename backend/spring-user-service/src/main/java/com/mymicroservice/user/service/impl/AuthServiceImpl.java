@@ -1,5 +1,6 @@
 package com.mymicroservice.user.service.impl;
 
+import java.util.Map;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mymicroservice.common.exception.AppException;
+import com.mymicroservice.common.events.OutboxEventWriter;
 import com.mymicroservice.user.dtos.login.LoginReqDto;
 import com.mymicroservice.user.dtos.register.RegisterReqDto;
 import com.mymicroservice.user.dtos.register.RegisterResDto;
@@ -43,6 +45,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtEncoder jwtEncoder;
     private final JwtProperties jwtProperties;
     private final LoginAttemptService loginAttemptService;
+    private final OutboxEventWriter outbox;
 
     // 帳號不存在時拿來比對的假雜湊，讓回應時間與「帳號存在但密碼錯」相近
     // 否則 bcrypt 比對約需數十毫秒，可從回應快慢推測 email 是否已註冊
@@ -50,7 +53,8 @@ public class AuthServiceImpl implements AuthService {
 
     public AuthServiceImpl(UserRepository userRepository, RefreshTokenRepository refreshTokenRepository,
             RefreshTokenGenerator refreshTokenGenerator, PasswordEncoder passwordEncoder,
-            JwtEncoder jwtEncoder, JwtProperties jwtProperties, LoginAttemptService loginAttemptService) {
+            JwtEncoder jwtEncoder, JwtProperties jwtProperties, LoginAttemptService loginAttemptService,
+            OutboxEventWriter outbox) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.refreshTokenGenerator = refreshTokenGenerator;
@@ -58,6 +62,7 @@ public class AuthServiceImpl implements AuthService {
         this.jwtEncoder = jwtEncoder;
         this.jwtProperties = jwtProperties;
         this.loginAttemptService = loginAttemptService;
+        this.outbox = outbox;
         this.dummyPasswordHash = passwordEncoder.encode(UUID.randomUUID().toString());
     }
 
@@ -78,6 +83,9 @@ public class AuthServiceImpl implements AuthService {
         user.getRoles().add(Role.CUSTOMER);
 
         User savedUser = userRepository.save(user);
+        outbox.append("user.events", "UserRegistered", savedUser.getId().toString(),
+                Map.of("userId", savedUser.getId().toString(),
+                        "email", savedUser.getEmail(), "displayName", savedUser.getDisplayName()));
         return RegisterResDto.from(savedUser);
     }
 

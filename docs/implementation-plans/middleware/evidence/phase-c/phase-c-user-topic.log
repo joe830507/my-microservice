@@ -1,0 +1,8 @@
+{"type": "UserRegistered", "eventId": "01a1ca6a-0392-7513-b075-263c6ab01fd9", "payload": {"email": "phase-c-contract-c74acf3d@example.test", "userId": "01a1ca6a-0391-75f7-93ce-403109939209", "displayName": "Phase C acceptance"}, "version": 1, "occurredAt": "2026-11-11T11:41:47.794074864Z", "aggregateId": "01a1ca6a-0391-75f7-93ce-403109939209"}
+kubectl : Processed a total of 1 messages
+位於 線路:2 字元:950
++ ... -topic.log; kubectl --context kind-my-microservice -n my-microservice ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Processed a total of 1 messages:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

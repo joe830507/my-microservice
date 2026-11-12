@@ -1,0 +1,52 @@
+# 所有後端服務共用的可觀測性設定（階段 A）；服務在自己的 application.yml 加
+#   spring.config.import: classpath:observability.yml
+# 服務自己的設定優先於這份（例如 management.endpoints.web.exposure.include）。
+#
+# 匯出（OTLP，送到 OpenTelemetry Collector）預設關閉：沒有 collector 的環境（單元測試、單獨啟動服務）不會一直重試與報錯。
+# 追蹤本身永遠開著（log 裡的 traceId、服務之間的 traceparent 傳遞都不需要 collector）。
+# 在 compose、K8s 設 OBSERVABILITY_EXPORT_ENABLED=true 與 OTEL_EXPORTER_OTLP_ENDPOINT 開啟匯出。
+spring:
+  main:
+    # Banner 走 logger：json-logs（結構化 JSON）時才不會有一段非 JSON 的行混在 log 裡
+    banner-mode: log
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  tracing:
+    sampling:
+      # 開發 100%；上線後依流量調低（TRACING_SAMPLING_PROBABILITY=0.1）
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
+    export:
+      otlp:
+        enabled: ${OBSERVABILITY_EXPORT_ENABLED:false}
+  logging:
+    export:
+      otlp:
+        enabled: ${OBSERVABILITY_EXPORT_ENABLED:false}
+  metrics:
+    tags:
+      # Prometheus 的指標一律帶服務名稱，儀表板用它篩選
+      application: ${spring.application.name}
+  otlp:
+    metrics:
+      export:
+        enabled: ${OBSERVABILITY_EXPORT_ENABLED:false}
+        url: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/metrics
+        step: 15s
+  opentelemetry:
+    resource-attributes:
+      service.namespace: my-microservice
+      # 多個副本時區分是哪一個：K8s 的 HOSTNAME 是 Pod 名稱；沒有時（本機）用服務名稱。
+      # 少了它，兩個副本的同名指標會互相覆蓋（Prometheus 看起來只有一個）
+      service.instance.id: ${HOSTNAME:${spring.application.name}}
+      deployment.environment.name: ${DEPLOYMENT_ENVIRONMENT:local}
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/traces
+    logging:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/logs

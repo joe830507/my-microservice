@@ -2,7 +2,7 @@
 # 所以「只有 Gateway 連得到服務」必須由網路強制。這份檔案先全部拒絕進入，再逐一開放需要的連線。
 #
 # 注意：NetworkPolicy 要 CNI 外掛實際執行才有效（kind 的 kindnet 在新版有支援；用 kubectl 的 dry-run 不會驗出來），
-# 部署後要實際驗證：從沒有權限的 Pod 連服務應該逾時（見 docs/implementation-plans/backend-deployment/）。
+# 部署後要實際驗證：從沒有權限的 Pod 連服務應該逾時（見 docs/implementation-plans/backend-deployment-implementation-plan.md）。
 # 這份只限制「進入」（Ingress）；出去（Egress）在 network-policies-egress.yaml。
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -353,3 +353,54 @@ spec:
           port: 8888
         - protocol: TCP
           port: 18888
+---
+# observability：只有後端服務送 OTLP 進來（4317 gRPC、4318 HTTP）。Grafana（3000）不開放給其他 Pod，只用 port-forward 連
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-observability
+spec:
+  podSelector:
+    matchLabels:
+      app: observability
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: ["api-gateway", "user-service", "product-service", "inventory-service", "order-service", "payment-service"]
+      ports:
+        - protocol: TCP
+          port: 4317
+        - protocol: TCP
+          port: 4318
+---
+# Kafka：只有會發布或消費事件的服務可連 broker
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kafka
+spec:
+  podSelector:
+    matchLabels:
+      app: kafka
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: ["payment-service", "order-service", "inventory-service", "product-service", "user-service"]
+      ports:
+        - protocol: TCP
+          port: 9092
+    - from:
+        - podSelector:
+            matchLabels:
+              app: kafka-topics-init
+      ports:
+        - protocol: TCP
+          port: 9092

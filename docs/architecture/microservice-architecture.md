@@ -20,12 +20,12 @@
 
 | 服務 | 職責 | 狀態 |
 |---|---|---|
-| `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、限流 | 已實作；細節見 [api-gateway-implementation-plan.md](../implementation-plans/api-gateway-implementation-plan.md) |
+| `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、限流 | 已實作；細節見 [api-gateway-implementation-plan.md](../implementation-plans/backend/api-gateway-implementation-plan.md) |
 | `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取、圖片上傳到物件儲存）；讀取公開，但不是 ADMIN 只看得到上架中（`ACTIVE`）的商品（列表、單筆、SKU、圖片；其他狀態回 404），批次查詢照舊帶 `status`；新增、修改、刪除限 ADMIN；後台的分類列表 `GET /api/v1/categories`（含停用的分類）也限 ADMIN |
 | `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 已實作 |
-| `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](../implementation-plans/inventory-service-implementation-plan.md) |
-| `spring-order-service` | 訂單、商品快照、訂單狀態 | 已實作；步驟見 [order-service-implementation-plan.md](../implementation-plans/order-service-implementation-plan.md) |
-| `spring-payment-service` | 付款（雛型階段用模擬金流） | 已實作；步驟見 [payment-service-implementation-plan.md](../implementation-plans/payment-service-implementation-plan.md) |
+| `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](../implementation-plans/backend/inventory-service-implementation-plan.md) |
+| `spring-order-service` | 訂單、商品快照、訂單狀態 | 已實作；步驟見 [order-service-implementation-plan.md](../implementation-plans/backend/order-service-implementation-plan.md) |
+| `spring-payment-service` | 付款（雛型階段用模擬金流） | 已實作；步驟見 [payment-service-implementation-plan.md](../implementation-plans/backend/payment-service-implementation-plan.md) |
 
 ### 暫不拆分
 
@@ -57,6 +57,7 @@
 | inventory-service | 8083 | 5434 | — |
 | user-service | 8084 | 5435 | 6380（登入失敗計數） |
 | payment-service | 8085 | 5436 | — |
+| observability（Grafana LGTM，compose） | Grafana 3000、OTLP 4317／4318 | — | — |
 
 > 現有的 `GET /api/v1/products/batch` 給 order-service（建單檢查與快照）和前台購物車（購物車不需登入，訪客也會呼叫）使用。不是 ADMIN 時，非上架中（ACTIVE）的商品只回 `id` 與 `status`，`sku`、`name`、`price` 為 `null`，呼叫端只需要知道「不能買」。之後可以搬到 `/internal/v1/products/batch`，或是對內、對外各留一支；雛型階段先不動。
 
@@ -68,6 +69,7 @@
 backend/
 ├── pom.xml                    聚合 pom（packaging pom，只有 <modules>）
 ├── common/                    共用模組（Spring Boot auto-configuration）
+├── observability/             可觀測性的共用設定與依賴（指標、追蹤、log），6 個服務都依賴，包含 Gateway
 ├── spring-product-service/    parent：spring-boot-starter-parent，依賴 common
 ├── spring-user-service/       同上
 ├── ...
@@ -89,7 +91,7 @@ backend/
 - 單獨建置某個服務：`./mvnw -pl spring-user-service -am package`（`-am` 會先建置 common）
 - 改 common 等於所有服務都要重新建置，所以要保持精簡
 - **打包服務一律加 `-am`**：沒加的話會用 `~/.m2` 裡可能過期的 common。舊版沒有 `RequireRoles` 時，JVM 會默默忽略 controller 上的 `@RequireRoles`，後台 API 等於沒有權限檢查。`RequireRolesGuard` 讓這種情況在編譯或啟動時就失敗
-- 實作步驟見 [backend-common-implementation-plan.md](../implementation-plans/backend-common-implementation-plan.md)
+- 實作步驟見 [backend-common-implementation-plan.md](../implementation-plans/backend/backend-common-implementation-plan.md)
 
 ---
 
@@ -183,11 +185,11 @@ backend/
           │
 前端 ──▶ payment-service  POST /api/v1/payments
      4. ──▶ order     GET  /internal/v1/orders/{id}              取金額與狀態
-     5. mock-callback 成功
-     6. ──▶ order     POST /internal/v1/orders/{id}/paid
-                         └──▶ inventory POST .../reservations/{orderId}/confirm
+     5. mock-callback 成功：payment 狀態與 PaymentSucceeded 同交易寫入 Outbox
+     6. Kafka payment.events → order：訂單改為 PAID，並寫 OrderPaid
+     7. Kafka order.events → inventory：確認預扣
 
-   取消或逾時：order ──▶ inventory POST .../reservations/{orderId}/release
+   取消或逾時：order 寫 OrderCancelled → Kafka order.events → inventory 釋放預扣
 ```
 
 ### 雛型階段：同步 REST
@@ -195,15 +197,22 @@ backend/
 - 服務之間用 RestClient 或 HTTP Interface 呼叫，搭配 Resilience4j 的 timeout、retry
 - 原因：中介軟體評估文件把 Kafka 排在第 3 步，事件機制還沒建立
 
-### 之後：事件驅動
+### 階段 C：事件驅動
 
-Kafka + Outbox 導入後，把步驟 6 和「逾時釋放」改成事件，變成 choreography Saga：
+Kafka 使用單節點 KRaft。業務資料與事件在同一個 PostgreSQL 交易寫入 Outbox；輪詢器以至少一次方式發送，消費者在同一個交易記錄 `eventId` 並更新業務資料，重複事件會略過。失敗重試 4 次後送到同名 `.DLT` topic。事件 JSON 欄位為 `eventId`、`type`、`version`、`occurredAt`、`aggregateId`、`payload`；同一 aggregate 以 id 作為 Kafka key。
 
-| 事件 | 發送方 | 接收方 |
-|---|---|---|
-| `PaymentSucceeded` | payment | order（改為 PAID）、inventory（確認扣除） |
-| `OrderCancelled` | order | inventory（釋放預扣） |
-| `ProductCreated` | product | inventory（建立 SKU 庫存紀錄） |
+事件 payload 與版本規則見[事件契約](event-contracts.md)。
+
+建單時查商品與預扣、建立付款時查訂單金額仍維持同步，因為這些步驟需要即時結果。付款結果、訂單付款／取消後的庫存確認與釋放則走事件：
+
+| Topic | 事件 | 發送方 | 接收方 |
+|---|---|---|---|
+| `payment.events` | `PaymentSucceeded`、`PaymentFailed` | payment | order |
+| `order.events` | `OrderPaid`、`OrderCancelled` | order | inventory；之後 notification |
+| `product.events` | `ProductCreated`、`ProductUpdated`、`ProductStatusChanged` | product | 之後搜尋索引與快取失效 |
+| `user.events` | `UserRegistered` | user | 之後 notification |
+
+庫存預扣逾時釋放排程保留，作為訂單服務長時間故障時的安全網。Kafka 目前只靠 NetworkPolicy 隔離，沒有 SASL/ACL；不可直接暴露到不受信任的網路。
 
 ---
 
@@ -211,7 +220,7 @@ Kafka + Outbox 導入後，把步驟 6 和「逾時釋放」改成事件，變�
 
 | 順序 | 項目 | 重點 |
 |---|---|---|
-| 1 | user-service | Gateway 驗 JWT 需要它，最先做；步驟見 [user-service-implementation-plan.md](../implementation-plans/user-service-implementation-plan.md) |
+| 1 | user-service | Gateway 驗 JWT 需要它，最先做；步驟見 [user-service-implementation-plan.md](../implementation-plans/backend/user-service-implementation-plan.md) |
 | 2 | api-gateway | 先接 product + user；驗證 JWT 驗簽、`X-User-Id` 傳遞、`/internal` 封鎖 |
 | 3 | 上 K8s | 用 kind 或 minikube 部署 gateway、product、user；熟悉 Deployment、Service、ConfigMap、Secret |
 | 4 | inventory-service | 預扣、確認、釋放與冪等 |

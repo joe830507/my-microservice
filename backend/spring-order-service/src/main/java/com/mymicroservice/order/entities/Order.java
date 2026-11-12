@@ -43,15 +43,9 @@ public class Order extends CommonEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private OrderStatus status;
-
-    // inventory 那邊應該要是什麼狀態；和 reservationSynced 一起用來補做失敗的釋放、確認
     @Enumerated(EnumType.STRING)
     @Column(name = "reservation_status", nullable = false)
     private ReservationStatus reservationStatus;
-
-    // inventory 是否已經是 reservationStatus 的狀態
-    @Column(name = "reservation_synced", nullable = false)
-    private boolean reservationSynced;
 
     @Column(name = "total_amount", nullable = false, updatable = false)
     private BigDecimal totalAmount;

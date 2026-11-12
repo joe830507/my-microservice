@@ -51,7 +51,7 @@ class InventoryServiceApplicationIntegrationTests {
                 ORDER BY table_name
                 """, String.class);
 
-        assertThat(tables).containsExactly("reservation", "reservation_item", "stock");
+        assertThat(tables).containsExactly("outbox_event", "processed_event", "reservation", "reservation_item", "shedlock", "stock");
     }
 
     @Test

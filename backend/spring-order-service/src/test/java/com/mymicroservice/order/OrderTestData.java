@@ -25,9 +25,9 @@ public final class OrderTestData {
         };
         jdbcTemplate.update("""
                 INSERT INTO order_service.orders
-                    (id, user_id, status, reservation_status, reservation_synced, total_amount,
+                    (id, user_id, status, reservation_status, total_amount,
                      created_at, updated_at, created_by, updated_by)
-                VALUES (?, ?, ?, ?, true, ?::numeric, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?::numeric, ?, ?, ?, ?)
                 """, orderId, userId, status, reservationStatus, total, Timestamp.from(createdAt),
                 Timestamp.from(createdAt), userId, userId);
         jdbcTemplate.update("""

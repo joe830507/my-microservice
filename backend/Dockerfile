@@ -3,7 +3,7 @@
 # SERVICE 是資料夾名稱去掉 spring- 前綴：api-gateway、user-service、product-service、inventory-service、order-service、payment-service
 # 建置階段沒有用到 SERVICE，所以六次建置會共用同一個建置快取，只編譯一次
 
-# ---------- 階段 1：編譯所有模組（common + 6 個服務）----------
+# ---------- 階段 1：編譯所有模組（common、observability + 6 個服務）----------
 FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /src
 
@@ -11,6 +11,7 @@ WORKDIR /src
 COPY mvnw pom.xml ./
 COPY .mvn .mvn
 COPY common/pom.xml common/pom.xml
+COPY observability/pom.xml observability/pom.xml
 COPY spring-api-gateway/pom.xml spring-api-gateway/pom.xml
 COPY spring-user-service/pom.xml spring-user-service/pom.xml
 COPY spring-product-service/pom.xml spring-product-service/pom.xml
@@ -21,6 +22,7 @@ COPY spring-payment-service/pom.xml spring-payment-service/pom.xml
 RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
 
 COPY common common
+COPY observability observability
 COPY spring-api-gateway spring-api-gateway
 COPY spring-user-service spring-user-service
 COPY spring-product-service spring-product-service

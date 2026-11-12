@@ -1,5 +1,6 @@
 package com.mymicroservice.order.service.impl;
 
+import io.micrometer.core.instrument.Metrics;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mymicroservice.common.CommonAutoConfiguration;
+import com.mymicroservice.common.events.OutboxEventWriter;
 import com.mymicroservice.common.exception.AppException;
 import com.mymicroservice.order.clients.InventoryClient;
 import com.mymicroservice.order.clients.InventoryClient.ReserveResult;
@@ -51,14 +53,17 @@ public class OrderServiceImpl implements OrderService {
     private final ProductClient productClient;
     private final InventoryClient inventoryClient;
     private final AuditorAware<UUID> auditorAware;
+    private final OutboxEventWriter outbox;
 
     public OrderServiceImpl(OrderRepository orderRepository, ProductClient productClient,
             InventoryClient inventoryClient,
-            @Qualifier(CommonAutoConfiguration.AUDITOR_AWARE_BEAN_NAME) AuditorAware<UUID> auditorAware) {
+            @Qualifier(CommonAutoConfiguration.AUDITOR_AWARE_BEAN_NAME) AuditorAware<UUID> auditorAware,
+            OutboxEventWriter outbox) {
         this.orderRepository = orderRepository;
         this.productClient = productClient;
         this.inventoryClient = inventoryClient;
         this.auditorAware = auditorAware;
+        this.outbox = outbox;
     }
 
     // 不加 @Transactional：呼叫 product、inventory 時不能佔著 DB 連線；只有最後存檔在交易內（repository 自己的交易）
@@ -72,6 +77,7 @@ public class OrderServiceImpl implements OrderService {
         if (idempotencyKey != null) {
             Optional<Order> replay = findReplay(userId, idempotencyKey, requestHash);
             if (replay.isPresent()) {
+                Metrics.counter("orders.created", "result", "replayed").increment();
                 return new CreateOrderResult(OrderResDto.from(replay.get()), false);
             }
         }
@@ -97,11 +103,13 @@ public class OrderServiceImpl implements OrderService {
             if (idempotencyKey != null && exception instanceof DataIntegrityViolationException) {
                 Optional<Order> winner = findReplay(userId, idempotencyKey, requestHash);
                 if (winner.isPresent()) {
+                    Metrics.counter("orders.created", "result", "replayed").increment();
                     return new CreateOrderResult(OrderResDto.from(winner.get()), false);
                 }
             }
             throw exception;
         }
+        Metrics.counter("orders.created", "result", "created").increment();
         return new CreateOrderResult(OrderResDto.from(order), true);
     }
 
@@ -163,53 +171,52 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new AppException(OrderErrorCode.ORDER_NOT_FOUND, orderId));
     }
 
-    // 付款成功（payment-service 呼叫）：PENDING_PAYMENT → PAID，commit 後呼叫 inventory 確認扣除
-    // 已經付款的回 200（冪等），還沒同步的會重試確認；已取消的回 409
-    // 確認失敗不影響結果：reservationSynced 維持 false，由排程重試
+    // 付款成功事件消費：PENDING_PAYMENT → PAID，並在同一個 DB 交易寫出 OrderPaid
     @Override
+    @Transactional
     public InternalOrderResDto markPaid(UUID orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(OrderErrorCode.ORDER_NOT_FOUND, orderId));
 
         boolean paid = orderRepository.markPaidIfPending(orderId, Instant.now(),
                 auditorAware.getCurrentAuditor().orElseThrow()) == 1;
-        if (!paid) {
+        if (paid) {
+            Metrics.counter("orders.paid").increment();
+        } else {
             order = orderRepository.findById(orderId).orElseThrow();
             if (order.getStatus() == OrderStatus.CANCELLED) {
                 throw new AppException(OrderErrorCode.ORDER_ALREADY_CANCELLED, orderId);
             }
-            // PAID 之後的狀態（SHIPPED、COMPLETED）也算已付款
-            if (order.isReservationSynced() || order.getReservationStatus() != ReservationStatus.CONFIRMED) {
-                return InternalOrderResDto.from(order);
-            }
+            return InternalOrderResDto.from(order);
         }
 
-        syncReservation(orderId, ReservationStatus.CONFIRMED);
+        outbox.append("order.events", "OrderPaid", orderId.toString(), Map.of("orderId", orderId.toString()));
         return InternalOrderResDto.from(orderRepository.findById(orderId).orElseThrow());
     }
 
     // 只有 PENDING_PAYMENT 可以取消；已經取消的回 200（冪等）；別人的訂單回 404
-    // 不加 @Transactional：狀態改完並 commit 後才呼叫 inventory，呼叫期間不佔著 DB 連線
-    // 釋放失敗不影響取消的結果：reservationSynced 維持 false，由排程重試
     @Override
+    @Transactional
     public OrderResDto cancelOrder(UUID orderId, UUID userId, boolean admin) {
         findVisibleOrder(orderId, userId, admin);
 
         boolean cancelled = orderRepository.cancelIfPending(orderId, Instant.now(),
                 auditorAware.getCurrentAuditor().orElseThrow()) == 1;
-        if (!cancelled) {
+        if (cancelled) {
+            Metrics.counter("orders.cancelled", "reason", "user").increment();
+        } else {
             // 狀態不對：重新讀取，可能剛好被別的請求取消（冪等），或已經付款
             Order order = findVisibleOrder(orderId, userId, admin);
             if (order.getStatus() != OrderStatus.CANCELLED) {
                 throw new AppException(OrderErrorCode.ORDER_NOT_CANCELLABLE, orderId, order.getStatus());
             }
-            if (order.isReservationSynced()) {
-                return OrderResDto.from(order);
-            }
+            return OrderResDto.from(order);
         }
 
-        // 新取消的，或之前取消但釋放還沒成功的：呼叫 inventory 釋放（inventory 那邊是冪等的）
-        syncReservation(orderId, ReservationStatus.RELEASED);
+        // 與取消狀態共用交易，確保事件持久化後由 inventory 消費。
+        if (cancelled) {
+            outbox.append("order.events", "OrderCancelled", orderId.toString(), Map.of("orderId", orderId.toString()));
+        }
         return OrderResDto.from(findVisibleOrder(orderId, userId, admin));
     }
 
@@ -244,36 +251,16 @@ public class OrderServiceImpl implements OrderService {
 
     // 和使用者取消一樣：條件式 UPDATE 保證和付款通知同時發生時只有一個成功
     @Override
+    @Transactional
     public boolean expireUnpaidOrder(UUID orderId) {
         boolean cancelled = orderRepository.cancelIfPending(orderId, Instant.now(),
                 auditorAware.getCurrentAuditor().orElseThrow()) == 1;
         if (cancelled) {
-            syncReservation(orderId, ReservationStatus.RELEASED);
+            Metrics.counter("orders.cancelled", "reason", "timeout").increment();
+            outbox.append("order.events", "OrderCancelled", orderId.toString(),
+                    Map.of("orderId", orderId.toString(), "reason", "timeout"));
         }
         return cancelled;
-    }
-
-    @Override
-    public boolean retryReservationSync(UUID orderId) {
-        Order order = orderRepository.findById(orderId).orElse(null);
-        if (order == null || order.isReservationSynced()
-                || order.getReservationStatus() == ReservationStatus.RESERVED) {
-            return order != null;
-        }
-        return syncReservation(orderId, order.getReservationStatus());
-    }
-
-    // 呼叫 inventory 讓預扣變成 target 狀態；成功才標成已同步，失敗留給排程重試
-    private boolean syncReservation(UUID orderId, ReservationStatus target) {
-        boolean success = switch (target) {
-            case RELEASED -> inventoryClient.release(orderId);
-            case CONFIRMED -> inventoryClient.confirm(orderId);
-            case RESERVED -> throw new IllegalArgumentException("cannot sync to RESERVED");
-        };
-        if (success) {
-            orderRepository.markReservationSynced(orderId, target);
-        }
-        return success;
     }
 
     private Order findVisibleOrder(UUID orderId, UUID userId, boolean admin) {
@@ -316,7 +303,6 @@ public class OrderServiceImpl implements OrderService {
         order.setUserId(userId);
         order.setStatus(OrderStatus.PENDING_PAYMENT);
         order.setReservationStatus(ReservationStatus.RESERVED);
-        order.setReservationSynced(true);
 
         BigDecimal total = BigDecimal.ZERO;
         for (Map.Entry<UUID, Integer> entry : quantities.entrySet()) {
@@ -346,6 +332,8 @@ public class OrderServiceImpl implements OrderService {
             case RESERVED -> {
             }
             case OUT_OF_STOCK -> throw new AppException(OrderErrorCode.OUT_OF_STOCK, extractSkus(result.detail()));
+            // 熔斷打開，請求沒有送出：確定沒有預扣，不必釋放
+            case UNAVAILABLE -> throw new AppException(OrderErrorCode.INVENTORY_SERVICE_UNAVAILABLE);
             case UNKNOWN -> {
                 // 不知道有沒有扣成功：釋放（inventory 會留下紀錄，延遲送達的預扣也會被擋下）
                 if (!inventoryClient.release(order.getId())) {

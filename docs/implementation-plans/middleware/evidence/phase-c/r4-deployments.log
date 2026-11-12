@@ -1,0 +1,6 @@
+NAME                READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS          IMAGES                                         SELECTOR
+order-service       2/2     2            2           7h37m   order-service       my-microservice/order-service:phase-c-r4       app=order-service
+payment-service     2/2     2            2           7h37m   payment-service     my-microservice/payment-service:phase-c-r4     app=payment-service
+inventory-service   2/2     2            2           7h37m   inventory-service   my-microservice/inventory-service:phase-c-r4   app=inventory-service
+product-service     2/2     2            2           7h37m   product-service     my-microservice/product-service:phase-c-r4     app=product-service
+user-service        2/2     2            2           7h37m   user-service        my-microservice/user-service:phase-c-r4        app=user-service

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 主控台輸出沿用 Spring Boot 預設的格式；啟用 profile「json-logs」（SPRING_PROFILES_INCLUDE=json-logs）時改成結構化 JSON（logstash 格式，
+     每行一個 JSON，帶 traceId、spanId、服務名稱，容器的 log 收集工具可以直接解析）。
+     另外把每一筆 log 交給 OpenTelemetry：有開 OTLP 匯出時送到 collector（Loki），沒開就丟掉。
+     traceId、spanId 由 Micrometer Tracing 放進 MDC，OTel 會把它們附在 log 上，所以 log 可以用 traceId 串起來。
+     不使用 Boot 的 base.xml：它是相容舊版的設定，不支援結構化格式，還會多開一個寫到 /tmp 的檔案 appender -->
+<configuration>
+	<include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+	<springProfile name="json-logs">
+		<appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+			<encoder class="org.springframework.boot.logging.logback.StructuredLogEncoder">
+				<format>logstash</format>
+			</encoder>
+		</appender>
+	</springProfile>
+	<springProfile name="!json-logs">
+		<include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+	</springProfile>
+
+	<appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+		<captureKeyValuePairAttributes>true</captureKeyValuePairAttributes>
+		<captureMdcAttributes>*</captureMdcAttributes>
+	</appender>
+
+	<root level="INFO">
+		<appender-ref ref="CONSOLE"/>
+		<appender-ref ref="OTEL"/>
+	</root>
+</configuration>

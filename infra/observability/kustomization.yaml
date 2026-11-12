@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# 由 infra/k8s/kustomization.yaml 引用；儀表板與告警規則用 configMapGenerator 從同一份檔案產生（和 docker-compose 共用）
+resources:
+  - k8s-deployment.yaml
+configMapGenerator:
+  - name: observability-dashboards
+    files:
+      - dashboards/my-microservice-overview.json
+  - name: observability-provisioning
+    files:
+      - dashboards.yaml
+      - alerting.yaml

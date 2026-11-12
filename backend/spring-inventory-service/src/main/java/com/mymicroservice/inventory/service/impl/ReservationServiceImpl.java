@@ -1,5 +1,6 @@
 package com.mymicroservice.inventory.service.impl;
 
+import io.micrometer.core.instrument.Metrics;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -69,6 +70,7 @@ public class ReservationServiceImpl implements ReservationService {
             }
         });
         if (!failedSkus.isEmpty()) {
+            Metrics.counter("reservations", "result", "rejected").increment();
             throw toReserveFailure(failedSkus);
         }
 
@@ -78,6 +80,7 @@ public class ReservationServiceImpl implements ReservationService {
         requested.forEach(reservation::addItem);
         // saveAndFlush：主鍵衝突在這裡就轉成 DataIntegrityViolationException，而不是到 commit 才失敗
         reservationRepository.saveAndFlush(reservation);
+        Metrics.counter("reservations", "result", "reserved").increment();
         return new ReserveResult(true, ReservationResDto.from(reservation));
     }
 
