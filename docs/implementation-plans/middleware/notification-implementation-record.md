@@ -1,7 +1,7 @@
 # Notification 實作紀錄
 
 > 更新日期：2026-11-12
-> 狀態：E1–E2 完成；E3–E7 尚未開始。
+> 狀態：E1–E3 完成；E4–E7 尚未開始。
 > 計畫：[notification-implementation-plan.md](notification-implementation-plan.md)
 
 ## E1：基礎設施與服務骨架
@@ -57,3 +57,24 @@ Mailpit 在 `readOnlyRootFilesystem` 下需要可寫暫存目錄，kind manifest
 - 結果：notification-service Kafka/PostgreSQL 整合測試 3 項通過（duplicate eventId、同 userId 新事件 upsert、缺欄位進 DLT）；common 模組 52 項通過；BUILD SUCCESS。
 - 測試結果檔：[e2-user-events.txt](evidence/phase-e/e2-user-events.txt)。
 - 未新增 topic；`user.events` 與 `user.events.DLT` 已由既有 Kafka topic init 建立。
+
+
+## E3：訂單事件契約
+
+### 實作
+
+- inventory-service 在 `ProcessedEventHandler` 事務中記錄 `OrderCreated`/`OrderShipped` 後不做庫存操作；未知事件仍丟例外進 DLT。
+- order-service 用 `OrderCreationPersistence` 包住新訂單寫入與 `OrderCreated` outbox append；payload 含 userId 與數值 totalAmount。庫存遠端呼叫保持在此交易邊界外。
+- `shipOrder` 在狀態條件更新成功時在同一交易寫入 `OrderShipped`；已 SHIPPED 的冪等重請不重發，不能出貨則不發事件。
+- 更新 event contracts 文件，記錄事件 payload、aggregate 與發送規則。
+
+### 驗證
+
+- `mvn.cmd -o -Dmaven.repo.local=C:\Users\joe83\.m2\repository -pl spring-order-service -am test`：order-service 及依賴模組 137 項測試全通過；common 52 項通過。
+- `mvn.cmd -o -Dmaven.repo.local=C:\Users\joe83\.m2\repository -pl spring-inventory-service -am test`：inventory-service 及依賴模組 95 項測試全通過；common 52 項通過。
+- 覆蓋：OrderCreated 正確 payload、Idempotency-Key 重放與並發只產一事件、庫存失敗不產事件、OrderShipped 成功/重放/409/並發、inventory 忽略兩種新事件並記錄去重、未知類型進 DLT。
+- 事件契約與步驟證據已更新：[event-contracts.md](../../architecture/event-contracts.md)。
+
+### 實作觀察
+
+一開始為 `shipOrder` 加上交易後，測試發現條件式 bulk update 後仍讀到舊的 JPA managed entity。將 `markShippedIfPaid` 設為 flush 後清除 persistence context，使回讀使用資料庫新狀態，並保證並發出貨只產生單筆事件。

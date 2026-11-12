@@ -54,16 +54,18 @@ public class OrderServiceImpl implements OrderService {
     private final InventoryClient inventoryClient;
     private final AuditorAware<UUID> auditorAware;
     private final OutboxEventWriter outbox;
+    private final OrderCreationPersistence orderCreationPersistence;
 
     public OrderServiceImpl(OrderRepository orderRepository, ProductClient productClient,
             InventoryClient inventoryClient,
             @Qualifier(CommonAutoConfiguration.AUDITOR_AWARE_BEAN_NAME) AuditorAware<UUID> auditorAware,
-            OutboxEventWriter outbox) {
+            OutboxEventWriter outbox, OrderCreationPersistence orderCreationPersistence) {
         this.orderRepository = orderRepository;
         this.productClient = productClient;
         this.inventoryClient = inventoryClient;
         this.auditorAware = auditorAware;
         this.outbox = outbox;
+        this.orderCreationPersistence = orderCreationPersistence;
     }
 
     // 不加 @Transactional：呼叫 product、inventory 時不能佔著 DB 連線；只有最後存檔在交易內（repository 自己的交易）
@@ -93,7 +95,7 @@ public class OrderServiceImpl implements OrderService {
         reserveStock(order);
 
         try {
-            orderRepository.saveAndFlush(order);
+            orderCreationPersistence.saveAndPublishCreated(order);
         } catch (RuntimeException exception) {
             // 預扣成功但訂單沒存起來：釋放失敗只能記 log（訂單不存在，排程也補不到），之後靠 inventory 的逾時釋放
             if (!inventoryClient.release(orderId)) {
@@ -223,6 +225,7 @@ public class OrderServiceImpl implements OrderService {
     // 只有 PAID 可以出貨；已經出貨的回 200（冪等，重複按出貨不會出錯）；其他狀態回 409
     // 只呼叫 ADMIN，所以不檢查擁有者；不需要呼叫其他服務
     @Override
+    @Transactional
     public OrderResDto shipOrder(UUID orderId) {
         findOrderWithItems(orderId);
 
@@ -231,6 +234,10 @@ public class OrderServiceImpl implements OrderService {
         Order order = findOrderWithItems(orderId);
         if (!shipped && order.getStatus() != OrderStatus.SHIPPED) {
             throw new AppException(OrderErrorCode.ORDER_NOT_SHIPPABLE, orderId, order.getStatus());
+        }
+        if (shipped) {
+            outbox.append("order.events", "OrderShipped", orderId.toString(),
+                    Map.of("orderId", orderId.toString()));
         }
         return OrderResDto.from(order);
     }
