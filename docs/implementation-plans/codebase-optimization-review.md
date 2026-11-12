@@ -297,6 +297,8 @@ RUN java -Djarmode=tools -jar /src/spring-${SERVICE}/target/${SERVICE}-0.0.1-SNA
 
 ## 19.（高）暫時性錯誤只重試約 1.5 秒就進 DLT
 
+> 2026-11-13 修正註記：指定的暫時性 DB／交易錯誤與 5xx AppException 採 1 秒起指數退避、上限 30 秒、無限重試；未分類錯誤仍有限次數，格式／業務錯誤直接 DLT。實際暫停 PostgreSQL 五秒後恢復的 Kafka 整合測試通過，確認多次嘗試後成功、DLT metric 與 topic offset 均為零；格式錯誤進 DLT 測試保留。退避與 max.poll.interval.ms 的搭配已寫入事件契約。
+
 位置：`backend/common/src/main/java/com/mymicroservice/common/events/EventsAutoConfiguration.java:17-26`；受影響的消費者：`spring-inventory-service/.../messaging/OrderEventListener.java`、`spring-order-service/.../messaging/PaymentEventListener.java`、notification 的三個 listener
 
 問題：共用的 `DefaultErrorHandler` 用 `FixedBackOff(500L, 3L)`。除了明列不可重試的例外（`IllegalArgumentException`、`JacksonException`、`EventRejectedException`）以外，其他例外——包含 DB 連線中斷的 `DataAccessException`、5xx 的 `AppException`——重試 3 次、總共約 1.5 秒後就送進 `<topic>.DLT`。DB 重啟、failover、連線池暫時用完，通常都超過 1.5 秒，訊息內容本身沒有錯，卻被當成死信。

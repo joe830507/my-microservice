@@ -124,6 +124,59 @@ class OutboxRelayIntegrationTests {
         jdbc.execute("TRUNCATE event_test.processed_event");
     }
 
+    @Test
+    void databaseOutageLongerThanOriginalRetryWindowRecoversWithoutDlt() throws Exception {
+        String topic = "transient-db-test";
+        try (var admin = AdminClient.create(Map.of("bootstrap.servers", kafka.getBootstrapServers()))) {
+            admin.createTopics(List.of(new NewTopic(topic, 1, (short) 1), new NewTopic(topic + ".DLT", 1, (short) 1))).all().get();
+        }
+        var config = Map.<String, Object>of(
+                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
+                ConsumerConfig.GROUP_ID_CONFIG, "transient-db-test-group",
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest",
+                ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false,
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class,
+                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        var properties = new ContainerProperties(topic);
+        var done = new CountDownLatch(1);
+        var attempted = new CountDownLatch(1);
+        var attempts = new java.util.concurrent.atomic.AtomicInteger();
+        var shortJdbc = new JdbcTemplate(new DriverManagerDataSource(
+                postgres.getJdbcUrl() + "&connectTimeout=1&socketTimeout=1", postgres.getUsername(), postgres.getPassword()));
+        properties.setMessageListener((MessageListener<String, String>) record -> {
+            attempts.incrementAndGet();
+            attempted.countDown();
+            shortJdbc.queryForObject("SELECT 1", Integer.class);
+            done.countDown();
+        });
+        var container = new KafkaMessageListenerContainer<>(new DefaultKafkaConsumerFactory<String, String>(config), properties);
+        var registry = new SimpleMeterRegistry();
+        container.setCommonErrorHandler(new EventsAutoConfiguration().kafkaErrorHandler(kafkaTemplate, registry));
+        container.start();
+        var docker = org.testcontainers.DockerClientFactory.instance().client();
+        boolean paused = false;
+        try {
+            docker.pauseContainerCmd(postgres.getContainerId()).exec();
+            paused = true;
+            kafkaTemplate.send(topic, "order", "valid").get(10, TimeUnit.SECONDS);
+            assertThat(attempted.await(30, TimeUnit.SECONDS)).isTrue();
+            TimeUnit.SECONDS.sleep(5);
+            docker.unpauseContainerCmd(postgres.getContainerId()).exec();
+            paused = false;
+            assertThat(done.await(30, TimeUnit.SECONDS)).isTrue();
+            assertThat(attempts.get()).isGreaterThan(1);
+            assertThat(registry.counter("events.dlt.published").count()).isZero();
+            try (var admin = AdminClient.create(Map.of("bootstrap.servers", kafka.getBootstrapServers()))) {
+                var offsets = admin.listOffsets(Map.of(new org.apache.kafka.common.TopicPartition(topic + ".DLT", 0),
+                        org.apache.kafka.clients.admin.OffsetSpec.latest())).all().get();
+                assertThat(offsets.values().iterator().next().offset()).isZero();
+            }
+        } finally {
+            if (paused) docker.unpauseContainerCmd(postgres.getContainerId()).exec();
+            container.stop();
+        }
+    }
+
     @AfterAll
     static void closeProducer() {
         if (kafkaTemplate != null) kafkaTemplate.destroy();

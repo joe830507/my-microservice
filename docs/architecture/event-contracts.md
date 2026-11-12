@@ -23,9 +23,10 @@ IDE 使用 localhost:9094；Compose 容器與 kind 使用 kafka:9092。
 
 商品快照的 description、brand 與 categoryId 未設定時使用空字串；createdAt 是商品建立時間的 ISO-8601 UTC 字串；price 是 JSON 數字，payload.version 是商品的樂觀鎖整數版本。事件信封的 version 則是契約版本，兩者意義不同。商品更新先 flush 再寫 outbox，確保 payload.version 是本次提交後的版本，同一商品的事件版本嚴格遞增。搜尋索引消費者不使用 `processed_event`：它把 payload.version 傳給 Elasticsearch 的 `external_gte`，因此重複事件可冪等覆寫，較舊快照會被略過。索引處理結果以 `search.index.events{result=indexed|stale_skipped|failed}` 計數；consumer lag 監控 `product-service-search` 群組，ES 查詢失敗則由搜尋服務退回 SQL 並記錄原因。
 
-業務更新與 outbox 寫入共用交易。Relay 每批最多十筆，每筆等待 ACK 最多三秒，期間持有 DB 連線與資料列鎖，作為低流量雛型的簡化取捨。ACK 後提交失敗仍會重送；執行資料庫副作用的消費者以 `processed_event` 去重。商品搜尋索引是刻意的例外：不寫 `processed_event`，而以商品的 payload.version 作 ES `external_gte` 版本，讓索引覆寫冪等並拒絕舊快照。已發布事件保留七天，未發布事件持續保留。
+業務更新與 outbox 寫入共用交易。Relay 預設每批 100 筆（`app.events.outbox-batch-size`），先送出各 aggregate 最早的事件，再等待 ACK，只批次標記成功的事件。取滿時立即繼續，單輪最多十批（`app.events.outbox-max-batches`），失敗事件留待下輪。ACK 後提交失敗仍會重送；執行資料庫副作用的消費者以 `processed_event` 去重。商品搜尋索引是刻意的例外：不寫 `processed_event`，而以商品的 payload.version 作 ES `external_gte` 版本，讓索引覆寫冪等並拒絕舊快照。已發布事件保留七天，未發布事件持續保留。去重紀錄預設保留 14 天（`app.events.processed-retention`），須大於 topic 保留期；延長 Kafka 保留期時也必須延長此值。超過去重窗口的人工重放需先確認業務冪等性。清理由 ShedLock 協調各副本。
 
-DefaultErrorHandler 負責重試與 DLT。暫時性錯誤重試三次、間隔 500ms；JSON、參數及業務規則錯誤直接進入來源 topic 加上 .DLT 的死信佇列。DLT 發送失敗向外拋出，保留原事件。付款成功但訂單已取消時，錯誤處理器記錄例外並送 DLT，需人工追蹤退款；自動退款隨真實金流（路線圖階段 F）一併不實作。
+DefaultErrorHandler 負責重試與 DLT。暫時性資料存取錯誤、資料庫資源故障、無法建立交易及 5xx AppException 採 1 秒起、倍增至 30 秒的無限重試，保留 partition 內事件順序；未分類錯誤仍重試三次、間隔 500ms；JSON、參數及業務規則錯誤直接進入來源 topic 加上 .DLT 的死信佇列。退避上限 30 秒低於預設 `max.poll.interval.ms=300000`；若調低 poll interval 或延長處理逾時，須一併重新評估。整合測試暫停 PostgreSQL 五秒後恢復，驗證重試完成且 DLT 計數與 topic offset 不增加。DLT 發送失敗向外拋出，保留原事件。付款成功但訂單已取消時，需人工追蹤退款；自動退款隨真實金流（路線圖階段 F）暫緩。
+
 
 事件為唯一的付款與庫存狀態通知路徑。R3 部署驗收通過後已移除旗標、舊重試工作與補償欄位。升級 migration 先將未完成的舊通知補入 outbox，再刪除欄位；已部署的歷史 migration 保留校驗碼。
 

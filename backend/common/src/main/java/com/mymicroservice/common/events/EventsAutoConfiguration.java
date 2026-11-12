@@ -23,6 +23,20 @@ public class EventsAutoConfiguration {
         handler.addNotRetryableExceptions(IllegalArgumentException.class,
                 JacksonException.class,
                 ResilientEventConsumer.EventRejectedException.class);
+        handler.setBackOffFunction((record, failure) -> {
+            for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+                if (cause instanceof org.springframework.dao.TransientDataAccessException
+                        || cause instanceof org.springframework.dao.DataAccessResourceFailureException
+                        || cause instanceof org.springframework.transaction.CannotCreateTransactionException
+                        || cause instanceof com.mymicroservice.common.exception.AppException app
+                            && app.getErrorCode().getStatus().is5xxServerError()) {
+                    var backOff = new org.springframework.util.backoff.ExponentialBackOff(1000L, 2.0);
+                    backOff.setMaxInterval(30_000L);
+                    return backOff;
+                }
+            }
+            return new FixedBackOff(500L, 3L);
+        });
         return handler;
     }
 
