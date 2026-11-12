@@ -37,3 +37,8 @@ UserRegistered 含 email，不可將 payload 或地址複製到 log 或 trace at
 - `OrderCreated` 於訂單第一次建立時寫入 outbox，與訂單保存使用同一資料庫交易。重送幂等請求僅回傳既有訂單，不會再產生事件。事件的 `aggregateId` 是 orderId；payload 包含 userId 與 JSON 數值 totalAmount。
 - `OrderShipped` 只在訂單成功從 PAID 轉為 SHIPPED 的同一交易寫入；payload 包含 orderId。重複出貨請求不會重發。
 - inventory-service 將這兩種類型記錄於 `processed_event` 後忽略；其他未知 `order.events` 類型仍進 DLT。
+
+
+## Notification consumer behavior
+
+`notification-service` consumes `UserRegistered` to maintain a local contact, `OrderCreated` to associate the order with its user and queue the order-created email, `OrderPaid`, `OrderShipped`, and `OrderCancelled` to queue their matching emails, and `PaymentFailed` to queue the payment-failed email. `PaymentSucceeded` is a known event and is intentionally ignored; the paid email is driven by `OrderPaid`. Inbox deduplication and queue insertion share a database transaction. SMTP delivery is asynchronous and uses bounded retry; missing order/contact data is eventually marked `SKIPPED`.

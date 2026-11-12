@@ -151,6 +151,21 @@ panels.append(series("搜尋過期命中（每分鐘）", [
 ], 16, y, 8, 8))
 y += 8
 
+panels.append(row("Notification", y)); y += 1
+panels.append(series("Notification email outcomes per minute", [
+    ('sum by (template, result) (rate(notification_emails_total[5m])) * 60', "{{template}} / {{result}}"),
+], 0, y, 12, 8, stack=True))
+panels.append(series("SMTP average send duration", [
+    ('sum by (template) (rate(notification_email_send_duration_seconds_sum[5m])) '
+     '/ sum by (template) (rate(notification_email_send_duration_seconds_count[5m]))', "{{template}}"),
+], 12, y, 12, 8, unit="s"))
+y += 8
+panels.append(stat("Pending notification emails", "notification_email_pending", 0, y, w=6))
+panels.append(stat("Oldest pending email (seconds)", "notification_email_oldest_pending_seconds", 6, y, w=6,
+                   thresholds={"mode": "absolute", "steps": [{"color": "green", "value": None},
+                                                                  {"color": "red", "value": 600}]}))
+y += 4
+
 panels.append(row("Log（warn、error）", y)); y += 1
 panels.append({
     "id": _id(), "type": "logs", "title": "warn / error", "datasource": LOKI,
@@ -225,6 +240,12 @@ alerts = {"apiVersion": 1, "groups": [{
         rule("mm-kafka-dlt", "Kafka 事件進入 DLT",
              'sum(increase(events_dlt_published_total[5m]))',
              "gt", 0, "0s", "事件進入 dead-letter topic；請檢查消費端錯誤", "critical"),
+        rule("mm-notification-failed", "Notification email permanently failed",
+             'increase(notification_emails_total{result="failed"}[10m])',
+             "gt", 0, "0s", "Notification emails entered FAILED; inspect SMTP and last_error."),
+        rule("mm-notification-backlog", "Notification email backlog",
+             'notification_email_oldest_pending_seconds',
+             "gt", 600, "5m", "The oldest pending notification email is over 10 minutes old."),
     ],
 }]}
 out2 = pathlib.Path(__file__).parent / "alerting.yaml"

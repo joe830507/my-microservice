@@ -39,8 +39,8 @@
 | [event-implementation-plan.md](implementation-plans/middleware/event-implementation-plan.md) | 完成（中介軟體階段 C）：Kafka + Outbox、消費端去重與 DLT、付款與庫存改事件、商品與使用者事件；kind 停機恢復與 trace、告警實測 |
 | [search-implementation-plan.md](implementation-plans/middleware/search-implementation-plan.md) | 完成（中介軟體階段 D）：Elasticsearch 搜尋計畫與 D1–D7 驗收 |
 | [search-implementation-record.md](implementation-plans/middleware/search-implementation-record.md) | 完成（階段 D）：kind 停機恢復、索引重建、告警、完整 Maven reactor、Tempo trace、Gateway 搜尋及使用者人工操作前後台（無截圖） |
-| [notification-implementation-plan.md](implementation-plans/middleware/notification-implementation-plan.md) | E1–E3 完成；E4–E7 尚未開始 |
-| [notification-implementation-record.md](implementation-plans/middleware/notification-implementation-record.md) | E1–E3 完成；E4–E7 尚未開始 |
+| [notification-implementation-plan.md](implementation-plans/middleware/notification-implementation-plan.md) | E1-E5 implemented; E4 SMTP end-to-end validation pending local Testcontainers port-mapping issue; E6-E7 pending |
+| [notification-implementation-record.md](implementation-plans/middleware/notification-implementation-record.md) | E1-E5 implementation and validation record; SMTP delivery validation pending |
 
 ## 設計與評估
 

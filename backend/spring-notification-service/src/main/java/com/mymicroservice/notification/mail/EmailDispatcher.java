@@ -7,7 +7,7 @@ import java.util.UUID;
 
 import jakarta.mail.internet.MimeMessage;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.MailException;
@@ -16,7 +16,12 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
+import com.mymicroservice.notification.config.NotificationProperties;
 
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.context.Scope;
 
 @Component
 public class EmailDispatcher {
@@ -30,17 +35,18 @@ public class EmailDispatcher {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;
     private final JavaMailSender mailSender;
-    private final String from;
-    private final int batchSize;
+    private final NotificationProperties properties;
+    private final EmailMetrics metrics;
+    private final OpenTelemetry telemetry;
 
     public EmailDispatcher(JdbcTemplate jdbc, TransactionTemplate transactions, JavaMailSender mailSender,
-            @Value("${notification.mail.from:no-reply@my-microservice.local}") String from,
-            @Value("${notification.dispatch.batch-size:10}") int batchSize) {
+            NotificationProperties properties, EmailMetrics metrics, ObjectProvider<OpenTelemetry> telemetry) {
         this.jdbc = jdbc;
         this.transactions = transactions;
         this.mailSender = mailSender;
-        this.from = from;
-        this.batchSize = batchSize;
+        this.properties = properties;
+        this.metrics = metrics;
+        this.telemetry = telemetry.getIfAvailable(OpenTelemetry::noop);
     }
 
     @Scheduled(fixedDelayString = "${notification.dispatch.interval:5s}")
@@ -50,7 +56,9 @@ public class EmailDispatcher {
 
     private void dispatchBatch() {
         List<PendingEmail> messages = jdbc.query("""
-                SELECT e.id,e.template,e.order_id,e.reason,u.email,u.display_name,COALESCE(e.amount,o.total_amount) AS amount
+                SELECT e.id,e.template,e.order_id,e.reason,u.email,u.display_name,
+                       o.order_id AS resolved_order_id,u.user_id AS resolved_user_id,
+                       COALESCE(e.amount,o.total_amount) AS amount,e.attempts
                 FROM notification_service.email_message e
                 LEFT JOIN notification_service.order_ref o ON o.order_id=e.order_id
                 LEFT JOIN notification_service.user_contact u ON u.user_id=o.user_id
@@ -59,25 +67,108 @@ public class EmailDispatcher {
                 LIMIT ? FOR UPDATE OF e SKIP LOCKED
                 """, (rs, rowNum) -> new PendingEmail(rs.getObject("id", UUID.class), rs.getString("template"),
                         rs.getObject("order_id", UUID.class), rs.getString("reason"), rs.getString("email"),
-                        rs.getString("display_name"), rs.getBigDecimal("amount")), batchSize);
+                        rs.getString("display_name"), rs.getBigDecimal("amount"),
+                        rs.getObject("resolved_order_id", UUID.class), rs.getObject("resolved_user_id", UUID.class),
+                        rs.getInt("attempts")), properties.dispatch().batchSize());
 
         for (PendingEmail message : messages) {
-            if (message.email() == null || message.totalAmount() == null) {
-                // Keep pending while registration/order references arrive; E5 adds capped retry policy.
-                jdbc.update("UPDATE notification_service.email_message SET attempts=attempts+1, "
-                                + "next_attempt_at=now()+interval '10 seconds' WHERE id=? AND status='PENDING'",
-                        message.id());
+            if (message.resolvedOrderId() == null || message.resolvedUserId() == null || message.email() == null) {
+                retryMissingRecipient(message);
                 continue;
             }
             try {
-                send(message);
+                sendTraced(message);
                 jdbc.update("UPDATE notification_service.email_message SET status='SENT',sent_at=now(), "
                                 + "attempts=attempts+1,last_error=NULL WHERE id=? AND status='PENDING'", message.id());
-            } catch (MailException | jakarta.mail.MessagingException failure) {
-                jdbc.update("UPDATE notification_service.email_message SET status='FAILED',attempts=attempts+1, "
-                                + "last_error=? WHERE id=? AND status='PENDING'",
-                        failure.getClass().getSimpleName(), message.id());
+                metrics.result(message.template(), "sent");
+            } catch (Exception failure) {
+                retryOrFail(message, failure);
             }
+        }
+    }
+
+    private void retryMissingRecipient(PendingEmail message) {
+        int attempt = message.attempts() + 1;
+        String reason = message.resolvedOrderId() == null ? "unknown_order" : "unknown_user";
+        if (attempt >= properties.dispatch().missingRecipientMaxAttempts()) {
+            jdbc.update("UPDATE notification_service.email_message SET status='SKIPPED',attempts=?, "
+                            + "skip_reason=?,last_error=NULL WHERE id=? AND status='PENDING'",
+                    attempt, reason, message.id());
+            metrics.result(message.template(), "skipped");
+            return;
+        }
+        long delaySeconds = retryDelay(attempt).toSeconds();
+        jdbc.update("UPDATE notification_service.email_message SET attempts=?, "
+                        + "next_attempt_at=now()+(? * interval '1 second') WHERE id=? AND status='PENDING'",
+                attempt, delaySeconds, message.id());
+        metrics.result(message.template(), "retry");
+    }
+
+    private void retryOrFail(PendingEmail message, Exception failure) {
+        int attempt = message.attempts() + 1;
+        boolean permanent = isPermanent(failure);
+        if (permanent || attempt >= properties.dispatch().retryDelays().size()) {
+            jdbc.update("UPDATE notification_service.email_message SET status='FAILED',attempts=?,last_error=? "
+                            + "WHERE id=? AND status='PENDING'",
+                    attempt, failure.getClass().getSimpleName(), message.id());
+            metrics.result(message.template(), "failed");
+            return;
+        }
+        long delaySeconds = retryDelay(attempt).toSeconds();
+        jdbc.update("UPDATE notification_service.email_message SET attempts=?,last_error=?, "
+                        + "next_attempt_at=now()+(? * interval '1 second') WHERE id=? AND status='PENDING'",
+                attempt, failure.getClass().getSimpleName(), delaySeconds, message.id());
+        metrics.result(message.template(), "retry");
+    }
+
+    private java.time.Duration retryDelay(int attempt) {
+        List<java.time.Duration> delays = properties.dispatch().retryDelays();
+        return delays.get(Math.min(Math.max(attempt - 1, 0), delays.size() - 1));
+    }
+
+    static boolean isPermanent(Throwable failure) {
+        java.util.ArrayDeque<Throwable> pending = new java.util.ArrayDeque<>();
+        pending.add(failure);
+        while (!pending.isEmpty()) {
+            Throwable current = pending.removeFirst();
+            String name = current.getClass().getSimpleName();
+            if (name.equals("MailAuthenticationException") || name.equals("MailParseException")
+                    || name.equals("MailPreparationException") || name.equals("SMTPAddressFailedException")) {
+                return true;
+            }
+            if (name.equals("SMTPSendFailedException")) {
+                try {
+                    Object code = current.getClass().getMethod("getReturnCode").invoke(current);
+                    if (code instanceof Number number && number.intValue() >= 500) return true;
+                } catch (ReflectiveOperationException ignored) {
+                    // Unknown SMTP response is treated as transient.
+                }
+            }
+            if (current.getCause() != null) pending.addLast(current.getCause());
+            if (current instanceof jakarta.mail.MessagingException messaging
+                    && messaging.getNextException() != null) pending.addLast(messaging.getNextException());
+            if (current instanceof org.springframework.mail.MailSendException mailFailure) {
+                mailFailure.getFailedMessages().values().forEach(pending::addLast);
+            }
+        }
+        return false;
+    }
+
+    private void sendTraced(PendingEmail message) throws jakarta.mail.MessagingException {
+        Span span = telemetry.getTracer("notification-service")
+                .spanBuilder("notification.email.send")
+                .startSpan();
+        long started = System.nanoTime();
+        try (Scope ignored = span.makeCurrent()) {
+            span.setAttribute("template", message.template());
+            send(message);
+        } catch (jakarta.mail.MessagingException | RuntimeException failure) {
+            span.recordException(failure);
+            span.setStatus(StatusCode.ERROR);
+            throw failure;
+        } finally {
+            metrics.sendDuration(message.template(), System.nanoTime() - started);
+            span.end();
         }
     }
 
@@ -94,7 +185,7 @@ public class EmailDispatcher {
 
         MimeMessage mail = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(mail, false, StandardCharsets.UTF_8.name());
-        helper.setFrom(from);
+        helper.setFrom(properties.mail().from());
         helper.setTo(message.email());
         helper.setSubject(subject);
         helper.setText(body, false);
@@ -117,5 +208,6 @@ public class EmailDispatcher {
     }
 
     private record PendingEmail(UUID id, String template, UUID orderId, String reason,
-            String email, String displayName, java.math.BigDecimal totalAmount) { }
+            String email, String displayName, java.math.BigDecimal totalAmount,
+            UUID resolvedOrderId, UUID resolvedUserId, int attempts) { }
 }

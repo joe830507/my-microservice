@@ -4,7 +4,7 @@
 > 分支：實作時開 `feature/notification-phase-e`（從階段 D 合併後的 `main` 切出；階段 D 尚未合併時，從 `feature/search-phase-d` 切出並做 stacked PR）
 > 對應：[middleware-roadmap.md](middleware-roadmap.md)「階段 E」、[event-contracts.md](../../architecture/event-contracts.md)
 > 前置：階段 C 完成（`user.events`、`order.events`、`payment.events` 已經在發送）；階段 D 完成（本階段沿用其文件與驗收規範）
-> 状態：E1–E3 完成；E4 實作完成、Mailpit SMTP 整合驗收待排除本機 Testcontainers 連線問題；E5–E7 尚未開始
+> Status: E1-E3 complete; E4 implemented with Mailpit SMTP validation pending the local Testcontainers port-mapping issue; E5 implemented; E6-E7 not started.
 
 這份文件是給實作者（Codex 或任何人）照著做的**唯一依據**。分成兩半：前半說明「做什麼、為什麼這樣設計」，後半（[實作規範](#實作規範)）說明「怎麼做、哪些事不能做」。**開始實作前兩半都要讀完。** 遇到文件沒寫到、或發現文件有錯的地方，不要自己默默決定，先照[計畫變更](#計畫變更紀錄)的規則處理。
 
@@ -167,7 +167,7 @@ inventory-service 同時消費 `order.events`：**必須在 order-service 開始
 | E2 | **收件人資料**：消費 `user.events` 的 `UserRegistered`，upsert `user_contact`；`processed_event` 去重；格式錯誤進 DLT | **完成**：真實 Kafka/PostgreSQL 整合測試 3 項通過；重複 eventId 保留單筆；同 userId 新事件更新收件人；缺 email 的事件進 `user.events.DLT` |
 | E3 | **訂單事件契約**：inventory 記錄並忽略 `OrderCreated`/`OrderShipped`；order-service 以 transactional outbox 發送新訂單與出貨事件；更新事件契約 | **完成**：inventory 4 項 order event 單元整合測試與 2 項 Kafka/DLT 整合測試通過；order 137 項、inventory 95 項、common 52 項全部通過 |
 | E4 | **發件匣與寄信**：消費 `OrderCreated`（建 `order_ref`）、`OrderPaid`、`OrderShipped`、`OrderCancelled`、`PaymentFailed`（寫 `email_message`）；範本；派送器與 SMTP | 實作完成；Mailpit HTTP API 可用，但本機 Testcontainers SMTP 端到端測試通道連線逾時，待排除環境問題 |
-| E5 | **失敗處理與可觀測**：退避重試、`SKIPPED`／`FAILED`、指標、儀表板、告警；文件同步（`microservice-architecture.md`、`event-contracts.md`、`known-issues.md`、`docs/README.md`、roadmap） | 見 [E5](#e5-失敗處理與可觀測) |
+| E5 | Failure handling and observability: bounded retry, SKIPPED/FAILED, metrics, dashboard, alerts, and documentation sync | Implemented; E5 resilience tests pass; successful SMTP delivery validation remains blocked by the E4 local Testcontainers port issue |
 | E6 | **kind 部署驗收與 E2E**：依[部署順序](#部署順序)部署；走完整購物流程在 Mailpit 收到各種信；停 SMTP、停 notification、停 order 的恢復；完整 `mvnw.cmd -o clean test` | 見 [E6](#e6-部署驗收) |
 | E7 | **真實信箱驗證（暫緩，需使用者配合）**：雛型穩定後，把信寄到使用者提供的真實信箱，確認中文主旨與內文、寄件地址、`Message-ID` 在真實郵件客戶端的呈現 | 見 [E7](#e7-真實信箱驗證暫緩需使用者配合)；**不是階段 E 結案的條件** |
 
@@ -199,7 +199,7 @@ inventory-service 同時消費 `order.events`：**必須在 order-service 開始
 - 解析不到 `order_ref` 或 `user_contact`：同退避表，但最多 5 次，之後 `SKIPPED`，`skip_reason` 為 `unknown_order` 或 `unknown_user`
 - 派送器本身不可因單一信件失敗而中斷整批；一封信的例外不影響同批其他信
 - 指標與告警見[可觀測性](#可觀測性)
-- 測試：SMTP 關閉（停容器或錯誤埠）時信件保持 `PENDING`、`attempts` 增加、`next_attempt_at` 往後；SMTP 恢復後自動寄出且只寄一次；永久失敗進 `FAILED`；找不到收件人 5 次後 `SKIPPED`
+- Validation: retry timestamp and attempt increment, eighth transient failure to `FAILED`, SMTP 550 permanent versus 451 transient classification, and missing order/contact to `SKIPPED` after five attempts pass. SMTP recovery-to-SENT and exactly-once delivery remain pending resolution of the E4 local Mailpit/Testcontainers SMTP mapping issue.
 
 ### E6 部署驗收
 
@@ -393,3 +393,5 @@ inventory-service 同時消費 `order.events`：**必須在 order-service 開始
 
 - 2026-11-12｜E3｜為避免在查商品、保留庫存的遠端呼叫期間持有訂單資料庫交易，新增 `OrderCreationPersistence` 作為小型 transactional boundary；它只在同一交易中保存新訂單與 `OrderCreated` outbox。保留原本庫存失敗補償、冪等重送外層流程。
 - 2026-11-12｜E4｜完成事件消費、郵件發件匣、五種範本與排程派送；Mailpit HTTP 可用，本機 Testcontainers 經映射 SMTP 端口讀取回應逾時，端到端驗收待處理。
+
+- 2026-11-12 | E5 | Added bounded SMTP retry, immediate permanent-failure handling, SKIPPED after five missing-reference attempts, Micrometer metrics, Grafana panels and alerts, and synchronized architecture, event, SEC-15, README, and roadmap documentation.

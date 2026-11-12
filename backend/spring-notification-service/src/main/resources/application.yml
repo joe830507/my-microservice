@@ -35,9 +35,9 @@ spring:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
     properties:
-      mail.smtp.connectiontimeout: 3000
-      mail.smtp.timeout: 5000
-      mail.smtp.writetimeout: 5000
+      mail.smtp.connectiontimeout: ${notification.dispatch.smtp-connect-timeout-ms:3000}
+      mail.smtp.timeout: ${notification.dispatch.smtp-read-timeout-ms:5000}
+      mail.smtp.writetimeout: ${notification.dispatch.smtp-write-timeout-ms:5000}
 
 notification:
   mail:
@@ -45,6 +45,11 @@ notification:
   dispatch:
     interval: ${NOTIFICATION_DISPATCH_INTERVAL:5s}
     batch-size: ${NOTIFICATION_DISPATCH_BATCH_SIZE:10}
+    retry-delays: [10s, 30s, 1m, 2m, 5m, 10m, 30m, 1h]
+    missing-recipient-max-attempts: 5
+    smtp-connect-timeout-ms: 3000
+    smtp-read-timeout-ms: 5000
+    smtp-write-timeout-ms: 5000
 
 app:
   events:

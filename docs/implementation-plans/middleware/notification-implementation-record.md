@@ -1,7 +1,7 @@
 # Notification 實作紀錄
 
 > 更新日期：2026-11-12
-> 狀態：E1–E3 完成；E4 實作完成、SMTP 整合驗收待排除本機 Testcontainers 連線問題；E5–E7 尚未開始。
+> Status: E1-E3 complete; E4 implemented with SMTP integration validation pending the local Testcontainers port issue; E5 implemented; E6-E7 not started.
 > 計畫：[notification-implementation-plan.md](notification-implementation-plan.md)
 
 ## E1：基礎設施與服務骨架
@@ -100,3 +100,19 @@ Mailpit 在 `readOnlyRootFilesystem` 下需要可寫暫存目錄，kind manifest
 
 - Resolve local Testcontainers SMTP reachability and rerun delivery assertions for all templates; add a concurrent two-dispatcher `SKIP LOCKED` test.
 - SMTP retry backoff, maximum attempts, missing-recipient transition to SKIPPED, metrics, and alerts are E5. SMTP and database commits are not atomic; a process failure after SMTP accepts a message and before the SENT update can cause a retry. Stable `Message-ID` helps identify duplicates.
+
+
+## E5: Failure handling and observability
+
+### Implementation
+
+- Added configurable retry delays of 10s, 30s, 1m, 2m, 5m, 10m, 30m, and 1h. SMTP failures increment attempts and return to `PENDING`; the eighth failure becomes `FAILED`. Permanent authentication, message preparation/parsing, address rejection, and 5xx SMTP send failures become `FAILED` immediately. Each email is handled independently so a failure does not stop the rest of the batch.
+- Missing order/contact references retry on the same schedule and become `SKIPPED` after five attempts, with `skip_reason` set to `unknown_order` or `unknown_user`.
+- Added Micrometer counters (`notification.emails`, tagged by template/result), SMTP duration timer, pending count and oldest-pending gauges. Added Grafana dashboard panels and warning alerts for permanent email failures and pending queue age over 10 minutes.
+- Updated the plan, middleware roadmap, architecture overview, event contract, docs index, and SEC-15 notes.
+
+### Validation
+
+- Added integration coverage for missing order, missing contact, retry progression, and terminal failure. Test outcomes are recorded in `evidence/phase-e/e5-notification-resilience.txt`.
+- SMTP success remains unverified because the local Testcontainers mapped SMTP endpoint accepts TCP but does not provide the SMTP greeting; this is the existing E4 environment issue.
+- Dashboard generator compiles and regenerates the dashboard and alert rules.

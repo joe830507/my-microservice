@@ -10,7 +10,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -30,7 +29,12 @@ import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.beans.factory.ObjectProvider;
+import io.micrometer.core.instrument.MeterRegistry;
 import com.mymicroservice.notification.mail.EmailDispatcher;
+import com.mymicroservice.notification.mail.EmailMetrics;
+import com.mymicroservice.notification.config.NotificationProperties;
+import io.opentelemetry.api.OpenTelemetry;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
@@ -79,7 +83,12 @@ class NotificationEmailIntegrationTests {
     @Autowired KafkaListenerEndpointRegistry listeners;
     @Autowired ObjectMapper mapper;
     @Autowired JavaMailSenderImpl mailSender;
+    @Autowired EmailDispatcher dispatcher;
+    @Autowired MeterRegistry meters;
     @Autowired TransactionTemplate transactions;
+    @Autowired NotificationProperties notificationProperties;
+    @Autowired EmailMetrics emailMetrics;
+    @Autowired ObjectProvider<OpenTelemetry> telemetry;
     private final HttpClient http = HttpClient.newHttpClient();
 
     @BeforeAll
@@ -99,6 +108,8 @@ class NotificationEmailIntegrationTests {
         jdbc.execute("TRUNCATE notification_service.processed_event, notification_service.user_contact, "
                 + "notification_service.order_ref, notification_service.email_message");
         request("DELETE", "/api/v1/messages");
+        mailSender.setHost(MAILPIT.getHost());
+        mailSender.setPort(MAILPIT.getMappedPort(1025));
         listeners.start();
     }
 
@@ -174,9 +185,9 @@ class NotificationEmailIntegrationTests {
                 UUID.randomUUID(), eventId, "order-paid", orderId);
 
         EmailDispatcher first = new EmailDispatcher(jdbc, transactions, mailSender,
-                "no-reply@my-microservice.local", 10);
+                notificationProperties, emailMetrics, telemetry);
         EmailDispatcher second = new EmailDispatcher(jdbc, transactions, mailSender,
-                "no-reply@my-microservice.local", 10);
+                notificationProperties, emailMetrics, telemetry);
         CompletableFuture.allOf(
                 CompletableFuture.runAsync(first::dispatchDueEmails),
                 CompletableFuture.runAsync(second::dispatchDueEmails)).join();
@@ -185,6 +196,84 @@ class NotificationEmailIntegrationTests {
                 () -> "Mailpit response=" + mailMessages());
         assertThat(jdbc.queryForObject("SELECT status FROM notification_service.email_message WHERE event_id=?",
                 String.class, eventId)).isEqualTo("SENT");
+    }
+
+    @Test
+    void missingOrderReferenceIsSkippedAfterFiveAttempts() {
+        UUID orderId = UUID.randomUUID();
+        UUID eventId = UUID.randomUUID();
+        jdbc.update("INSERT INTO notification_service.email_message(id,event_id,template,order_id) VALUES (?,?,?,?)",
+                UUID.randomUUID(), eventId, "order-paid", orderId);
+
+        for (int i = 0; i < 5; i++) dispatchNow(eventId);
+
+        assertThat(jdbc.queryForObject("SELECT status FROM notification_service.email_message WHERE event_id=?",
+                String.class, eventId)).isEqualTo("SKIPPED");
+        assertThat(jdbc.queryForObject("SELECT attempts FROM notification_service.email_message WHERE event_id=?",
+                Integer.class, eventId)).isEqualTo(5);
+        assertThat(jdbc.queryForObject("SELECT skip_reason FROM notification_service.email_message WHERE event_id=?",
+                String.class, eventId)).isEqualTo("unknown_order");
+        assertThat(meters.counter("notification.emails", "template", "order-paid", "result", "skipped").count())
+                .isGreaterThanOrEqualTo(1);
+    }
+
+    @Test
+    void missingUserContactIsSkippedAfterFiveAttempts() {
+        UUID userId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        UUID eventId = UUID.randomUUID();
+        jdbc.update("INSERT INTO notification_service.order_ref(order_id,user_id,total_amount) VALUES (?,?,?)",
+                orderId, userId, new java.math.BigDecimal("8.25"));
+        jdbc.update("INSERT INTO notification_service.email_message(id,event_id,template,order_id) VALUES (?,?,?,?)",
+                UUID.randomUUID(), eventId, "order-paid", orderId);
+
+        for (int i = 0; i < 5; i++) dispatchNow(eventId);
+
+        assertThat(jdbc.queryForObject("SELECT status FROM notification_service.email_message WHERE event_id=?",
+                String.class, eventId)).isEqualTo("SKIPPED");
+        assertThat(jdbc.queryForObject("SELECT skip_reason FROM notification_service.email_message WHERE event_id=?",
+                String.class, eventId)).isEqualTo("unknown_user");
+    }
+
+    @Test
+    void transientSmtpFailureRetriesThenMarksFailedOnEighthAttempt() {
+        UUID userId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        UUID eventId = UUID.randomUUID();
+        jdbc.update("INSERT INTO notification_service.user_contact(user_id,email,display_name) VALUES (?,?,?)",
+                userId, "smtp-failure@example.com", "SMTP Failure");
+        jdbc.update("INSERT INTO notification_service.order_ref(order_id,user_id,total_amount) VALUES (?,?,?)",
+                orderId, userId, new java.math.BigDecimal("8.25"));
+        jdbc.update("INSERT INTO notification_service.email_message(id,event_id,template,order_id) VALUES (?,?,?,?)",
+                UUID.randomUUID(), eventId, "order-paid", orderId);
+        mailSender.setHost("127.0.0.1");
+        mailSender.setPort(1);
+
+        dispatchNow(eventId);
+        assertThat(jdbc.queryForObject("SELECT status FROM notification_service.email_message WHERE event_id=?",
+                String.class, eventId)).isEqualTo("PENDING");
+        assertThat(jdbc.queryForObject("SELECT attempts FROM notification_service.email_message WHERE event_id=?",
+                Integer.class, eventId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT next_attempt_at > now() FROM notification_service.email_message WHERE event_id=?",
+                Boolean.class, eventId)).isTrue();
+        for (int i = 1; i < 8; i++) dispatchNow(eventId);
+
+        assertThat(jdbc.queryForObject("SELECT status FROM notification_service.email_message WHERE event_id=?",
+                String.class, eventId)).isEqualTo("FAILED");
+        assertThat(jdbc.queryForObject("SELECT attempts FROM notification_service.email_message WHERE event_id=?",
+                Integer.class, eventId)).isEqualTo(8);
+        assertThat(jdbc.queryForObject("SELECT last_error FROM notification_service.email_message WHERE event_id=?",
+                String.class, eventId)).isNotBlank();
+        assertThat(meters.counter("notification.emails", "template", "order-paid", "result", "retry").count())
+                .isGreaterThanOrEqualTo(1);
+        assertThat(meters.counter("notification.emails", "template", "order-paid", "result", "failed").count())
+                .isGreaterThanOrEqualTo(1);
+    }
+
+    private void dispatchNow(UUID eventId) {
+        jdbc.update("UPDATE notification_service.email_message SET next_attempt_at=now() WHERE event_id=? "
+                + "AND status='PENDING'", eventId);
+        dispatcher.dispatchDueEmails();
     }
 
     private void publish(String topic, UUID key, String value) throws Exception {
