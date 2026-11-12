@@ -118,6 +118,8 @@ return PageRequest.of(page, size, Sort.by(direction(), column).and(Sort.by(Sort.
 
 ## 6.（中）Outbox 的索引與查詢條件不符
 
+> 2026-11-13 修正註記：六個服務新增 migration，刪除 occurred_at 舊索引，改用 (topic, aggregate_id, sequence_id) 部分索引；保留 pending sequence 索引。PostgreSQL 18.6／五萬事件的 EXPLAIN ANALYZE 確認使用新索引，約 3.001ms → 0.462ms。查詢計畫與可重現 SQL 見 [evidence](evidence/codebase-optimization-explain.txt) 及 [SQL](evidence/codebase-optimization-explain.sql)。
+
 位置：各服務的 outbox migration（例如 `backend/spring-order-service/src/main/resources/db/migration/` 中建立 `idx_outbox_event_pending`、`idx_outbox_event_aggregate_pending` 的檔案）
 
 問題：relay 改成依 `sequence_id` 排序後：
