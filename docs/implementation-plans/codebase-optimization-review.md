@@ -249,6 +249,8 @@ CREATE INDEX idx_product_category_status_created ON product_service.product (cat
 
 ## 15.（低）`completeOrder` 沒有 `@Transactional`、`markCompletedIfShipped` 沒有 clear
 
+> 2026-11-13 修正註記：completeOrder 加 @Transactional；markCompletedIfShipped 加 clearAutomatically/flushAutomatically，確保同一交易回應讀到新狀態。由既有完成訂單的成功、冪等、404／409 整合測試覆蓋。
+
 位置：`OrderServiceImpl.java:247`、`OrderRepository.markCompletedIfShipped`
 
 問題：其他狀態轉換（`shipOrder`、`cancelOrder`…）都有 `@Transactional`，而且 UPDATE 都有 `clearAutomatically = true, flushAutomatically = true`，只有完成訂單兩者都沒有。目前 `open-in-view: false`，三次呼叫各自是獨立的 persistence context，所以結果是正確的；但如果之後有人在 `completeOrder` 加上 `@Transactional`（例如要寫 `OrderCompleted` 事件），第二次 `findOrderWithItems` 會拿到 persistence context 裡的舊實體，回傳的狀態還是 SHIPPED。

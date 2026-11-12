@@ -240,6 +240,7 @@ public class OrderServiceImpl implements OrderService {
 
     // 只有 SHIPPED 可以完成；已經完成的回 200（冪等）；其他狀態回 409
     @Override
+    @Transactional
     public OrderResDto completeOrder(UUID orderId) {
         boolean completed = orderRepository.markCompletedIfShipped(orderId, Instant.now(),
                 auditorAware.getCurrentAuditor().orElseThrow()) == 1;

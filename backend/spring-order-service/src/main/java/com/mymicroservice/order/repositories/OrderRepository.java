@@ -68,7 +68,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
 
     // 完成：只有 SHIPPED 才會改，回傳 1 = 成功、0 = 狀態不對
     @Transactional
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE Order o
             SET o.status = com.mymicroservice.order.enums.OrderStatus.COMPLETED, o.completedAt = :now,
