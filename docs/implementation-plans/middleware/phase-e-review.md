@@ -112,6 +112,24 @@
 5. **程式風格（P3）**：`EmailDispatcher`、`EmailMessageQueue` 仍有 `java.time.Duration`、`java.util.ArrayDeque`、`java.math.BigDecimal` 等全名；`isPermanent` 以類別簡稱字串比對。
 6. **驗收清單尚有三項未勾**：既有測試未被放寬、文件同步（`microservice-architecture.md` 完全沒有 `OrderCreated`／`OrderShipped` 的描述）、紀錄最後的「最不確定的地方」。階段 E 在這三項完成前不應宣告結案。
 
+## 處理結果（使用者要求由審查者直接修正，2026-11-12）
+
+| 項目 | 處理 | 位置 |
+| ---- | ---- | ---- |
+| D-1 搜尋延遲面板指標名稱 | ✅ 改 `_milliseconds_`、單位 `ms`；Prometheus 實測平均約 65 毫秒。**p95 不加**：`search_es_duration_milliseconds_bucket` 實際只有 `+Inf` 一個桶，沒有可用的百分位數（先前審查誤以為有 bucket），紀錄已更正 | `feature/search-phase-d`（`e468f95`），已合併進 E 分支 |
+| 第 0 項 offset | ✅ Codex 已修（`30d76db`） | |
+| 第 1 項 `Message-ID` | ✅ 撤回；Codex 已補測試 | |
+| 第 2 項 E6 / reactor | ✅ Codex 已完成，我重跑 inventory、order、notification 全綠 | |
+| 第 3 項 紀錄英文 | ✅ E4、E5、E6 小標改繁體中文；新增「審查後修正」「已知限制」「最不確定的地方」三節；`microservice-architecture.md`、`event-contracts.md` 的英文段落一併改成繁體中文 | |
+| 第 4 項 寄信耗時面板 | ✅ 改 `_milliseconds_` 與 `ms`，面板與告警標題改繁體中文；已套用到 kind。**注意**：套用時 Grafana 所在 Pod 重啟，指標歷史清空，寄信結果與耗時兩個面板要等有信件寄出才會出現資料；待寄筆數與最舊待寄秒數已確認有資料 | |
+| 第 5 項 範本替換順序 | ✅ Codex 已修；我再把範本渲染抽成 `EmailTemplateRenderer` | |
+| 第 6 項 程式風格 | ✅ 移除全名、`isPermanent` 改 `instanceof`。**例外**：SMTP 實作類別（`org.eclipse.angus.mail.smtp`）只在執行期 classpath，編譯期看不到，仍以類別名稱判斷並在程式註解說明，沒有為此新增依賴 | |
+| 第 7 項 鎖持有時間 | ✅ 寫入紀錄的「已知限制」與「最不確定的地方」 | |
+| 計畫文件被寫入結果 | ✅ 計畫還原成原文，只保留「計畫變更紀錄」（改為繁體中文並補上 E4／E5／E6 條目）；驗收清單維持原文與未勾選，完成狀況以實作紀錄為準 | |
+| SMTP 測試手法過重 | ⚠️ 未改，寫進紀錄的已知限制：需本機有 `maven:3.9-eclipse-temurin-21`、以讀寫掛載 `backend/`。使用者決定的選項 1 本來就走這條路，要簡化需另做預先建好的寄信映像 | |
+
+驗證：`mvn -o -pl spring-notification-service -am test` BUILD SUCCESS，notification 10 項全過（`NotificationEmailIntegrationTests` 5 項，因原始碼變更重建 jar 約 2 分鐘）。
+
 ## 修完後
 
 - 重跑 E 相關測試與完整 reactor，紀錄寫入日期、指令與結果。

@@ -41,4 +41,4 @@ UserRegistered 含 email，不可將 payload 或地址複製到 log 或 trace at
 
 ## Notification consumer behavior
 
-`notification-service` consumes `UserRegistered` to maintain a local contact, `OrderCreated` to associate the order with its user and queue the order-created email, `OrderPaid`, `OrderShipped`, and `OrderCancelled` to queue their matching emails, and `PaymentFailed` to queue the payment-failed email. `PaymentSucceeded` is a known event and is intentionally ignored; the paid email is driven by `OrderPaid`. Inbox deduplication and queue insertion share a database transaction. SMTP delivery is asynchronous and uses bounded retry; missing order/contact data is eventually marked `SKIPPED`.
+`notification-service` 消費 `UserRegistered` 維護本地收件人資料；消費 `OrderCreated` 建立訂單與使用者的對應並排入「訂單成立」信；消費 `OrderPaid`、`OrderShipped`、`OrderCancelled` 排入對應的信；消費 `PaymentFailed` 排入「付款失敗」信。`PaymentSucceeded` 是已知但不需要的事件，明確忽略，付款成功信由 `OrderPaid` 觸發。事件去重與信件入列放在同一個資料庫交易。SMTP 寄送是非同步且有界重試；找不到訂單或收件人資料時，經重試後標記為 `SKIPPED`。新部署的服務從 earliest 開始消費，會處理 Kafka 保留期內的歷史事件。

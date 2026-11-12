@@ -4,7 +4,7 @@
 > 分支：實作時開 `feature/notification-phase-e`（從階段 D 合併後的 `main` 切出；階段 D 尚未合併時，從 `feature/search-phase-d` 切出並做 stacked PR）
 > 對應：[middleware-roadmap.md](middleware-roadmap.md)「階段 E」、[event-contracts.md](../../architecture/event-contracts.md)
 > 前置：階段 C 完成（`user.events`、`order.events`、`payment.events` 已經在發送）；階段 D 完成（本階段沿用其文件與驗收規範）
-> 狀態：E1–E6 完成；Testcontainers SMTP 已改在共享 Docker network 內驗證，Tempo 跨服務 trace 已有證據；E7（真實信箱驗證）暫緩。
+> 狀態：E1–E6 已實作並驗收；E7（真實信箱驗證）暫緩，待使用者配合；結果記錄在 [notification-implementation-record.md](notification-implementation-record.md)，審查見 [phase-e-review.md](phase-e-review.md)
 
 這份文件是給實作者（Codex 或任何人）照著做的**唯一依據**。分成兩半：前半說明「做什麼、為什麼這樣設計」，後半（[實作規範](#實作規範)）說明「怎麼做、哪些事不能做」。**開始實作前兩半都要讀完。** 遇到文件沒寫到、或發現文件有錯的地方，不要自己默默決定，先照[計畫變更](#計畫變更紀錄)的規則處理。
 
@@ -164,11 +164,11 @@ inventory-service 同時消費 `order.events`：**必須在 order-service 開始
 | Step | 內容 | 驗收 |
 | ---- | ---- | ---- |
 | E1 | **infra 與服務骨架**：Mailpit（compose 與 kind）、`notification-db`、`spring-notification-service`模組、NetworkPolicy、SEC-15 | **完成**：kind 中 notification-service 2/2 Ready、Mailpit 1/1 Ready；Flyway V1/V2 通過；notification 可連 DB、Kafka:9092、Mailpit:1025；product-service 連這兩個埠皆由 NetworkPolicy 阻擋 |
-| E2 | **收件人資料**：消費 `user.events` 的 `UserRegistered`，upsert `user_contact`；`processed_event` 去重；格式錯誤進 DLT | **完成**：真實 Kafka/PostgreSQL 整合測試 3 項通過；重複 eventId 保留單筆；同 userId 新事件更新收件人；缺 email 的事件進 `user.events.DLT` |
-| E3 | **訂單事件契約**：inventory 記錄並忽略 `OrderCreated`/`OrderShipped`；order-service 以 transactional outbox 發送新訂單與出貨事件；更新事件契約 | **完成**：inventory 4 項 order event 單元整合測試與 2 項 Kafka/DLT 整合測試通過；order 137 項、inventory 95 項、common 52 項全部通過 |
-| E4 | **發件匣與寄信**：消費 `OrderCreated`（建 `order_ref`）、`OrderPaid`、`OrderShipped`、`OrderCancelled`、`PaymentFailed`（寫 `email_message`）；範本；派送器與 SMTP | **完成**：Mailpit 真實 SMTP 交付、五種範本、收件人、去重、併發派送及 Message-ID 原始 header 斷言通過 |
-| E5 | 失敗處理與可觀測性：有界重試、SKIPPED/FAILED、指標、儀表板、告警與文件同步 | **完成**：重試／SKIPPED／FAILED 整合測試通過；Mailpit 停機恢復後郵件送達；FAILED/backlog 告警實測 firing 與 resolved |
-| E6 | **kind 部署驗收與 E2E**：依[部署順序](#部署順序)部署；走完整購物流程在 Mailpit 收到各種信；停 SMTP、停 notification、停 order 的恢復；完整 `mvnw.cmd -o clean test` | **完成**：kind 部署與 E2E、故障恢復、NetworkPolicy、告警、Tempo trace 及完整 10 模組 Maven reactor 均通過；詳見 [E6](#e6-部署驗收) 與 evidence |
+| E2 | **收件人資料**：消費 `user.events` 的 `UserRegistered`，upsert `user_contact`；`processed_event` 去重；格式錯誤進 DLT | 真實 Kafka＋PostgreSQL 測試：同一事件送兩次只有一筆；重複 userId 以最新為準；缺欄位進 DLT |
+| E3 | **訂單事件契約**：inventory 先忽略 `OrderCreated`／`OrderShipped`；order-service 發 `OrderCreated`、`OrderShipped`（`shipOrder` 改交易）；更新 `event-contracts.md` | 見 [E3](#e3-訂單事件契約) |
+| E4 | **發件匣與寄信**：消費 `OrderCreated`（建 `order_ref`）、`OrderPaid`、`OrderShipped`、`OrderCancelled`、`PaymentFailed`（寫 `email_message`）；範本；派送器與 SMTP | 見 [E4](#e4-發件匣與寄信) |
+| E5 | **失敗處理與可觀測**：退避重試、`SKIPPED`／`FAILED`、指標、儀表板、告警；文件同步（`microservice-architecture.md`、`event-contracts.md`、`known-issues.md`、`docs/README.md`、roadmap） | 見 [E5](#e5-失敗處理與可觀測) |
+| E6 | **kind 部署驗收與 E2E**：依[部署順序](#部署順序)部署；走完整購物流程在 Mailpit 收到各種信；停 SMTP、停 notification、停 order 的恢復；完整 `mvnw.cmd -o clean test` | 見 [E6](#e6-部署驗收) |
 | E7 | **真實信箱驗證（暫緩，需使用者配合）**：雛型穩定後，把信寄到使用者提供的真實信箱，確認中文主旨與內文、寄件地址、`Message-ID` 在真實郵件客戶端的呈現 | 見 [E7](#e7-真實信箱驗證暫緩需使用者配合)；**不是階段 E 結案的條件** |
 
 ### E3 訂單事件契約
@@ -199,7 +199,7 @@ inventory-service 同時消費 `order.events`：**必須在 order-service 開始
 - 解析不到 `order_ref` 或 `user_contact`：同退避表，但最多 5 次，之後 `SKIPPED`，`skip_reason` 為 `unknown_order` 或 `unknown_user`
 - 派送器本身不可因單一信件失敗而中斷整批；一封信的例外不影響同批其他信
 - 指標與告警見[可觀測性](#可觀測性)
-- 驗證通過：重試時間與次數遞增、第八次暫時錯誤轉 `FAILED`、SMTP 550 永久錯誤與 451 暫時錯誤分類、缺少 order/contact 五次後轉 `SKIPPED`。Mailpit 停機恢復後寄達且逐筆只寄一次；FAILED/backlog 告警各觸發一次並 resolved。
+- 測試：SMTP 關閉（停容器或錯誤埠）時信件保持 `PENDING`、`attempts` 增加、`next_attempt_at` 往後；SMTP 恢復後自動寄出且只寄一次；永久失敗進 `FAILED`；找不到收件人 5 次後 `SKIPPED`
 
 ### E6 部署驗收
 
@@ -207,17 +207,17 @@ inventory-service 同時消費 `order.events`：**必須在 order-service 開始
 
 | 項目 | 驗收 |
 | ---- | ---- |
-| NetworkPolicy | ✅ 未授權 Pod 連不到 Mailpit:1025 與 notification-db；notification 可連 Mailpit 與自己的 DB |
-| 部署順序 | ✅ 依 inventory → order → notification rollout；每階段 rollout 前後查詢 Alertmanager，均無 active DLT/dead-letter 告警，見證據檔 |
-| 完整流程 | ✅ 註冊 → 下單 → 付款成功 → 出貨 → 另一筆取消；Mailpit 收到對應通知 |
-| 付款失敗 | ✅ 付款回呼指定 `FAILED`，Mailpit 收到付款失敗信 |
-| 停 SMTP | ✅ Mailpit 縮到 0 後郵件為 `PENDING`；恢復後轉 `SENT`，逐筆以 Message-ID 核對未重複 |
-| 停 notification | ✅ 縮到 0 後 Kafka 積壓；恢復後消化 backlog，三封通知各寄一次 |
-| 停 order | ✅ 停機期間不影響已入列通知，恢復後新流程成功 |
-| 告警 | ✅ `FAILED` 與信件 backlog 告警各 firing 一次，合成資料清除後 resolved |
-| 完整回歸 | ✅ `mvnw.cmd -o clean test`：10 模組全綠，13 分 34 秒，見 evidence |
-| 前端確認 | ✅ vue-customer 購物與 vue-management 出貨由 Playwright E2E 自動化通過；未另外人工點擊 |
-| Trace | ✅ Tempo 同 trace 涵蓋 gateway → order → outbox → Kafka → notification 消費；排程寄信 span 為獨立 trace |
+| NetworkPolicy | 沒有授權的 Pod 連不到 Mailpit:1025 與 notification-db；notification 可連 Kafka、Mailpit、自己的 DB |
+| 部署順序 | 依 inventory → order → notification；過程中 DLT 告警**沒有**響 |
+| 完整流程 | 註冊 → 下單 → 付款成功 → 出貨 → 取消（另一筆）；Mailpit 收到對應的各種信 |
+| 付款失敗 | 付款回呼指定 `FAILED`，收到「付款失敗」信 |
+| 停 SMTP | Mailpit 縮到 0 → 下單、付款 → 信件 `PENDING`；恢復後信件寄出且只有一封 |
+| 停 notification | 縮到 0 → 下單；恢復後補寄，且不重複 |
+| 停 order | 不影響 notification 已收到的信件；恢復後新事件照常 |
+| 告警 | `FAILED` 與信件積壓的告警實際 firing 一次（並嘗試記錄 resolved） |
+| 完整回歸 | `mvnw.cmd -o clean test` 全模組成功，附指令、耗時、模組數 |
+| 人工確認 | 前端不受影響（vue-customer 下單流程、vue-management 出貨）；沒有截圖就如實寫「人工操作、無截圖」 |
+| Trace | Tempo 中看到「下單 → outbox → Kafka → notification 消費」的 trace（派送器寄信的 span 有則更好，沒有也要如實寫） |
 
 ### E7 真實信箱驗證（暫緩，需使用者配合）
 
@@ -369,13 +369,13 @@ inventory-service 同時消費 `order.events`：**必須在 order-service 開始
 
 ## 驗收清單（階段 E 結案條件）
 
-- [x] E1 到 E6 各階段均有獨立實作紀錄與 commit
-- [x] 完整 `mvnw.cmd -o clean test` 全模組成功（指令、耗時、結果已記錄）
-- [x] 部署順序正確：inventory → order → notification；部署期間未觀察到 DLT 告警
-- [x] E6 部署驗收表各項均有 evidence
-- [x] E7（真實信箱驗證）列為暫緩、待使用者配合；repo 未記錄真實信箱位址
-- [x] 停 SMTP、停 notification 後郵件保留並恢復寄送，附逐筆核對證據
-- [x] 日誌、trace 與證據檔沒有真實 Email、客戶姓名或信件本文
+- [ ] E1 到 E6 各自單獨 commit，每個 commit 測試通過
+- [ ] 完整 `mvnw.cmd -o clean test` 全模組成功（附指令、耗時、結果）
+- [ ] 部署順序正確：inventory → order → notification，部署過程 DLT 告警沒有響
+- [ ] E6 部署驗收表的每一項都有證據檔，沒有證據的項目明確標「待驗證」並說明原因
+- [ ] E7（真實信箱驗證）不是結案條件，但紀錄要寫明「暫緩，待使用者配合」，且 repo 內沒有任何真實信箱位址
+- [ ] 停 SMTP、停 notification 後信件不遺失、不重複（附證據）
+- [ ] 日誌、trace、證據檔中沒有 Email、顧客名稱或信件內容
 - [ ] order-service、inventory-service、user-service 既有測試未被放寬
 - [ ] 文件：實作紀錄、`event-contracts.md`、`microservice-architecture.md`、`known-issues.md`（SEC-15）、`docs/README.md`、roadmap 都已同步，且全部是繁體中文
 - [ ] 實作紀錄最後有「最不確定、希望審查者重點看的地方」
@@ -389,9 +389,9 @@ inventory-service 同時消費 `order.events`：**必須在 order-service 開始
 - 影響範圍小、不改變[已定的決定](#已定的決定)與事件契約的（例如調整退避時間、批次大小、信件文案）：記錄後自行處理，審查時說明
 - 會改變決定、事件契約、`common`、需要新依賴或其他服務的新 migration 的：記錄後**停下來**，等使用者確認
 
-- 2026-11-12｜E1｜`EventsAutoConfiguration` 會排程執行 `OutboxRelay`/`OutboxMetrics`，通知服務也需要 `outbox_event`。V1 已套用到 kind，不修改既有 migration；新增 V2 建立相容表與索引。未變更 `common` 或事件契約。
-
-- 2026-11-12｜E3｜為避免在查商品、保留庫存的遠端呼叫期間持有訂單資料庫交易，新增 `OrderCreationPersistence` 作為小型 transactional boundary；它只在同一交易中保存新訂單與 `OrderCreated` outbox。保留原本庫存失敗補償、冪等重送外層流程。
-- 2026-11-12｜E4｜完成事件消費、郵件發件匣、五種範本與排程派送；Mailpit HTTP 可用，本機 Testcontainers 經映射 SMTP 端口讀取回應逾時，端到端驗收待處理。
-
-- 2026-11-12 | E5 | Added bounded SMTP retry, immediate permanent-failure handling, SKIPPED after five missing-reference attempts, Micrometer metrics, Grafana panels and alerts, and synchronized architecture, event, SEC-15, README, and roadmap documentation.
+- 2026-11-12｜E1｜`EventsAutoConfiguration` 會排程執行 `OutboxRelay`／`OutboxMetrics`，通知服務也需要 `outbox_event`。V1 已套用到 kind，不修改既有 migration；新增 V2 建立相容表與索引。未變更 `common` 或事件契約。
+- 2026-11-12｜E3｜為避免在查商品、保留庫存的遠端呼叫期間持有訂單資料庫交易，新增 `OrderCreationPersistence` 作為小型 transactional boundary；它只在同一交易中保存新訂單與 `OrderCreated` outbox。保留原本庫存失敗補償與冪等重送的外層流程。
+- 2026-11-12｜E4｜本機 Testcontainers 經 Docker Desktop 映射埠連 Mailpit 的 SMTP 沒有回應（HTTP 與容器內部連線正常），寄信的整合測試無法通過。處理見下方 E6 一筆。
+- 2026-11-12｜E5｜新增有界的 SMTP 重試、永久錯誤立即 `FAILED`、缺少收件人資料五次後 `SKIPPED`、Micrometer 指標、Grafana 面板與告警，並同步架構、事件契約、SEC-15、README 與 roadmap 文件。
+- 2026-11-12｜E6｜依使用者決定（審查選項 1）：SMTP 整合測試不經過 host 映射埠，改在與 Mailpit 同一個 Testcontainers network 的容器內執行派送器；被測程式不變、斷言不放寬。已知代價：測試需本機有 `maven:3.9-eclipse-temurin-21` 映像並以讀寫掛載 `backend/`，維護成本高，已寫入實作紀錄的已知限制。
+- 2026-11-12｜E6｜審查發現正式設定缺少 `spring.kafka.consumer.auto-offset-reset: earliest`（計畫「部署順序」要求從 earliest 消費），已補上並移除測試中的覆寫。

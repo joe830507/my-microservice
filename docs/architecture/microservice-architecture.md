@@ -26,7 +26,7 @@
 | `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](../implementation-plans/backend/inventory-service-implementation-plan.md) |
 | `spring-order-service` | 訂單、商品快照、訂單狀態 | 已實作；步驟見 [order-service-implementation-plan.md](../implementation-plans/backend/order-service-implementation-plan.md) |
 | `spring-payment-service` | 付款（雛型階段用模擬金流） | 已實作；步驟見 [payment-service-implementation-plan.md](../implementation-plans/backend/payment-service-implementation-plan.md) |
-| `spring-notification-service` | Consumes user, order, and payment events and sends email through SMTP; no business HTTP API | E1-E5 implemented; E4 SMTP end-to-end validation remains blocked by local Testcontainers port mapping; see [notification plan](../implementation-plans/middleware/notification-implementation-plan.md) |
+| `spring-notification-service` | 消費使用者、訂單與付款事件，經 SMTP 寄出通知信；沒有業務 HTTP API | 已實作並在 kind 驗收（E1–E6）；真實信箱驗證（E7）暫緩；見[通知計畫](../implementation-plans/middleware/notification-implementation-plan.md)與[實作紀錄](../implementation-plans/middleware/notification-implementation-record.md) |
 
 ### 暫不拆分
 
@@ -34,7 +34,7 @@
 |---|---|
 | cart-service | 先放在前端或 order-service 用 Redis 存，邏輯變複雜再拆 |
 | search-service | 依中介軟體評估文件，ES 讀取先放在 product-service，由 MQ 同步 |
-| notification-service | E1-E5 implemented; SMTP end-to-end validation pending; E6-E7 not started |
+| notification-service | 已實作並在 kind 驗收（E1–E6）；E7 真實信箱驗證暫緩 |
 
 ---
 
@@ -211,9 +211,9 @@ Kafka 使用單節點 KRaft。業務資料與事件在同一個 PostgreSQL 交�
 | Topic | 事件 | 發送方 | 接收方 |
 |---|---|---|---|
 | `payment.events` | `PaymentSucceeded`、`PaymentFailed` | payment | order |
-| `order.events` | `OrderPaid`、`OrderCancelled` | order | inventory；之後 notification |
+| `order.events` | `OrderCreated`、`OrderPaid`、`OrderShipped`、`OrderCancelled` | order | inventory（確認／釋放預扣，忽略 `OrderCreated`、`OrderShipped`）、notification |
 | `product.events` | `ProductCreated`、`ProductUpdated`、`ProductStatusChanged` | product | 之後搜尋索引與快取失效 |
-| `user.events` | `UserRegistered` | user | 之後 notification |
+| `user.events` | `UserRegistered` | user | notification |
 
 庫存預扣逾時釋放排程保留，作為訂單服務長時間故障時的安全網。Kafka 目前只靠 NetworkPolicy 隔離，沒有 SASL/ACL；不可直接暴露到不受信任的網路。
 

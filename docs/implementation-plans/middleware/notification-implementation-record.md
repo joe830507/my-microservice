@@ -82,44 +82,46 @@ Mailpit 在 `readOnlyRootFilesystem` 下需要可寫暫存目錄，kind manifest
 
 ## E4：發件匣與郵件派送
 
-### Implementation
+### 實作
 
-- Added `OrderEventListener` and `PaymentEventListener`. `OrderCreated` atomically upserts `order_ref` and queues `order-created`; `OrderPaid`, `OrderShipped`, `OrderCancelled`, and `PaymentFailed` queue their matching templates. Known `PaymentSucceeded` is ignored. Business updates and `processed_event` use `ProcessedEventHandler` in the same transaction.
-- Added idempotent email queue insertion backed by the existing `(event_id, template)` unique constraint. Added Flyway V3 to persist cancellation reason and render `timeout` as the Traditional Chinese timeout label.
-- Added five UTF-8 plain text templates and scheduled dispatcher. Defaults are 5 seconds and 10 messages per batch. It claims eligible rows with `FOR UPDATE SKIP LOCKED`, resolves the contact, renders, sends SMTP, and updates status in one transaction. `Message-ID` is stable per email row. SMTP timeouts are 3 seconds to connect and 5 seconds for read/write. Missing contact/order references remain pending and are retried later.
-- Customer names have control/format characters removed and are flattened to one line; missing names use the generic customer label. Subjects are fixed and do not include user input. Failed rows record only exception type, not address, name, or message body.
+- 新增 `OrderEventListener`、`PaymentEventListener`。`OrderCreated` 在同一交易內 upsert `order_ref` 並排入 `order-created`；`OrderPaid`、`OrderShipped`、`OrderCancelled`、`PaymentFailed` 各自排入對應範本。已知但不需要的 `PaymentSucceeded` 明確忽略。業務寫入與 `processed_event` 由 `ProcessedEventHandler` 放在同一個交易。
+- 新增冪等的佇列寫入，依靠既有的 `(event_id, template)` 唯一約束。新增 Flyway V3 保存取消原因，`timeout` 渲染為「逾時未付款」。
+- 新增五個 UTF-8 純文字範本與排程派送器。預設每 5 秒一輪、每批 10 筆；以 `FOR UPDATE SKIP LOCKED` 領取到期資料，在同一交易內解析收件人、渲染、SMTP 寄出並更新狀態。`Message-ID` 對每筆信件固定。SMTP 連線逾時 3 秒、讀寫逾時 5 秒。找不到收件人或訂單參照時維持 `PENDING`，稍後重試。
+- 顧客名稱會移除控制與格式字元並壓成單行，沒有名稱時用通用稱呼；主旨固定、不含使用者輸入；失敗資料列只記錄例外類別，不記錄地址、名稱或內文。
+- 審查後（2026-11-12）：範本渲染抽出為 `EmailTemplateRenderer`，使用者可控的 `{{name}}` 最後才取代，避免名稱內的 `{{...}}` 被再展開（測試以名稱含 `{{amount}}` 驗證）；`EmailDispatcher.isPermanent` 的例外判斷改用 `instanceof`（SMTP 實作類別僅在執行期 classpath，仍以名稱判斷，原因寫在程式註解）。
 
-### Validation
+### 驗證
 
 - notification-service 與相依模組離線 Maven 編譯成功。
-- Kafka/PostgreSQL/Mailpit 整合測試驗證事件處理及六筆唯一郵件；重複的 `OrderPaid` eventId 只建立一筆，`PaymentSucceeded` 不會建立郵件。
-- Mailpit 實收測試在 Testcontainers network 內啟動目前原始碼建置的通知服務 runner，SMTP 走 `mailpit:1025`，HTTP API 由 host 查詢。所有範本、收件人、內文、去重、併發派送及 `Message-ID` 原始 header 斷言通過。kind 中 customer 下單、付款失敗與取消通知也已實收，資料列為 `SENT`。
+- Kafka／PostgreSQL／Mailpit 整合測試驗證事件處理及六筆唯一郵件；重複的 `OrderPaid` eventId 只建立一筆，`PaymentSucceeded` 不建立郵件。
+- Mailpit 實收測試在 Testcontainers network 內啟動以目前原始碼建置的通知服務 runner，SMTP 走 `mailpit:1025`，HTTP API 由 host 查詢。所有範本、收件人、內文、去重、併發派送及 `Message-ID` 原始標頭斷言通過。kind 中 customer 下單、付款失敗與取消通知也已實收，資料列為 `SENT`。
 - 測試位址使用保留網域 `example.com`；本紀錄不保存客戶姓名或信件內容。
 
-### Follow-up and limitations
+### 後續與限制
 
-- E4 的 SMTP 可達性與雙 dispatcher `SKIP LOCKED` 併發測試已通過。SMTP 與資料庫提交不是原子操作：SMTP 接受郵件後、資料列標記 SENT 前若程序當機，仍可能重試；固定 `Message-ID` 可辨識此類重複。
+- SMTP 可達性與雙派送器 `SKIP LOCKED` 併發測試已通過。SMTP 與資料庫提交不是原子操作：SMTP 接受郵件後、資料列標記 `SENT` 前若程序當機，仍可能重試；固定的 `Message-ID` 讓郵件客戶端可辨識此類重複（已在 Mailpit 實測：收到的 `Message-ID` 與 `email_message.id` 一致，Spring 的 `JavaMailSenderImpl` 會在 `saveChanges` 後還原設定的值）。
 
 
-## E5: Failure handling and observability
+## E5：失敗處理與可觀測性
 
-### Implementation
+### 實作
 
-- Added configurable retry delays of 10s, 30s, 1m, 2m, 5m, 10m, 30m, and 1h. SMTP failures increment attempts and return to `PENDING`; the eighth failure becomes `FAILED`. Permanent authentication, message preparation/parsing, address rejection, and 5xx SMTP send failures become `FAILED` immediately. Each email is handled independently so a failure does not stop the rest of the batch.
-- Missing order/contact references retry on the same schedule and become `SKIPPED` after five attempts, with `skip_reason` set to `unknown_order` or `unknown_user`.
-- Added Micrometer counters (`notification.emails`, tagged by template/result), SMTP duration timer, pending count and oldest-pending gauges. Added Grafana dashboard panels and warning alerts for permanent email failures and pending queue age over 10 minutes.
-- Updated the plan, middleware roadmap, architecture overview, event contract, docs index, and SEC-15 notes.
+- 新增可設定的重試間隔：10 秒、30 秒、1 分、2 分、5 分、10 分、30 分、1 小時。SMTP 暫時性失敗會增加 `attempts` 並回到 `PENDING`，第八次失敗轉為 `FAILED`。認證失敗、訊息準備／解析失敗、收件地址被拒、SMTP 5xx 屬永久性錯誤，立即轉 `FAILED`。每封信獨立處理，單封失敗不會中斷整批。
+- 找不到訂單或收件人資料時依同一間隔重試，第五次後轉 `SKIPPED`，`skip_reason` 為 `unknown_order` 或 `unknown_user`。
+- 新增 Micrometer 指標：`notification.emails`（依範本與結果）、SMTP 耗時 Timer、待寄筆數與最舊待寄秒數 Gauge。新增 Grafana 面板，以及「寄送失敗」「信件積壓超過 10 分鐘」兩條警告告警。
+- 同步更新計畫、roadmap、架構概觀、事件契約、文件索引與 SEC-15。
+- 審查後（2026-11-12）：寄信耗時面板原本查詢 `notification_email_send_duration_seconds_*`，實際匯出名稱為 `notification_email_send_duration_milliseconds_*`（毫秒），已修正查詢與單位（`ms`）；面板與告警標題改為繁體中文。
 
-### Validation
+### 驗證
 
-- Added integration coverage for missing order, missing contact, retry progression, and terminal failure. Test outcomes are recorded in `evidence/phase-e/e5-notification-resilience.txt`.
-- SMTP 寄送、Mailpit 停機恢復、FAILED 與 backlog 告警觸發／解除已驗證；告警查詢已聚合 replica 指標，避免重複告警。
-- Dashboard generator compiles and regenerates the dashboard and alert rules.
+- 整合測試涵蓋找不到訂單、找不到收件人、重試進度與終態失敗；結果見 `evidence/phase-e/e5-notification-resilience.txt`。
+- SMTP 寄送、Mailpit 停機恢復、`FAILED` 與積壓告警的觸發及解除已驗證；告警查詢已聚合副本指標，避免重複告警。
+- 儀表板產生器可編譯並重新產生儀表板與告警規則。重新套用到 kind 後，待寄筆數、最舊待寄秒數兩個面板有資料；寄信結果與耗時面板的計數器要等有信件寄出才會出現（套用時 Grafana 所在 Pod 重啟，既有指標歷史已清空）。
 
 
 ## E6：kind 部署與端到端驗收
 
-### Implementation and deployment
+### 實作與部署
 
 - 建置並部署 inventory、order、payment、notification 映像至既有 kind，依 inventory → order → notification 順序 rollout；四個 Deployment 均為 2/2 Ready。order/payment 套用 schema V8/V6，notification migration 全數驗證。
 - `application.yml` 明確設定 Kafka consumer `auto-offset-reset: earliest`，讓新部署的 notification 可讀取 Kafka 保留期內既有 `UserRegistered`；Testcontainers 測試不再自行覆寫此值。
@@ -134,3 +136,32 @@ Mailpit 在 `readOnlyRootFilesystem` 下需要可寫暫存目錄，kind manifest
 - Tempo trace `4f07e937dd6143327b6e36949257cce8` 已證明 gateway → order-service → outbox → Kafka → inventory／notification consumer 的同一 trace；詳見 `evidence/phase-e/e6-tempo-trace.txt`。排程寄信 span 為獨立 trace。
 - 先前兩次完整 reactor 因 Windows Docker Desktop 的 SMTP host port mapping 無法回傳 greeting，在 `NotificationEmailIntegrationTests` 兩例失敗。依使用者選定的方案改為同 Testcontainers network 內執行被測通知服務，已通過完整 `NotificationEmailIntegrationTests` 類別及 Message-ID 斷言。
 - 完整 `mvn -o clean test` 通過，10 個模組全綠，0 failures、0 errors、0 skipped，總耗時 13 分 34 秒；api-gateway 111 個測試通過。各模組耗時見 `evidence/phase-e/e6-kind-validation.txt`。
+
+## 審查後修正（2026-11-12）
+
+依 [phase-e-review.md](phase-e-review.md) 處理：
+
+- **Kafka offset**：`auto-offset-reset: earliest` 進正式設定（E6 已做）。
+- **範本替換順序**：`{{name}}` 最後取代並有測試（見 E4）。
+- **儀表板指標名稱**：寄信耗時改用 `_milliseconds_`（見 E5）；階段 D 的搜尋延遲面板同樣的問題另在 `feature/search-phase-d` 修正。
+- **程式風格**：移除 `EmailDispatcher`、`EmailMessageQueue` 的全名引用，範本渲染拆為 `EmailTemplateRenderer`，`isPermanent` 改用 `instanceof`。
+- **文件**：本紀錄改為繁體中文；計畫文件還原成原文，只保留「計畫變更紀錄」，實作結果留在本紀錄。
+
+## 已知限制
+
+- **至少一次送達**：派送器寄出後、更新狀態前當機會重寄一封，`Message-ID` 相同。
+- **歷史資料暫不補寄**：notification 上線前已存在、且超過 Kafka 保留期的使用者沒有 `user_contact`；上線前建立的訂單沒有 `order_ref`，相關信件會 `SKIPPED`（`unknown_user`／`unknown_order`）。補資料需要 user-service、order-service 新增內部匯出 API，屬暫緩項目。
+- **個資沒有保留期限**：`user_contact`、`email_message` 保存 Email 與寄信紀錄，沒有清理機制（SEC-15）。
+- **SMTP 無認證與 TLS**：僅適用隔離的開發環境（SEC-15）。
+- **SMTP 整合測試手法較重**：因 Windows Docker Desktop 的 SMTP host 埠轉發不回應，`NotificationEmailIntegrationTests` 在 Mailpit 同一個 Testcontainers network 內執行以目前原始碼建置的通知服務。它需要本機已有 `maven:3.9-eclipse-temurin-21` 映像，以讀寫方式掛載 `backend/`（會在 repo 內留下容器使用者擁有的 `target/` 檔案）並依賴 `host.docker.internal`。斷言都保留，但維護成本高；若之後要簡化，可改用預先建好的小型寄信映像。
+- **派送期間持有資料列鎖**：與 `OutboxRelay` 相同的簡化取捨。單次最長約為批次大小 × SMTP 讀寫逾時（預設 10 × 5 秒）。
+- **單一副本的寄信耗時等指標在重啟後歸零**：Grafana 所在 Pod 為 ephemeral。
+- **註冊確認信（SEC-04 的 Email 列舉）與真實 SMTP**：暫緩，雛型後要補；真實信箱驗證為 E7，待使用者配合。
+
+## 最不確定、希望審查者重點看的地方
+
+- 派送器在同一個交易內做 SMTP 寄送，資料列鎖持有時間受 SMTP 逾時影響；目前是低流量雛型的取捨，流量變大時需要改成「先領取（租約）、交易外寄送」。
+- SMTP 整合測試改在容器內執行通知服務（見上方限制），是否接受這個維護成本，或改成更輕的寄信映像。
+- `isPermanent` 對 SMTP 類別以名稱判斷（編譯期看不到實作類別）；SMTP 實作套件改名時會靜默失效，已有單元測試覆蓋 550／451 的分類。
+- `notification-service` 以 `earliest` 啟動時會處理 Kafka 保留期內的所有歷史訂單事件，對舊訂單會產生 `SKIPPED` 資料列；量大時這些資料列的清理尚未處理。
+- 寄信耗時、結果等面板的資料要等有信件寄出才會出現；套用儀表板時 Pod 重啟會清空指標歷史。
