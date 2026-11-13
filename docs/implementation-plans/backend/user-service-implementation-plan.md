@@ -24,7 +24,7 @@
 
 **Step 4 待確認**：
 
-- 併發註冊同一個 email 時，目前由 `uq_users_email` 擋下後回傳共用的 `DATA_CONFLICT`（409），還沒有轉成 `EMAIL_ALREADY_EXISTS`；與下方「需要注意」的寫法不一致，待決定要補轉換或接受現狀
+- 併發註冊同一個 email 時，目前由 `uq_users_email` 擋下後回傳共用的 `DATA_CONFLICT`（409），還沒有轉成 `EMAIL_ALREADY_EXISTS`；與下方「需要注意」的寫法不一致。2026-11-13 決定統一轉成 `EMAIL_ALREADY_EXISTS`，實作任務見[立即處理項目](../deferred-now-tasks.md#t-02-並行註冊衝突統一回-email_already_exists)
 - 4-4 第 6 步「金鑰路徑錯誤時啟動失敗、錯誤訊息看得出是哪個檔案」尚未實際驗證
 
 ---

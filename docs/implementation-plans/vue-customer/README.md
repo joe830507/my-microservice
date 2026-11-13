@@ -127,8 +127,8 @@ frontend/vue-customer/
 - **購物車同步到帳號**：登入後合併、換裝置也看得到；需要後端的購物車服務或 user-service 的欄位
 - **登出時是否清空購物車**：共用電腦的情境
 - **個人資料修改、改密碼、忘記密碼**：user-service 補 API（忘記密碼還要寄信）
-- **SEO**：商品頁要被搜尋引擎收錄時評估 SSR（Nuxt）或預先產生頁面
-- **和後台共用程式碼**：重複多了再改成 monorepo workspace 的共用套件
+- **SEO**：商品頁要被搜尋引擎收錄時評估 SSR（Nuxt）或預先產生頁面（2026-11-13 改列[路線圖「暫不排入」](../middleware/middleware-roadmap.md#暫不排入記錄理由)）
+- **和後台共用程式碼**：重複多了再改成 monorepo workspace 的共用套件（2026-11-13 改列[路線圖「暫不排入」](../middleware/middleware-roadmap.md#暫不排入記錄理由)）
 
 > 以下 Step 保留實作當時的決策、問題與驗證數字；「待辦／尚未驗證」須連同後續步驟閱讀，不能視為今日重新執行的結果。
 
