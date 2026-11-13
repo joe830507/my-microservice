@@ -5,8 +5,8 @@
 | 編號 | 項目 | 狀態 |
 |---|---|---|
 | T-01 | 訂單取消後收斂 PENDING 付款 | 待實作 |
-| T-02 | 並行註冊衝突統一回 EMAIL_ALREADY_EXISTS | 已完成（本分支提交） |
-| T-03 | 共用電腦登出後清空購物車 | 待實作 |
+| T-02 | 並行註冊衝突統一回 EMAIL_ALREADY_EXISTS | 已完成（`fix/t02-registration-email-conflict`） |
+| T-03 | 共用電腦登出後清空購物車 | 已完成（`fix/t03-clear-cart-on-logout`） |
 
 ## T-01 訂單取消後收斂 PENDING 付款
 
@@ -120,4 +120,4 @@
 
 ### 完成紀錄
 
-（Codex 完成後填寫）
+2026-11-13：完成於 `fix/t03-clear-cart-on-logout` 的單一提交（commit ID 以該分支 git log 為準）。cart.clear() 清空記憶體並移除 CART_KEY；只在 StoreLayout 主動登出及 AccountView 撤銷所有裝置成功後呼叫，避免 auth/cart 循環依賴。登入、refresh 4xx 與登入取得使用者資料失敗時保留購物車；撤銷失敗同樣保留。前台完整 Vitest 30 檔 341 項通過（主動登出兩項先重現失敗），type-check 與異動檔 Prettier 通過。新增 Playwright 瀏覽器案例實際點選登入、加入商品、登出，確認兩分頁件數歸零與 localStorage 被移除；使用攔截 API 的 Chrome 測試，未跑真實後端 E2E、未部署 kind。文件本機連結／錨點、UTF-8 無 BOM、git diff --check 通過。

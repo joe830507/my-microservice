@@ -47,7 +47,7 @@ flowchart TD
 | 持有者 | 資料與生命週期 |
 |---|---|
 | auth store | accessToken、user 僅記憶體；localStorage 的 vue-customer.hasSession 只是恢復提示；refresh token 在後端設定的 HttpOnly cookie。 |
-| cart store | localStorage 的 vue-customer.cart 只存 productId／qty；不綁帳號，登出保留。監聽 storage 事件同步其他同源分頁。最多 50 種、每種 1–99。 |
+| cart store | localStorage 的 vue-customer.cart 只存 productId／qty；不綁帳號，頂部列主動登出或帳號頁成功登出所有裝置後清空；登入與登入過期保留。監聽 storage 事件同步其他同源分頁。最多 50 種、每種 1–99。 |
 | categoryStore | 分類樹記憶體快取，首次載入 Promise 合併；成功後本頁生命週期不主動再載，失敗保留未載入狀態供下次重試。 |
 | useRouteQuery | 列表篩選與分頁以 URL query 為來源；update 推 router，watch 再載資料。draft 表單先留頁面，套用才改 URL。 |
 | 頁面／composable | 載入結果、錯誤、送出狀態、付款 phase 等局部狀態，不把所有 API 結果集中在 Pinia。 |
@@ -70,7 +70,7 @@ flowchart LR
 
 auth API 的 login／register／refresh／logout 設 skipAuth，避免 refresh 遞迴；refresh／logout 帶 X-Requested-With。其他請求附 Bearer，401 且尚未 authRetried 才處理；若別的請求已換 token，直接用新 token 重送。refresh 4xx 清除狀態，網路／5xx 保留 hint 供之後再試；清除 session 時僅受保護頁導登入，公開瀏覽不中斷。
 
-登入後必須 getMe 才成為 isAuthenticated；getMe 失敗嘗試 logout，避免半登入。註冊是 register 後再 login，後者失敗用 REGISTERED_LOGIN_FAILED 表達帳號已建立。單機 logout 先清狀態再盡力撤銷；Account 的 logoutAll 先等後端撤銷成功才清狀態。這些操作不立刻撤銷已簽發 JWT。
+登入後必須 getMe 才成為 isAuthenticated；getMe 失敗嘗試 logout，避免半登入。註冊是 register 後再 login，後者失敗用 REGISTERED_LOGIN_FAILED 表達帳號已建立。單機 logout 先清狀態再盡力撤銷；Account 的 logoutAll 先等後端撤銷成功才清狀態。兩個主動登出呼叫端在登出後執行 cart.clear()，不在 auth.clear() 或內部 logout 清空；撤銷失敗保留購物車。這些操作不立刻撤銷已簽發 JWT。
 
 API baseURL 來自 VITE_API_BASE，feature URL 不重複包含 `/api/v1`。Vite 開發代理與正式 nginx 讓 API 同源；程式未啟用跨來源 credentials。ApiError 統一 ProblemDetail、網路、逾時及取消錯誤，HTTP status 以實際回應為準，非 ProblemDetail 不直接顯示 HTML 錯誤頁。
 

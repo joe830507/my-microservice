@@ -15,6 +15,28 @@ function stored(): unknown {
 beforeEach(() => localStorage.clear())
 afterEach(() => vi.restoreAllMocks())
 
+describe('useCartStore.clear', () => {
+  it('清空商品與 localStorage；重建 store 不會還原', () => {
+    const cart = createStore()
+    cart.add('p1', 2)
+    cart.clear()
+    expect(cart.items).toEqual([])
+    expect(cart.count).toBe(0)
+    expect(localStorage.getItem(CART_KEY)).toBeNull()
+    expect(createStore().items).toEqual([])
+  })
+
+  it('儲存被封鎖仍清空記憶體', () => {
+    const cart = createStore()
+    cart.add('p1', 2)
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('storage blocked')
+    })
+    expect(() => cart.clear()).not.toThrow()
+    expect(cart.count).toBe(0)
+  })
+})
+
 describe('useCartStore.add', () => {
   it('加入商品：存進 localStorage，件數是數量加總', () => {
     const cart = createStore()

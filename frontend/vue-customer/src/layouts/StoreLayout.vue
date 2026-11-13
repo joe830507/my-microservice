@@ -31,7 +31,8 @@ function onSearch(): void {
 
 async function onLogout(): Promise<void> {
   await auth.logout()
-  // 留在需要登入的頁面會看到別人的資料或錯誤：回首頁（購物車不清空）
+  cart.clear()
+  // 留在需要登入的頁面會看到別人的資料或錯誤：回首頁
   if (route.meta.requiresAuth) {
     await router.push({ name: 'home' })
   }

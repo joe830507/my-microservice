@@ -3,9 +3,11 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { toApiError } from '@/api/errors'
 import { useAuthStore } from '@/features/auth/store'
+import { useCartStore } from '@/features/cart/store'
 import { formatDateTime } from '@/utils/format'
 
 const auth = useAuthStore()
+const cart = useCartStore()
 const router = useRouter()
 
 // 先顯示登入時取得的資料，進頁面再重新取得一次；重新取得失敗就維持目前的資料，不打斷頁面
@@ -25,7 +27,8 @@ async function logoutAll(): Promise<void> {
   errorMessage.value = ''
   try {
     await auth.logoutAll()
-    // 購物車保留（不跟帳號綁定）；回首頁，頂部列變回未登入
+    cart.clear()
+    // 撤銷成功才清空購物車並回首頁，頂部列變回未登入
     await router.replace({ name: 'home' })
   } catch (error) {
     // 撤銷失敗：維持登入，讓使用者知道其他裝置可能還登入著，可以再試

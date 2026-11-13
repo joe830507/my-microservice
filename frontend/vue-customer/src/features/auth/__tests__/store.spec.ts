@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { ApiError } from '@/api/errors'
 import apiClient from '@/api/http'
+import { CART_KEY, useCartStore } from '@/features/cart/store'
 import { installAuthInterceptors } from '../interceptors'
 import { SESSION_HINT_KEY, useAuthStore, type AuthStore } from '../store'
 import { me, problem, tokens } from './fixtures'
@@ -54,6 +55,49 @@ function logoutRecorder(): unknown[] {
 }
 
 describe('useAuthStore.login', () => {
+  it('登入不清空未登入時加入的購物車', async () => {
+    server.use(
+      http.post('*/auth/login', () => HttpResponse.json(tokens(1))),
+      http.get('*/users/me', () => HttpResponse.json(me())),
+    )
+    const store = createStore()
+    const cart = useCartStore()
+    cart.add('p1', 2)
+    const stored = localStorage.getItem(CART_KEY)
+    await store.login({ email: 'user@example.com', password: 'secret' })
+    expect(cart.items).toEqual([{ productId: 'p1', qty: 2 }])
+    expect(localStorage.getItem(CART_KEY)).toBe(stored)
+  })
+
+  it('登入取得使用者資料失敗後內部 logout 不清空購物車', async () => {
+    server.use(
+      http.post('*/auth/login', () => HttpResponse.json(tokens(1))),
+      http.get('*/users/me', () => problem(503, 'UNAVAILABLE')),
+    )
+    logoutRecorder()
+    const store = createStore()
+    const cart = useCartStore()
+    cart.add('p1', 2)
+    const stored = localStorage.getItem(CART_KEY)
+    await rejectionOf(store.login({ email: 'user@example.com', password: 'secret' }))
+    expect(store.isAuthenticated).toBe(false)
+    expect(cart.items).toEqual([{ productId: 'p1', qty: 2 }])
+    expect(localStorage.getItem(CART_KEY)).toBe(stored)
+  })
+
+  it('refresh 回 4xx 登入過期時保留購物車', async () => {
+    localStorage.setItem(SESSION_HINT_KEY, '1')
+    server.use(http.post('*/auth/refresh', () => problem(401, 'REFRESH_TOKEN_INVALID')))
+    const store = createStore()
+    const cart = useCartStore()
+    cart.add('p1', 2)
+    const stored = localStorage.getItem(CART_KEY)
+    await rejectionOf(store.refreshAccessToken())
+    expect(store.hasSession).toBe(false)
+    expect(cart.items).toEqual([{ productId: 'p1', qty: 2 }])
+    expect(localStorage.getItem(CART_KEY)).toBe(stored)
+  })
+
   it('登入成功：保存 token 與使用者，/users/me 帶上新的 access token', async () => {
     let meAuthorization: string | null = null
     server.use(

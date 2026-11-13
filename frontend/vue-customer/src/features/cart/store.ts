@@ -12,7 +12,7 @@ export interface CartItem {
 export const MAX_QTY = 99
 export const MAX_ITEMS = 50
 
-// 不跟帳號綁定，key 沒有使用者 id；登出時保留（雛型）
+// 不跟帳號綁定，key 沒有使用者 id；使用者主動登出時清空，登入或登入過期時保留
 export const CART_KEY = 'vue-customer.cart'
 
 function readStoredItems(): CartItem[] {
@@ -63,6 +63,15 @@ export const useCartStore = defineStore('cart', () => {
     writeStoredItems(items.value)
   }
 
+  function clear(): void {
+    items.value = []
+    try {
+      localStorage.removeItem(CART_KEY)
+    } catch {
+      // 儲存被封鎖時仍清空本頁狀態，與其他寫入操作採同樣的容錯。
+    }
+  }
+
   // 同一商品再加入時合併數量，總數不超過 MAX_QTY
   // 回傳 false：購物車已有 MAX_ITEMS 種商品，不能再加新的商品（已在購物車裡的商品仍可增加數量）
   function add(productId: string, qty: number): boolean {
@@ -100,5 +109,5 @@ export const useCartStore = defineStore('cart', () => {
     persist()
   }
 
-  return { items, count, add, setQty, remove, removeMany }
+  return { items, count, add, setQty, remove, removeMany, clear }
 })

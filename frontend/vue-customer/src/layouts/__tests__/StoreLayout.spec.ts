@@ -8,7 +8,7 @@ import apiClient from '@/api/http'
 import { installAuthInterceptors } from '@/features/auth/interceptors'
 import { SESSION_HINT_KEY, useAuthStore } from '@/features/auth/store'
 import { me } from '@/features/auth/__tests__/fixtures'
-import { useCartStore } from '@/features/cart/store'
+import { CART_KEY, useCartStore } from '@/features/cart/store'
 import { categoryTree } from '@/features/catalog/__tests__/fixtures'
 import { installAuthGuard } from '@/router'
 
@@ -151,6 +151,7 @@ describe('StoreLayout', () => {
     auth.accessToken = 'access-1'
     auth.hasSession = true
     auth.user = me()
+    useCartStore().add('p1', 2)
     await flushPromises()
 
     expect(wrapper.find('.store-nav__user').text()).toBe('小明')
@@ -161,6 +162,9 @@ describe('StoreLayout', () => {
     await flushPromises()
 
     expect(auth.isAuthenticated).toBe(false)
+    expect(useCartStore().items).toEqual([])
+    expect(localStorage.getItem(CART_KEY)).toBeNull()
+    expect(wrapper.find('.store-nav__badge').exists()).toBe(false)
     expect(localStorage.getItem(SESSION_HINT_KEY)).toBeNull()
     expect(wrapper.find('.store-nav__user').exists()).toBe(false)
     expect(wrapper.text()).toContain('登入')
