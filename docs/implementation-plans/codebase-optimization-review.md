@@ -503,3 +503,25 @@ WHERE event_id IN (
 - R1、R2 各一個 commit，附相關模組的 `mvn test` 結果；R3～R7 可以合成一個 commit。
 - R3 附上 `IN` 查詢的 `EXPLAIN ANALYZE`（追加到既有 evidence 即可）。
 - 決定不改的項目，在本節對應段落下方註明原因。
+
+---
+
+## 修正後審查（第二輪，2026-11-13）
+
+範圍：`3b466b4..750eb77`（R1、R2、R3～R7 三個 commit）。方式：靜態閱讀程式、測試與 evidence，未重跑測試。
+
+結論：R1～R7 全部依建議完成，沒有新的問題，這一輪不需要再修。
+
+| # | 結果 |
+|---|---|
+| R1 | 截止時間改在送出前起算，送出與等 ACK 共用；送出時就已失敗的 future 或同步例外會停止送剩下的事件。「metadata 失敗只 send 一次」與「同步 send 耗盡窗口仍保留 ACK」兩個測試對準了風險。文件也誠實註明：正在進行的單次 send 無法中止，最多仍會超過截止時間一個 `max.block.ms`。 |
+| R2 | 兩種清理都改成每批一個短交易；`SKIP LOCKED` 讓 ShedLock 的 `lockAtMostFor` 到期、另一個副本也開始清理時仍然安全。排程池調為 4，並確認沒有排程依賴單執行緒依序執行。測試用 afterCommit 驗證每批各自提交（4→1→0），寫法到位。 |
+| R3 | evidence 已補 IN 與升冪的查詢計畫，第 9 點註記也寫明限制；不加索引的理由合理。 |
+| R4 | event-contracts 與第 15 點註記都已補上。 |
+| R5 | 抽成 `retryBackOff`／`isTransient`，並補上直接拋出與 listener 包裝兩種情況的單元測試。 |
+| R6 | 改用 `null` timestamp，測試同時驗證新時間與 `kafka_dlt-original-timestamp` header。 |
+| R7 | 註解、import、多餘變數與空行都已處理；`LINKS_KEY` 與 `KEY` 共用加隨機秒數的 TTL。 |
+
+合併前建議：本輪只跑了 93 個重點測試及 common 的完整 67 個測試，而排程池大小改了六個服務的執行環境，合併前請在 backend 跑一次完整的 `mvnw test`。已於 2026-11-13 在 `750eb77` 執行：830 個測試全部通過（common 67、product 194、user 164、inventory 95、order 137、payment 50、notification 12、gateway 111），BUILD SUCCESS，約 12.5 分鐘。
+
+（測試程式裡仍有大量完整類名，例如 `org.mockito.Mockito.verify`，只影響可讀性，可以之後順手整理，不列為本輪項目。）
