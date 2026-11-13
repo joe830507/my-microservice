@@ -3,7 +3,7 @@ import type { ProductQueryParams } from './types'
 
 // 商品列表的條件，放在 URL query：重新整理、上一頁、分享連結都能保留
 // URL 上的 page 從 1 開始（給人看），送給後端時再減 1
-export type ProductSort = 'latest' | 'price-asc' | 'price-desc'
+export type ProductSort = 'relevance' | 'latest' | 'price-asc' | 'price-desc'
 
 export interface ProductListQuery {
   // 搜尋關鍵字（網址上是 q）
@@ -18,6 +18,7 @@ export interface ProductListQuery {
 export const PAGE_SIZE = 12
 
 export const SORT_OPTIONS: { value: ProductSort; label: string }[] = [
+  { value: 'relevance', label: '最相關' },
   { value: 'latest', label: '最新上架' },
   { value: 'price-asc', label: '價格由低到高' },
   { value: 'price-desc', label: '價格由高到低' },
@@ -45,14 +46,20 @@ export function parseProductQuery(query: LocationQuery): ProductListQuery {
   const page = Number(first(query.page))
   const minPrice = first(query.minPrice)
   const maxPrice = first(query.maxPrice)
+  const q = first(query.q).slice(0, 255)
 
   return {
-    q: first(query.q).slice(0, 255),
+    q,
     minPrice: PRICE_PATTERN.test(minPrice) ? minPrice : '',
     maxPrice: PRICE_PATTERN.test(maxPrice) ? maxPrice : '',
-    sort: SORT_OPTIONS.some((option) => option.value === sort)
-      ? (sort as ProductSort)
-      : DEFAULT_PRODUCT_QUERY.sort,
+    sort:
+      !q && sort === 'relevance'
+        ? 'latest'
+        : SORT_OPTIONS.some((option) => option.value === sort)
+          ? (sort as ProductSort)
+          : q
+            ? 'relevance'
+            : DEFAULT_PRODUCT_QUERY.sort,
     page: Number.isInteger(page) && page >= 1 ? page : DEFAULT_PRODUCT_QUERY.page,
   }
 }
@@ -60,9 +67,10 @@ export function parseProductQuery(query: LocationQuery): ProductListQuery {
 // 和預設值相同的條件不放進 URL，網址保持簡短
 export function toRouteQuery(query: ProductListQuery): LocationQueryRaw {
   const result: LocationQueryRaw = {}
+  const defaults = { ...DEFAULT_PRODUCT_QUERY, sort: query.q.trim() ? 'relevance' : 'latest' }
   for (const key of Object.keys(DEFAULT_PRODUCT_QUERY) as (keyof ProductListQuery)[]) {
     const value = typeof query[key] === 'string' ? (query[key] as string).trim() : query[key]
-    if (value !== DEFAULT_PRODUCT_QUERY[key] && value !== '') {
+    if (value !== defaults[key] && value !== '') {
       result[key] = String(value)
     }
   }
@@ -79,12 +87,15 @@ export function priceRangeError(query: Pick<ProductListQuery, 'minPrice' | 'maxP
 
 // categoryId 有值時連子分類一起查（點「鞋子」要看到「靴子」底下的商品）
 export function toApiParams(query: ProductListQuery, categoryId?: string): ProductQueryParams {
-  const sortParams: Pick<ProductQueryParams, 'sortBy' | 'sortDirection'> =
+  const sortParams: Pick<ProductQueryParams, 'sortBy'> &
+    Partial<Pick<ProductQueryParams, 'sortDirection'>> =
     query.sort === 'price-asc'
       ? { sortBy: 'price', sortDirection: 'asc' }
       : query.sort === 'price-desc'
         ? { sortBy: 'price', sortDirection: 'desc' }
-        : { sortBy: 'createdAt', sortDirection: 'desc' }
+        : query.sort === 'relevance'
+          ? { sortBy: 'relevance' }
+          : { sortBy: 'createdAt', sortDirection: 'desc' }
 
   return {
     keyword: query.q || undefined,

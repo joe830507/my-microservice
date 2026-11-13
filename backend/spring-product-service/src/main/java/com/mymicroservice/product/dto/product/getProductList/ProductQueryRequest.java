@@ -74,6 +74,6 @@ public record ProductQueryRequest(
     // 資料庫查詢用：沒指定或 relevance 時最新的排前面
     public Pageable toPageable() {
         String column = sortBy == null || "relevance".equals(sortBy) ? "createdAt" : sortBy;
-        return PageRequest.of(page, size, Sort.by(direction(), column));
+        return PageRequest.of(page, size, Sort.by(direction(), column).and(Sort.by(Sort.Direction.ASC, "id")));
     }
 }

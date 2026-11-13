@@ -9,6 +9,16 @@ import {
 } from '../query'
 
 describe('parseProductQuery', () => {
+  it('搜尋預設依相關性，清除關鍵字後退回最新', () => {
+    const search = parseProductQuery({ q: '鞋' })
+    expect(search.sort).toBe('relevance')
+    expect(toRouteQuery(search)).toEqual({ q: '鞋' })
+    expect(toApiParams(search).sortBy).toBe('relevance')
+    expect(toApiParams(search)).not.toHaveProperty('sortDirection')
+    expect(parseProductQuery({ sort: 'relevance' }).sort).toBe('latest')
+    const explicitLatest = parseProductQuery({ q: '鞋', sort: 'latest' })
+    expect(toRouteQuery(explicitLatest)).toEqual({ q: '鞋', sort: 'latest' })
+  })
   it('沒有參數：預設值', () => {
     expect(parseProductQuery({})).toEqual(DEFAULT_PRODUCT_QUERY)
   })

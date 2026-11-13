@@ -9,7 +9,15 @@ test.describe('瀏覽商品（沒有登入）', () => {
   test('搜尋：找到 E2E 商品，卡片顯示名稱、價格、折扣與主圖', async ({ page }) => {
     await page.goto('/')
     await page.locator('input[type="search"]').fill('E2E 測試商品')
+    const searchRequest = page.waitForRequest((request) => {
+      const url = new URL(request.url())
+      return url.pathname.endsWith('/products') && url.searchParams.has('keyword')
+    })
     await page.locator('input[type="search"]').press('Enter')
+    const searchUrl = new URL((await searchRequest).url())
+    expect(searchUrl.searchParams.get('sortBy')).toBe('relevance')
+    expect(searchUrl.searchParams.has('sortDirection')).toBe(false)
+    await expect(page.locator('select').first()).toHaveValue('relevance')
 
     await expect(page).toHaveURL(/\/search\?q=/)
     await expect(page.getByRole('heading', { name: /搜尋「E2E 測試商品」/ })).toBeVisible()

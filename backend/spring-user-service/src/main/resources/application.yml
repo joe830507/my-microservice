@@ -2,6 +2,10 @@ server:
   port: 8084
 
 spring:
+  task:
+    scheduling:
+      pool:
+        size: 4
   application:
     name: user-service
   kafka:

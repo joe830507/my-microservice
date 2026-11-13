@@ -17,7 +17,7 @@ import net.javacrumbs.shedlock.spring.annotation.EnableSchedulerLock;
 // 排程的分散式鎖（階段 B4）：服務跑多個副本時，每個排程每一輪只有一個副本執行。
 //
 // 服務設定 app.scheduling.lock.table（例如 order_service.shedlock，表由服務自己的 Flyway migration 建立）就會啟用；
-// 沒設定的服務（例如沒有排程的 product-service）完全不受影響。
+// 未設定此屬性的服務不會啟用鎖；目前六個使用 outbox 的服務皆已設定鎖表。
 // 在排程方法上加 @SchedulerLock(name = ...)：
 //   lockAtMostFor  執行的上限（副本當機時鎖最久這麼久之後釋放），要比最慢的一輪長
 //   lockAtLeastFor 至少持有這麼久：多個副本在同一秒觸發同一個 cron，先做完的副本放掉鎖之後，另一個副本不能再搶到；

@@ -49,8 +49,12 @@ class ProductListSubcategoryIntegrationTests {
     private String sandalsProduct;
     private String bagsProduct;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    org.springframework.data.redis.core.StringRedisTemplate redis;
+
     @BeforeEach
     void setUp() throws Exception {
+        redis.delete(com.mymicroservice.product.cache.CategoryTreeCache.LINKS_KEY);
         jdbcTemplate.execute("TRUNCATE product_service.category CASCADE");
         jdbcTemplate.execute("TRUNCATE product_service.product CASCADE");
         shoes = createCategory(null, "Shoes", "shoes", true);

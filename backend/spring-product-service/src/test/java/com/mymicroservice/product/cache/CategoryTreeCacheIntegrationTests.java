@@ -40,7 +40,23 @@ class CategoryTreeCacheIntegrationTests {
     void setUp() {
         // 每個測試都從空的 DB 與空的快取開始
         jdbcTemplate.execute("TRUNCATE product_service.category CASCADE");
-        redisTemplate.delete(CategoryTreeCache.KEY);
+        redisTemplate.delete(java.util.List.of(CategoryTreeCache.KEY, CategoryTreeCache.LINKS_KEY));
+    }
+
+    @Autowired CategoryTreeCache linksCache;
+    @Autowired com.mymicroservice.product.repository.CategoryRepository categoryRepository;
+
+    @Test
+    void descendantsCacheIncludesInactiveNodesAndInvalidatesAfterCommit() {
+        var root = addCategory("Root", "root");
+        var child = categoryService.addOneNewCategory(new AddOneNewCategoryReq(root.id(), "Child", "child", null, 0, false));
+        assertThat(linksCache.descendantIds(root.id(), categoryRepository::findAll)).contains(root.id(), child.id());
+        assertThat(redisTemplate.hasKey(CategoryTreeCache.LINKS_KEY)).isTrue();
+        assertThat(redisTemplate.getExpire(CategoryTreeCache.LINKS_KEY)).isBetween(3500L, 3900L);
+        assertThat(linksCache.descendantIds(root.id(), () -> { throw new AssertionError("cache miss"); }))
+                .contains(root.id(), child.id());
+        addCategory("Other", "other");
+        assertThat(redisTemplate.hasKey(CategoryTreeCache.LINKS_KEY)).isFalse();
     }
 
     @Test

@@ -55,39 +55,53 @@ public class EmailDispatcher {
 
     @Scheduled(fixedDelayString = "${notification.dispatch.interval:5s}")
     public void dispatchDueEmails() {
-        transactions.executeWithoutResult(status -> dispatchBatch());
+        for (int i = 0; i < properties.dispatch().batchSize(); i++) {
+            List<PendingEmail> messages = transactions.execute(status -> claim());
+            if (messages == null || messages.isEmpty()) break;
+            dispatch(messages.getFirst());
+        }
     }
 
-    private void dispatchBatch() {
-        List<PendingEmail> messages = jdbc.query("""
+    private List<PendingEmail> claim() {
+        UUID leaseToken = UUID.randomUUID();
+        return jdbc.query("""
+                WITH claimed AS (
+                    UPDATE notification_service.email_message SET status='SENDING',
+                        lease_until=now()+interval '2 minutes', lease_token=?
+                    WHERE id IN (
+                        SELECT id FROM notification_service.email_message
+                        WHERE (status='PENDING' AND next_attempt_at <= now())
+                           OR (status='SENDING' AND lease_until < now())
+                        ORDER BY created_at,id LIMIT 1 FOR UPDATE SKIP LOCKED
+                    ) RETURNING *
+                )
                 SELECT e.id,e.template,e.order_id,e.reason,u.email,u.display_name,
                        o.order_id AS resolved_order_id,u.user_id AS resolved_user_id,
                        COALESCE(e.amount,o.total_amount) AS amount,e.attempts
-                FROM notification_service.email_message e
+                FROM claimed e
                 LEFT JOIN notification_service.order_ref o ON o.order_id=e.order_id
                 LEFT JOIN notification_service.user_contact u ON u.user_id=o.user_id
-                WHERE e.status='PENDING' AND e.next_attempt_at <= now()
-                ORDER BY e.created_at,e.id
-                LIMIT ? FOR UPDATE OF e SKIP LOCKED
                 """, (rs, rowNum) -> new PendingEmail(rs.getObject("id", UUID.class), rs.getString("template"),
                         rs.getObject("order_id", UUID.class), rs.getString("reason"), rs.getString("email"),
                         rs.getString("display_name"), rs.getBigDecimal("amount"),
                         rs.getObject("resolved_order_id", UUID.class), rs.getObject("resolved_user_id", UUID.class),
-                        rs.getInt("attempts")), properties.dispatch().batchSize());
+                        rs.getInt("attempts"), leaseToken), leaseToken);
+    }
 
-        for (PendingEmail message : messages) {
-            if (message.resolvedOrderId() == null || message.resolvedUserId() == null || message.email() == null) {
-                retryMissingRecipient(message);
-                continue;
-            }
-            try {
-                sendTraced(message);
-                jdbc.update("UPDATE notification_service.email_message SET status='SENT',sent_at=now(), "
-                                + "attempts=attempts+1,last_error=NULL WHERE id=? AND status='PENDING'", message.id());
-                metrics.result(message.template(), "sent");
-            } catch (Exception failure) {
-                retryOrFail(message, failure);
-            }
+    private void dispatch(PendingEmail message) {
+        if (message.resolvedOrderId() == null || message.resolvedUserId() == null || message.email() == null) {
+            transactions.executeWithoutResult(status -> retryMissingRecipient(message));
+            return;
+        }
+        try {
+            sendTraced(message);
+            transactions.executeWithoutResult(status -> jdbc.update(
+                    "UPDATE notification_service.email_message SET status='SENT',sent_at=now(), "
+                    + "lease_until=NULL,lease_token=NULL,attempts=attempts+1,last_error=NULL "
+                    + "WHERE id=? AND status='SENDING' AND lease_token=?", message.id(), message.leaseToken()));
+            metrics.result(message.template(), "sent");
+        } catch (Exception failure) {
+            transactions.executeWithoutResult(status -> retryOrFail(message, failure));
         }
     }
 
@@ -96,15 +110,15 @@ public class EmailDispatcher {
         String reason = message.resolvedOrderId() == null ? "unknown_order" : "unknown_user";
         if (attempt >= properties.dispatch().missingRecipientMaxAttempts()) {
             jdbc.update("UPDATE notification_service.email_message SET status='SKIPPED',attempts=?, "
-                            + "skip_reason=?,last_error=NULL WHERE id=? AND status='PENDING'",
-                    attempt, reason, message.id());
+                            + "skip_reason=?,last_error=NULL WHERE id=? AND status='SENDING' AND lease_token=?",
+                    attempt, reason, message.id(), message.leaseToken());
             metrics.result(message.template(), "skipped");
             return;
         }
         long delaySeconds = retryDelay(attempt).toSeconds();
-        jdbc.update("UPDATE notification_service.email_message SET attempts=?, "
-                        + "next_attempt_at=now()+(? * interval '1 second') WHERE id=? AND status='PENDING'",
-                attempt, delaySeconds, message.id());
+        jdbc.update("UPDATE notification_service.email_message SET status='PENDING',lease_until=NULL,lease_token=NULL,attempts=?, "
+                        + "next_attempt_at=now()+(? * interval '1 second') WHERE id=? AND status='SENDING' AND lease_token=?",
+                attempt, delaySeconds, message.id(), message.leaseToken());
         metrics.result(message.template(), "retry");
     }
 
@@ -113,15 +127,15 @@ public class EmailDispatcher {
         boolean permanent = isPermanent(failure);
         if (permanent || attempt >= properties.dispatch().retryDelays().size()) {
             jdbc.update("UPDATE notification_service.email_message SET status='FAILED',attempts=?,last_error=? "
-                            + "WHERE id=? AND status='PENDING'",
-                    attempt, failure.getClass().getSimpleName(), message.id());
+                            + "WHERE id=? AND status='SENDING' AND lease_token=?",
+                    attempt, failure.getClass().getSimpleName(), message.id(), message.leaseToken());
             metrics.result(message.template(), "failed");
             return;
         }
         long delaySeconds = retryDelay(attempt).toSeconds();
-        jdbc.update("UPDATE notification_service.email_message SET attempts=?,last_error=?, "
-                        + "next_attempt_at=now()+(? * interval '1 second') WHERE id=? AND status='PENDING'",
-                attempt, failure.getClass().getSimpleName(), delaySeconds, message.id());
+        jdbc.update("UPDATE notification_service.email_message SET status='PENDING',lease_until=NULL,lease_token=NULL,attempts=?,last_error=?, "
+                        + "next_attempt_at=now()+(? * interval '1 second') WHERE id=? AND status='SENDING' AND lease_token=?",
+                attempt, failure.getClass().getSimpleName(), delaySeconds, message.id(), message.leaseToken());
         metrics.result(message.template(), "retry");
     }
 
@@ -204,5 +218,5 @@ public class EmailDispatcher {
 
     private record PendingEmail(UUID id, String template, UUID orderId, String reason,
             String email, String displayName, BigDecimal totalAmount,
-            UUID resolvedOrderId, UUID resolvedUserId, int attempts) { }
+            UUID resolvedOrderId, UUID resolvedUserId, int attempts, UUID leaseToken) { }
 }

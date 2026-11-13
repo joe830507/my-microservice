@@ -69,6 +69,36 @@ class AuthControllerLoginIntegrationTests {
 
     // ---------- 成功 ----------
 
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
+    @Test
+    void bcryptDoesNotHoldAnActiveDatabaseTransaction() throws Exception {
+        org.mockito.Mockito.doAnswer(invocation -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            return invocation.callRealMethod();
+        }).when(passwordEncoder).encode(org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.doAnswer(invocation -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            return invocation.callRealMethod();
+        }).when(passwordEncoder).matches(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        registerUser(EMAIL, PASSWORD);
+        login(EMAIL, PASSWORD).andExpect(status().isOk());
+        login(EMAIL, "wrong-password").andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void failedLoginWritesNoRefreshTokenAndSuccessMatchesStoredHash() throws Exception {
+        registerUser(EMAIL, PASSWORD);
+        login(EMAIL, "incorrect-password").andExpect(status().isUnauthorized());
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM user_service.refresh_token", Long.class)).isZero();
+        String token = com.mymicroservice.user.RefreshCookies.tokenOf(
+                login(EMAIL, PASSWORD).andExpect(status().isOk()).andReturn());
+        String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(token.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        assertThat(jdbcTemplate.queryForObject("SELECT token_hash FROM user_service.refresh_token", String.class)).isEqualTo(hash);
+    }
+
     @Test
     void login_validCredentials_returns200WithBearerToken() throws Exception {
         registerUser(EMAIL, PASSWORD);

@@ -2,6 +2,10 @@ server:
   port: 8086
 
 spring:
+  task:
+    scheduling:
+      pool:
+        size: 4
   application:
     name: notification-service
   config:
@@ -55,6 +59,11 @@ notification:
 app:
   events:
     schema: notification_service
+    processed-cleanup-enabled: true
+    processed-retention: 14d
+  scheduling:
+    lock:
+      table: notification_service.shedlock
 
 management:
   endpoints:

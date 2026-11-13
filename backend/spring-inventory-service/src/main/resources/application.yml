@@ -2,6 +2,10 @@ server:
   port: 8083
 
 spring:
+  task:
+    scheduling:
+      pool:
+        size: 4
   application:
     name: inventory-service
   kafka:
@@ -43,6 +47,8 @@ spring:
 app:
   events:
     schema: inventory_service
+    processed-cleanup-enabled: true
+    processed-retention: 14d
   # 排程的分散式鎖（ShedLock，階段 B4）：鎖放在自己的 PostgreSQL；
   # at-least-for 要大於副本之間的時鐘差、小於 cron 的間隔（這裡所有排程至少相隔 15 秒以上）
   scheduling:

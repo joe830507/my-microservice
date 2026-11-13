@@ -36,14 +36,21 @@ COPY spring-notification-service spring-notification-service
 RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -q -DskipTests package
 
 # ---------- 階段 2：執行 ----------
+FROM build AS extract
+ARG SERVICE
+RUN java -Djarmode=tools -jar /src/spring-${SERVICE}/target/${SERVICE}-0.0.1-SNAPSHOT.jar extract --layers --launcher --destination /extracted
+
 FROM eclipse-temurin:21-jre-alpine
 ARG SERVICE
 # 非 root 使用者；固定 uid，K8s 的 runAsNonRoot 才能驗證
 RUN addgroup -g 10001 app && adduser -D -u 10001 -G app app
 WORKDIR /app
-COPY --from=build /src/spring-${SERVICE}/target/${SERVICE}-0.0.1-SNAPSHOT.jar app.jar
+COPY --from=extract /extracted/dependencies/ ./
+COPY --from=extract /extracted/spring-boot-loader/ ./
+COPY --from=extract /extracted/snapshot-dependencies/ ./
+COPY --from=extract /extracted/application/ ./
 USER 10001:10001
 
 # 容器記憶體上限的 75% 給 JVM 堆積；OOM 時直接結束讓 K8s 重啟，不要拖著不健康的程序
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]

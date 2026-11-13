@@ -7,6 +7,7 @@
 import { onMounted, reactive } from 'vue'
 import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { useAuthStore } from '@/features/auth/store'
+import { useDashboardCountsStore } from '@/features/dashboard/store'
 import { getOrders } from '@/features/orders/api'
 import type { OrderListItem, OrderStatus } from '@/features/orders/types'
 import { getProducts } from '@/features/products/api'
@@ -15,6 +16,7 @@ import { getUsers } from '@/features/users/api'
 import { formatDateTime, formatPrice } from '@/utils/format'
 
 const auth = useAuthStore()
+const counts = useDashboardCountsStore()
 const router = useRouter()
 
 // null：讀取中；undefined：讀取失敗
@@ -131,7 +133,7 @@ async function loadCount(target: { key: string; count: Count }): Promise<void> {
     return
   }
   try {
-    target.count = await loader()
+    target.count = await counts.get(target.key, loader)
   } catch {
     target.count = undefined
   }

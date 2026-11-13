@@ -70,7 +70,7 @@ class OutboxRelayIntegrationTests {
                 + "payload JSONB NOT NULL, traceparent VARCHAR(100), created_at TIMESTAMPTZ NOT NULL DEFAULT now(), "
                 + "published_at TIMESTAMPTZ)");
         jdbc.execute("CREATE INDEX idx_event_test_pending ON event_test.outbox_event (occurred_at) WHERE published_at IS NULL");
-        jdbc.execute("CREATE TABLE event_test.processed_event(event_id UUID PRIMARY KEY, event_type TEXT NOT NULL)");
+        jdbc.execute("CREATE TABLE event_test.processed_event(event_id UUID PRIMARY KEY, event_type TEXT NOT NULL, processed_at TIMESTAMPTZ NOT NULL DEFAULT now())");
         jdbc.execute("CREATE TABLE event_test.business_counter(id INT PRIMARY KEY, value INT NOT NULL)");
         jdbc.execute("INSERT INTO event_test.business_counter VALUES(1, 0)");
 
@@ -90,6 +90,227 @@ class OutboxRelayIntegrationTests {
         writer = new OutboxEventWriter(jdbc, mapper, "event_test");
         OutboxMetrics metrics = new OutboxMetrics(new SimpleMeterRegistry());
         relay = new OutboxRelay(jdbc, kafkaTemplate, transactions, metrics, "event_test");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void partialPublishKeepsSuccessAndPreservesAggregateOrder() {
+        jdbc.execute("TRUNCATE event_test.outbox_event");
+        writer.append("payment.events", "test", "partial-a", Map.of("sequence", 1));
+        writer.append("payment.events", "test", "partial-b", Map.of("sequence", 1));
+        writer.append("payment.events", "test", "partial-b", Map.of("sequence", 2));
+        KafkaTemplate<String, String> template = mock(KafkaTemplate.class);
+        when(template.send(any(org.apache.kafka.clients.producer.ProducerRecord.class))).thenAnswer(invocation -> {
+            var record = (org.apache.kafka.clients.producer.ProducerRecord<String, String>) invocation.getArgument(0);
+            if (record.key().equals("partial-b")) return java.util.concurrent.CompletableFuture.failedFuture(new IllegalStateException("broker unavailable"));
+            return java.util.concurrent.CompletableFuture.completedFuture(null);
+        });
+        var partialRelay = new OutboxRelay(jdbc, template, transactions,
+                new OutboxMetrics(new SimpleMeterRegistry()), "event_test");
+        partialRelay.publishPending();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM event_test.outbox_event WHERE published_at IS NOT NULL", Long.class)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM event_test.outbox_event WHERE aggregate_id='partial-b' AND published_at IS NULL", Long.class)).isEqualTo(2L);
+        org.mockito.Mockito.verify(template, org.mockito.Mockito.times(2)).send(any(org.apache.kafka.clients.producer.ProducerRecord.class));
+        jdbc.execute("TRUNCATE event_test.outbox_event");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void metadataFailureStopsSendingRemainingBatchAndLeavesAllEventsPending() {
+        jdbc.execute("TRUNCATE event_test.outbox_event");
+        for (int i = 0; i < 5; i++) writer.append("payment.events", "test", "metadata-" + i, Map.of());
+        KafkaTemplate<String, String> template = mock(KafkaTemplate.class);
+        when(template.send(any(org.apache.kafka.clients.producer.ProducerRecord.class))).thenReturn(
+                java.util.concurrent.CompletableFuture.failedFuture(new org.apache.kafka.common.errors.TimeoutException("metadata unavailable")));
+        new OutboxRelay(jdbc, template, transactions, new OutboxMetrics(new SimpleMeterRegistry()), "event_test").publishPending();
+        org.mockito.Mockito.verify(template, org.mockito.Mockito.times(1)).send(any(org.apache.kafka.clients.producer.ProducerRecord.class));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM event_test.outbox_event WHERE published_at IS NULL", Long.class)).isEqualTo(5L);
+        jdbc.execute("TRUNCATE event_test.outbox_event");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void synchronousSendUsesTheSameDeadlineAndStillCommitsItsAcknowledgment() {
+        jdbc.execute("TRUNCATE event_test.outbox_event");
+        for (int i = 0; i < 5; i++) writer.append("payment.events", "test", "deadline-" + i, Map.of());
+        KafkaTemplate<String, String> template = mock(KafkaTemplate.class);
+        when(template.send(any(org.apache.kafka.clients.producer.ProducerRecord.class))).thenAnswer(invocation -> {
+            TimeUnit.MILLISECONDS.sleep(3100);
+            return java.util.concurrent.CompletableFuture.completedFuture(null);
+        });
+        new OutboxRelay(jdbc, template, transactions, new OutboxMetrics(new SimpleMeterRegistry()), "event_test").publishPending();
+        org.mockito.Mockito.verify(template, org.mockito.Mockito.times(1)).send(any(org.apache.kafka.clients.producer.ProducerRecord.class));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM event_test.outbox_event WHERE published_at IS NOT NULL", Long.class)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM event_test.outbox_event WHERE published_at IS NULL", Long.class)).isEqualTo(4L);
+        jdbc.execute("TRUNCATE event_test.outbox_event");
+    }
+
+    @Test
+    void cleanupKeepsRecentDedupeAndDeletesOnlyExpiredRows() {
+        jdbc.execute("TRUNCATE event_test.processed_event");
+        jdbc.update("INSERT INTO event_test.processed_event VALUES (?, 'test', now()-interval '15 days'), (?, 'test', now()-interval '13 days')",
+                UUID.randomUUID(), UUID.randomUUID());
+        new ProcessedEventCleanup(jdbc, transactions, "event_test", Duration.ofDays(14), 5000).purge();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM event_test.processed_event", Long.class)).isEqualTo(1L);
+        jdbc.execute("TRUNCATE event_test.processed_event");
+    }
+
+    @Test
+    void cleanupBatchesCommitIndependentlyAndPreserveRecentAndPendingEvents() {
+        jdbc.execute("TRUNCATE event_test.processed_event, event_test.outbox_event");
+        for (String table : List.of("processed_event", "outbox_event")) {
+            if (table.equals("processed_event")) {
+                jdbc.execute("INSERT INTO event_test.processed_event SELECT md5('purge-'||g)::uuid, 'test', "
+                        + "now()-interval '15 days' FROM generate_series(1,7) g");
+                jdbc.update("INSERT INTO event_test.processed_event VALUES (?, 'test', now())", UUID.randomUUID());
+            } else {
+                jdbc.execute("INSERT INTO event_test.outbox_event(event_id,topic,event_type,aggregate_id,payload,occurred_at,published_at) "
+                        + "SELECT md5('purge-'||g)::uuid,'test','test','key','{}',now(),now()-interval '8 days' FROM generate_series(1,7) g");
+                writer.append("test", "test", "pending", Map.of());
+                writer.append("test", "test", "recent", Map.of());
+                jdbc.update("UPDATE event_test.outbox_event SET published_at=now() WHERE aggregate_id='recent'");
+            }
+            var committedRemaining = new java.util.ArrayList<Long>();
+            String condition = table.equals("processed_event") ? "processed_at < now()-interval '14 days'"
+                    : "published_at < now()-interval '7 days'";
+            JdbcTemplate tracked = new JdbcTemplate(jdbc.getDataSource()) {
+                @Override
+                public int update(String sql, Object... args) {
+                    int deleted = super.update(sql, args);
+                    org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                            new org.springframework.transaction.support.TransactionSynchronization() {
+                                @Override public void afterCommit() {
+                                    committedRemaining.add(jdbc.queryForObject("SELECT count(*) FROM event_test." + table
+                                            + " WHERE " + condition, Long.class));
+                                }
+                            });
+                    return deleted;
+                }
+            };
+            if (table.equals("processed_event")) {
+                new ProcessedEventCleanup(tracked, transactions, "event_test", Duration.ofDays(14), 3).purge();
+            } else {
+                var cleanupRelay = new OutboxRelay(tracked, kafkaTemplate, transactions,
+                        new OutboxMetrics(new SimpleMeterRegistry()), "event_test");
+                org.springframework.test.util.ReflectionTestUtils.setField(cleanupRelay, "cleanupBatchSize", 3);
+                cleanupRelay.purgePublishedEvents();
+            }
+            assertThat(committedRemaining).containsExactly(4L, 1L, 0L);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM event_test." + table, Long.class))
+                    .isEqualTo(table.equals("processed_event") ? 1 : 2);
+        }
+        jdbc.execute("TRUNCATE event_test.processed_event, event_test.outbox_event");
+    }
+
+    @Test
+    void databaseOutageLongerThanOriginalRetryWindowRecoversWithoutDlt() throws Exception {
+        String topic = "transient-db-test";
+        try (var admin = AdminClient.create(Map.of("bootstrap.servers", kafka.getBootstrapServers()))) {
+            admin.createTopics(List.of(new NewTopic(topic, 1, (short) 1), new NewTopic(topic + ".DLT", 1, (short) 1))).all().get();
+        }
+        var config = Map.<String, Object>of(
+                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
+                ConsumerConfig.GROUP_ID_CONFIG, "transient-db-test-group",
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest",
+                ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false,
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class,
+                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        var properties = new ContainerProperties(topic);
+        var done = new CountDownLatch(1);
+        var attempted = new CountDownLatch(1);
+        var attempts = new java.util.concurrent.atomic.AtomicInteger();
+        var shortJdbc = new JdbcTemplate(new DriverManagerDataSource(
+                postgres.getJdbcUrl() + "&connectTimeout=1&socketTimeout=1", postgres.getUsername(), postgres.getPassword()));
+        properties.setMessageListener((MessageListener<String, String>) record -> {
+            attempts.incrementAndGet();
+            attempted.countDown();
+            shortJdbc.queryForObject("SELECT 1", Integer.class);
+            done.countDown();
+        });
+        var container = new KafkaMessageListenerContainer<>(new DefaultKafkaConsumerFactory<String, String>(config), properties);
+        var registry = new SimpleMeterRegistry();
+        container.setCommonErrorHandler(new EventsAutoConfiguration().kafkaErrorHandler(kafkaTemplate, registry));
+        container.start();
+        var docker = org.testcontainers.DockerClientFactory.instance().client();
+        boolean paused = false;
+        try {
+            docker.pauseContainerCmd(postgres.getContainerId()).exec();
+            paused = true;
+            kafkaTemplate.send(topic, "order", "valid").get(10, TimeUnit.SECONDS);
+            assertThat(attempted.await(30, TimeUnit.SECONDS)).isTrue();
+            TimeUnit.SECONDS.sleep(5);
+            docker.unpauseContainerCmd(postgres.getContainerId()).exec();
+            paused = false;
+            assertThat(done.await(30, TimeUnit.SECONDS)).isTrue();
+            assertThat(attempts.get()).isGreaterThan(1);
+            assertThat(registry.counter("events.dlt.published").count()).isZero();
+            try (var admin = AdminClient.create(Map.of("bootstrap.servers", kafka.getBootstrapServers()))) {
+                var offsets = admin.listOffsets(Map.of(new org.apache.kafka.common.TopicPartition(topic + ".DLT", 0),
+                        org.apache.kafka.clients.admin.OffsetSpec.latest())).all().get();
+                assertThat(offsets.values().iterator().next().offset()).isZero();
+            }
+        } finally {
+            if (paused) docker.unpauseContainerCmd(postgres.getContainerId()).exec();
+            container.stop();
+        }
+    }
+
+    @Test
+    void replayToolRequiresConfirmationAndPreservesBinaryKeyPayloadAndHeaders() throws Exception {
+        String topic = "replay-tool-test";
+        try (var admin = AdminClient.create(Map.of("bootstrap.servers", kafka.getBootstrapServers()))) {
+            admin.createTopics(List.of(new NewTopic(topic, 1, (short) 1), new NewTopic(topic + ".DLT", 1, (short) 1))).all().get();
+        }
+        long originalTimestamp = System.currentTimeMillis() - Duration.ofDays(1).toMillis();
+        byte[] key = {0, 1, -1};
+        byte[] value = "{\"eventId\":\"unchanged\",\"payload\":\"hello\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var headers = new org.apache.kafka.common.header.internals.RecordHeaders();
+        headers.add("kafka_dlt-original-topic", topic.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        headers.add("kafka_dlt-original-partition", java.nio.ByteBuffer.allocate(4).putInt(0).array());
+        headers.add("kafka_dlt-original-timestamp", java.nio.ByteBuffer.allocate(8).putLong(originalTimestamp).array());
+        headers.add("traceparent", "trace-value".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var config = Map.<String, Object>of("bootstrap.servers", kafka.getBootstrapServers(),
+                "key.serializer", org.apache.kafka.common.serialization.ByteArraySerializer.class,
+                "value.serializer", org.apache.kafka.common.serialization.ByteArraySerializer.class);
+        try (var producer = new org.apache.kafka.clients.producer.KafkaProducer<byte[], byte[]>(config)) {
+            producer.send(new org.apache.kafka.clients.producer.ProducerRecord<>(topic + ".DLT", 0, originalTimestamp, key, value, headers)).get();
+        }
+        String javaExecutable = java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java").toString();
+        String source = java.nio.file.Path.of("..", "..", "infra", "scripts", "DltReplay.java").toAbsolutePath().normalize().toString();
+        long replayStarted = System.currentTimeMillis();
+        for (String confirmation : List.of("CANCEL", "REPLAY")) {
+            var outputFile = java.nio.file.Files.createTempFile("dlt-replay-test", ".log");
+            var process = new ProcessBuilder(javaExecutable, "--class-path", System.getProperty("surefire.test.class.path", System.getProperty("java.class.path")),
+                    source, kafka.getBootstrapServers(), topic + ".DLT", "0", "0", "1")
+                    .redirectErrorStream(true).redirectOutput(outputFile.toFile()).start();
+            try (var input = process.outputWriter()) { input.write(confirmation + "\n"); }
+            assertThat(process.waitFor(45, TimeUnit.SECONDS)).isTrue();
+            String output = java.nio.file.Files.readString(outputFile);
+            java.nio.file.Files.delete(outputFile);
+            assertThat(process.exitValue()).as(output).isZero();
+            try (var admin = AdminClient.create(Map.of("bootstrap.servers", kafka.getBootstrapServers()))) {
+                long count = admin.listOffsets(Map.of(new org.apache.kafka.common.TopicPartition(topic, 0),
+                        org.apache.kafka.clients.admin.OffsetSpec.latest())).all().get().values().iterator().next().offset();
+                assertThat(count).isEqualTo(confirmation.equals("REPLAY") ? 1 : 0);
+            }
+        }
+        var consumerConfig = Map.<String, Object>of("bootstrap.servers", kafka.getBootstrapServers(),
+                "key.deserializer", org.apache.kafka.common.serialization.ByteArrayDeserializer.class,
+                "value.deserializer", org.apache.kafka.common.serialization.ByteArrayDeserializer.class);
+        try (var consumer = new org.apache.kafka.clients.consumer.KafkaConsumer<byte[], byte[]>(consumerConfig)) {
+            var partition = new org.apache.kafka.common.TopicPartition(topic, 0);
+            consumer.assign(List.of(partition));
+            consumer.seekToBeginning(List.of(partition));
+            var records = consumer.poll(Duration.ofSeconds(10));
+            assertThat(records.count()).isEqualTo(1);
+            var record = records.iterator().next();
+            assertThat(record.timestamp()).isBetween(replayStarted, System.currentTimeMillis());
+            assertThat(record.headers().lastHeader("kafka_dlt-original-timestamp").value())
+                    .isEqualTo(java.nio.ByteBuffer.allocate(8).putLong(originalTimestamp).array());
+            assertThat(record.key()).isEqualTo(key);
+            assertThat(record.value()).isEqualTo(value);
+            assertThat(record.headers().toArray()).containsExactly(headers.toArray());
+        }
     }
 
     @AfterAll

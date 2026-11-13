@@ -56,13 +56,14 @@ async function load(): Promise<void> {
   quantity.value = 1
   addedQty.value = 0
   cartFull.value = false
+  const imageRequest = getProductImages(props.id).catch(() => [] as ProductImage[])
   try {
     const found = await getProduct(props.id)
     if (requestId !== latestRequest) return
     product.value = found
     // 圖片與庫存互相獨立：圖片載入失敗只是沒有圖，庫存失敗只是不能加入購物車，都不影響看商品資訊
     await Promise.all([
-      getProductImages(found.id)
+      imageRequest
         .then((result) => {
           if (requestId === latestRequest) images.value = result
         })

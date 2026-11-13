@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, onScopeDispose, ref } from 'vue'
 
 // 購物車只存 productId 與數量：價格、名稱、狀態可能被後台改，存在瀏覽器的會過期，
 // 購物車頁與結帳頁每次用 GET /products/batch 重新查
@@ -48,6 +48,13 @@ function normalizeQty(qty: number): number {
 
 export const useCartStore = defineStore('cart', () => {
   const items = ref<CartItem[]>(readStoredItems())
+  const syncStorage = (event: StorageEvent): void => {
+    if (event.storageArea === localStorage && (event.key === CART_KEY || event.key === null)) {
+      items.value = readStoredItems()
+    }
+  }
+  window.addEventListener('storage', syncStorage)
+  onScopeDispose(() => window.removeEventListener('storage', syncStorage))
 
   // 頂部列顯示的件數：所有商品的數量加總
   const count = computed(() => items.value.reduce((sum, item) => sum + item.qty, 0))

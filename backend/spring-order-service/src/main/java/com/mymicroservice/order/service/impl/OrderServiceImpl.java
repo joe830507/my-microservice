@@ -177,15 +177,13 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public InternalOrderResDto markPaid(UUID orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new AppException(OrderErrorCode.ORDER_NOT_FOUND, orderId));
-
         boolean paid = orderRepository.markPaidIfPending(orderId, Instant.now(),
                 auditorAware.getCurrentAuditor().orElseThrow()) == 1;
         if (paid) {
             Metrics.counter("orders.paid").increment();
         } else {
-            order = orderRepository.findById(orderId).orElseThrow();
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new AppException(OrderErrorCode.ORDER_NOT_FOUND, orderId));
             if (order.getStatus() == OrderStatus.CANCELLED) {
                 throw new AppException(OrderErrorCode.ORDER_ALREADY_CANCELLED, orderId);
             }
@@ -227,8 +225,6 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResDto shipOrder(UUID orderId) {
-        findOrderWithItems(orderId);
-
         boolean shipped = orderRepository.markShippedIfPaid(orderId, Instant.now(),
                 auditorAware.getCurrentAuditor().orElseThrow()) == 1;
         Order order = findOrderWithItems(orderId);
@@ -244,9 +240,8 @@ public class OrderServiceImpl implements OrderService {
 
     // 只有 SHIPPED 可以完成；已經完成的回 200（冪等）；其他狀態回 409
     @Override
+    @Transactional
     public OrderResDto completeOrder(UUID orderId) {
-        findOrderWithItems(orderId);
-
         boolean completed = orderRepository.markCompletedIfShipped(orderId, Instant.now(),
                 auditorAware.getCurrentAuditor().orElseThrow()) == 1;
         Order order = findOrderWithItems(orderId);

@@ -29,10 +29,22 @@ class LoginAttemptServiceTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void readsBothCountersInOneRoundTripAndChecksBothLimits() {
+        ValueOperations<String, String> values = mock(ValueOperations.class);
+        when(redisTemplate.opsForValue()).thenReturn(values);
+        when(values.multiGet(anyList())).thenReturn(java.util.Arrays.asList("5", null), java.util.List.of("1", "30"), java.util.List.of("1", "29"));
+        assertThat(service.isBlocked("a@example.com", "ip")).isTrue();
+        assertThat(service.isBlocked("a@example.com", "ip")).isTrue();
+        assertThat(service.isBlocked("a@example.com", "ip")).isFalse();
+        org.mockito.Mockito.verify(values, org.mockito.Mockito.times(3)).multiGet(anyList());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void isBlocked_redisDown_allowsLogin() {
         ValueOperations<String, String> valueOperations = mock(ValueOperations.class);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(anyString())).thenThrow(REDIS_DOWN);
+        when(valueOperations.multiGet(anyList())).thenThrow(REDIS_DOWN);
 
         assertThat(service.isBlocked("alice@example.com", "203.0.113.1")).isFalse();
     }

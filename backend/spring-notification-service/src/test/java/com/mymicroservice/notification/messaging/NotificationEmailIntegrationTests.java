@@ -85,7 +85,7 @@ class NotificationEmailIntegrationTests {
     @Autowired KafkaTemplate<String, String> kafka;
     @Autowired KafkaListenerEndpointRegistry listeners;
     @Autowired ObjectMapper mapper;
-    @Autowired JavaMailSenderImpl mailSender;
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean JavaMailSenderImpl mailSender;
     @Autowired EmailDispatcher dispatcher;
     @Autowired MeterRegistry meters;
     private final HttpClient http = HttpClient.newHttpClient();
@@ -295,6 +295,44 @@ class NotificationEmailIntegrationTests {
                 .isGreaterThanOrEqualTo(1);
         assertThat(meters.counter("notification.emails", "template", "order-paid", "result", "failed").count())
                 .isGreaterThanOrEqualTo(1);
+    }
+
+    @Test
+    void expiredLeaseIsReclaimedButActiveLeaseIsUntouched() {
+        UUID expired = UUID.randomUUID();
+        UUID active = UUID.randomUUID();
+        jdbc.update("INSERT INTO notification_service.email_message(id,event_id,template,status,lease_until,lease_token) "
+                + "VALUES (?,?,'order-paid','SENDING',now()-interval '1 second',?), "
+                + "(?,?,'order-paid','SENDING',now()+interval '1 minute',?)",
+                expired, UUID.randomUUID(), UUID.randomUUID(), active, UUID.randomUUID(), UUID.randomUUID());
+        dispatcher.dispatchDueEmails();
+        assertThat(jdbc.queryForObject("SELECT status FROM notification_service.email_message WHERE id=?", String.class, expired))
+                .isEqualTo("PENDING");
+        assertThat(jdbc.queryForObject("SELECT lease_token FROM notification_service.email_message WHERE id=?", UUID.class, expired))
+                .isNull();
+        assertThat(jdbc.queryForObject("SELECT attempts FROM notification_service.email_message WHERE id=?", Integer.class, active))
+                .isZero();
+        assertThat(jdbc.queryForObject("SELECT status FROM notification_service.email_message WHERE id=?", String.class, active))
+                .isEqualTo("SENDING");
+    }
+
+    @Test
+    void smtpRunsOutsideTransactionAfterClaimHasCommitted() {
+        UUID userId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        jdbc.update("INSERT INTO notification_service.user_contact(user_id,email) VALUES (?,?)", userId, "buyer@example.com");
+        jdbc.update("INSERT INTO notification_service.order_ref(order_id,user_id,total_amount) VALUES (?,?,10)", orderId, userId);
+        jdbc.update("INSERT INTO notification_service.email_message(id,event_id,template,order_id) VALUES (?,?,'order-paid',?)",
+                messageId, UUID.randomUUID(), orderId);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            assertThat(jdbc.queryForObject("SELECT status='SENDING' AND lease_until>now() AND lease_token IS NOT NULL "
+                    + "FROM notification_service.email_message WHERE id=?", Boolean.class, messageId)).isTrue();
+            return null;
+        }).when(mailSender).send(org.mockito.ArgumentMatchers.any(jakarta.mail.internet.MimeMessage.class));
+        dispatcher.dispatchDueEmails();
+        assertThat(jdbc.queryForObject("SELECT status FROM notification_service.email_message WHERE id=?", String.class, messageId)).isEqualTo("SENT");
     }
 
     private void dispatchNow(UUID eventId) {

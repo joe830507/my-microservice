@@ -58,6 +58,8 @@ class OrderJobsIntegrationTests {
     private JdbcTemplate jdbcTemplate;
     @Autowired
     private ScheduledTaskHolder scheduledTaskHolder;
+    @Autowired
+    private org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler taskScheduler;
 
     @BeforeEach
     void setUp() {
@@ -117,10 +119,12 @@ class OrderJobsIntegrationTests {
 
     @Test
     void jobs_areScheduledWithConfiguredCron() {
+        assertThat(taskScheduler.getScheduledThreadPoolExecutor().getCorePoolSize()).isEqualTo(4);
         assertThat(scheduledTaskHolder.getScheduledTasks())
                 .map(scheduledTask -> scheduledTask.getTask())
                 .filteredOn(task -> task instanceof CronTask)
-                .hasSize(2);
+                .map(task -> ((CronTask) task).getExpression())
+                .containsExactlyInAnyOrder("0 0 0 1 1 *", "0 20 3 * * *", "0 40 3 * * *");
     }
 
     // ---------- helpers ----------
