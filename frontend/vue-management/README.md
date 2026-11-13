@@ -1,54 +1,32 @@
-# vue-management
+# vue-management（管理後台）
 
-This template should help get you started developing with Vue 3 in Vite.
+ADMIN 管理分類、商品、圖片、SKU 庫存、訂單與使用者查詢。技術與 scripts 以 [package.json](package.json) 為準。
 
-## Recommended IDE Setup
+## 閱讀入口
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- [元件關係圖與職責說明](../../docs/component-relationships/vue-management.md)：路由、頁面、store、API 與關鍵流程。
+- [實作與驗收紀錄](../../docs/implementation-plans/vue-management/README.md)：Step 0–12、環境準備及 E2E 操作。
+- [系統導讀](../../docs/architecture/system-guide.md)：前後端與事件的整體分工。
+- [專案執行入口](../../README.md)：後端、JWT 金鑰、開發管理員與基礎設施。
 
-## Recommended Browser Setup
+## 本機開發
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
+在本資料夾執行，Node 版本依 package.json 的 engines：
 
 ```sh
-npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
+npm ci
 npm run dev
 ```
 
-### Type-Check, Compile and Minify for Production
+預設 http://localhost:5173，Vite 將 `/api` 代理至 localhost:8080 的 Gateway。API base 由 VITE_API_BASE 決定；環境值與後端啟動方式見實作紀錄。正式部署由 nginx 提供 SPA history fallback 與 API 代理。
+
+## 建置與檢查
 
 ```sh
 npm run build
+npm run test:unit -- --run
+npm run test:browser
+npm run test:e2e
 ```
 
-### Run Unit Tests with [Vitest](https://vitest.dev/)
-
-```sh
-npm run test:unit
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
-```
+build 同時執行型別檢查與 Vite 建置；test:browser 是獨立瀏覽器測試，E2E 需要對應後端、帳號與資料。環境與覆蓋範圍請讀實作紀錄，這裡的指令不代表已重新驗收。`npm run lint` 會自動修正檔案，執行後需檢查差異。

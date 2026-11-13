@@ -14,6 +14,8 @@
 | spring-product-service | [商品服務類別關係圖與職責說明](spring-product-service.md) | 商品／分類／圖片、Redis、搜尋查詢／索引重建與 outbox |
 | spring-user-service | [使用者服務類別關係圖與職責說明](spring-user-service.md) | 註冊／登入、JWT／JWKS、cookie、refresh 輪替、失敗計數與初始化 |
 
+前端的路由、Vue 元件、store 與 API 流程另見[元件關係與職責索引](../component-relationships/README.md)。
+
 ## 圖例
 
 文件使用 Markdown 與 Mermaid；支援 Mermaid 的預覽器可直接顯示圖形。每張圖只畫該主題的重要關係，完整來源清單由職責表補足。

@@ -1,5 +1,7 @@
 # backend 聚合 pom 與 common 模組實作步驟
 
+目前程式分工與依賴圖見[類別關係與職責](../../class-relationships/common.md)；本文件保留實作步驟、設計決策與當時驗收紀錄。
+
 > 建立日期：2026-11-09
 > 分支：`feature/backend-common`（從 `feature/product-service-api` 建立）
 > 對應：[microservice-architecture.md](../../architecture/microservice-architecture.md)「後端專案結構」

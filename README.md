@@ -44,13 +44,13 @@ flowchart TB
 | user-service | 註冊、登入、RS256 JWT、refresh token 輪替、登入限流 | 8084 |
 | payment-service | 付款紀錄、模擬金流回呼 | 8085 |
 | notification-service | 消費事件、建立寄信工作、SMTP 派送（無對外業務 API） | 8086 |
-| vue-customer | 商店前台：瀏覽、購物車、結帳、模擬付款、我的訂單 | 5174 |
-| vue-management | 管理後台：商品、圖片、庫存、訂單、使用者 | 5173 |
+| [vue-customer](frontend/vue-customer/README.md) | 商店前台：瀏覽、購物車、結帳、模擬付款、我的訂單 | 5174 |
+| [vue-management](frontend/vue-management/README.md) | 管理後台：商品、圖片、庫存、訂單、使用者 | 5173 |
 
 ## 主要設計
 
 - **每個服務一個資料庫**：服務間只透過 API 或事件交換資料，不跨資料庫 join、不共用 Entity。
-- **Transactional Outbox**：業務變更與事件在同一個本地交易提交，背景 relay 再送到 Kafka；提供 at-least-once，消費者以 `eventId` 去重。
+- **Transactional Outbox**：業務變更與事件在同一個本地交易提交，背景 relay 再送到 Kafka；提供 at-least-once，業務消費者以 `eventId` 去重，搜尋索引以商品版本處理重送與亂序。
 - **跨服務以補償取代全域交易**：建單時同步預扣庫存，失敗時釋放；付款成功、取消、逾時透過事件確認或歸還庫存。
 - **冪等**：建單支援 `Idempotency-Key`，庫存預扣以 `orderId` 識別，搜尋索引用商品版本拒絕過時快照。
 - **身分由 Gateway 統一驗證**：下游讀取 Gateway 建立的 `X-User-Id`、`X-User-Roles`，K8s 以 NetworkPolicy 限制直連。
@@ -86,7 +86,7 @@ infra/
   k8s/                    kind 部署、Secret、NetworkPolicy 與操作腳本
   observability/          Grafana 儀表板與告警
   scripts/                本機啟動後端的腳本
-docs/                     導讀、架構、實作計畫與紀錄、設計評估、安全事項
+docs/                     系統／程式導讀、架構、實作計畫與紀錄、設計評估、安全事項
 ```
 
 ## 本機執行
@@ -149,6 +149,8 @@ npm run test:e2e     # Playwright，需要先啟動後端
 |---|---|
 | 整個系統怎麼運作 | [系統導讀](docs/architecture/system-guide.md) |
 | 服務、API、port 與路由 | [架構參考](docs/architecture/microservice-architecture.md) |
+| 後端類別、依賴與交易分工 | [後端類別關係與職責](docs/class-relationships/README.md) |
+| 前端路由、元件、狀態與操作流程 | [前端元件關係與職責](docs/component-relationships/README.md) |
 | 事件格式、版本與消費行為 | [事件契約](docs/architecture/event-contracts.md) |
 | Kafka、搜尋、通知等中介軟體的階段與決策 | [中介軟體路線圖](docs/implementation-plans/middleware/middleware-roadmap.md) |
 | 已知安全問題與上線前檢查 | [安全清單](docs/security/known-issues.md) |

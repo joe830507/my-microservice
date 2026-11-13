@@ -1,5 +1,7 @@
 # vue-management 後台前端實作與驗收紀錄
 
+目前程式分工與依賴圖見[元件關係與職責](../../component-relationships/vue-management.md)；本文件保留實作步驟、設計決策與當時驗收紀錄。
+
 > 建立日期：2026-11-09
 > 分支：`feature/vue-management`
 > 位置：`frontend/vue-management`

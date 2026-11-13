@@ -1,5 +1,7 @@
 # 通知（notification-service）實作計畫（階段 E）
 
+目前程式分工與依賴圖見[類別關係與職責](../../class-relationships/spring-notification-service.md)；本文件保留實作步驟、設計決策與當時驗收紀錄。
+
 > 建立日期：2026-11-12
 > 分支：實作時開 `feature/notification-phase-e`（從階段 D 合併後的 `main` 切出；階段 D 尚未合併時，從 `feature/search-phase-d` 切出並做 stacked PR）
 > 對應：[middleware-roadmap.md](middleware-roadmap.md)「階段 E」、[event-contracts.md](../../architecture/event-contracts.md)

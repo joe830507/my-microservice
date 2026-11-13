@@ -1,5 +1,7 @@
 # 商品圖片上傳設計、實作與驗收
 
+目前程式分工與依賴圖見[類別關係與職責](../../class-relationships/spring-product-service.md)；本文件保留實作步驟、設計決策與當時驗收紀錄。
+
 > 建立日期：2026-11-09
 > 分支：`feature/product-image-upload`
 > 設計：[圖片上傳設計](#image-design)（流程、關鍵決定、API、錯誤碼集中於本文後段；前段記錄步驟與實作結果）

@@ -4,6 +4,8 @@
 > 目標：先把各微服務建立起來，再統一接到 API Gateway
 > 狀態：所有服務都已完成，完整下單流程（下單 → 付款 → 確認扣除庫存）已實際驗證
 
+本文提供服務與 API 的整體參考。閱讀目前程式分工時，另見[後端類別關係與職責](../class-relationships/README.md)及[前端元件關係與職責](../component-relationships/README.md)；從完整購物流程入門可先讀[系統導讀](system-guide.md)。
+
 ## 已定案的決定
 
 | 項目 | 決定 | 原因 |
