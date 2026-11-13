@@ -1,0 +1,118 @@
+{
+  "checkedAtUtc": "2026-11-13T04:17:23.352793+00:00",
+  "context": "kind-my-microservice",
+  "endpoint": "observability pod localhost:9090/api/v1/query",
+  "queries": [
+    {
+      "uid": "mm-5xx-rate",
+      "status": "success",
+      "series": 0,
+      "values": [],
+      "warnings": []
+    },
+    {
+      "uid": "mm-p95-latency",
+      "status": "success",
+      "series": 1,
+      "values": [
+        "NaN"
+      ],
+      "warnings": []
+    },
+    {
+      "uid": "mm-scheduled-job-failed",
+      "status": "success",
+      "series": 0,
+      "values": [],
+      "warnings": []
+    },
+    {
+      "uid": "mm-no-metrics",
+      "status": "success",
+      "series": 7,
+      "values": [
+        "4.376000165939331",
+        "3.690000057220459",
+        "2.1579999923706055",
+        "0.377000093460083",
+        "4.564000129699707",
+        "10.650000095367432",
+        "5.434000015258789"
+      ],
+      "warnings": []
+    },
+    {
+      "uid": "mm-circuit-open",
+      "status": "success",
+      "series": 0,
+      "values": [],
+      "warnings": []
+    },
+    {
+      "uid": "mm-replicas-low",
+      "status": "success",
+      "series": 7,
+      "values": [
+        "2",
+        "2",
+        "2",
+        "2",
+        "2",
+        "2",
+        "2"
+      ],
+      "warnings": []
+    },
+    {
+      "uid": "mm-reservation-rejected",
+      "status": "success",
+      "series": 0,
+      "values": [],
+      "warnings": []
+    },
+    {
+      "uid": "mm-kafka-consumer-lag",
+      "status": "success",
+      "series": 4,
+      "values": [
+        "NaN",
+        "NaN",
+        "NaN",
+        "NaN"
+      ],
+      "warnings": []
+    },
+    {
+      "uid": "mm-search-fallback",
+      "status": "success",
+      "series": 0,
+      "values": [],
+      "warnings": []
+    },
+    {
+      "uid": "mm-kafka-dlt",
+      "status": "success",
+      "series": 1,
+      "values": [
+        "0"
+      ],
+      "warnings": []
+    },
+    {
+      "uid": "mm-notification-failed",
+      "status": "success",
+      "series": 0,
+      "values": [],
+      "warnings": []
+    },
+    {
+      "uid": "mm-notification-backlog",
+      "status": "success",
+      "series": 1,
+      "values": [
+        "0"
+      ],
+      "warnings": []
+    }
+  ]
+}

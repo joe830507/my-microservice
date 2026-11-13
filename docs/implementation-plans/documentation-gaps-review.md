@@ -21,6 +21,8 @@
 
 ## 1.（高）告警處理手冊
 
+> 2026-11-13 完成註記：新增 [12 條告警手冊](../operations/alert-runbook.md)，逐條保留查詢、門檻與 for，補面板／Loki／Tempo、Compose／kind 診斷與責任分流；DLT 僅連回既有流程。已在既有 kind Prometheus 實際執行全部 12 條原始 A 查詢，均 success，部分空集合／NaN；[結果](evidence/documentation-alert-queries.json)與手冊末尾記錄限制，未驗證 firing／恢復、通知、修復命令或故障注入。
+
 現況：`infra/observability/alerting.yaml` 有 12 條告警規則（由 `infra/observability/generate_dashboard.py` 產生），每條只有一行 `summary`。只有「Kafka 事件進入 DLT」在 `docs/architecture/event-contracts.md` 的「DLT 處理與重放」有完整處理步驟，其他 11 條告警響了之後，沒有文件說明要看哪裡、怎麼判斷、怎麼處理。
 
 告警清單（依 `alerting.yaml` 順序）：
