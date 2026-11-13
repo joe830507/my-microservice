@@ -112,7 +112,7 @@
 - **現象**：新增的 `user logout clears the cart in this tab and another open tab` 放在最佳化審查專用的測試檔裡。這個檔案的其他測試都對應最佳化審查的項目（跨分頁同步、圖片提早載入等），跟登出政策無關，之後不容易找到。
 - **修正**：搬到獨立的檔案，例如 `browser-tests/cart-logout.spec.ts`。共用的 `id`、`product` 等測試資料如果需要，抽到小的 fixture 模組，或在新檔案裡自己定義。確認 `npx playwright test -c playwright.optimization.config.ts` 仍然全部通過；如果這份設定只收錄最佳化相關的測試，要在檔案頂部註解說明。
 
-**處理結果**：
+**處理結果**：已將登出案例搬到 browser-tests/cart-logout.spec.ts，自帶小型商品 fixture；optimization.spec.ts 保留原本三項。設定檔註解說明歷史檔名保留、涵蓋全部 API 攔截瀏覽器回歸。完整 playwright test -c playwright.optimization.config.ts：4 項通過（含跨分頁登出）。未跑真實後端 E2E 或 kind。
 
 ## 審查確認沒有問題的部分
 
