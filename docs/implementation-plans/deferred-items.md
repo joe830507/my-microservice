@@ -10,7 +10,7 @@
 
 | 處理時機 | 意思 | 項目數 |
 |---|---|---|
-| [現在](#現在) | 前提已經具備，或只差一個決定；立即排入，任務見[立即處理項目](deferred-now-tasks.md) | 3 |
+| [現在](#現在) | 前提已經具備，或只差一個決定；立即排入，任務見[立即處理項目](deferred-now-tasks.md) | 2 |
 | [隨開發流程](#隨開發流程) | 跟[系統缺口評估](system-gaps-assessment.md)的 G-01～G-03（CI、映像檔、漏洞掃描）一起做，不另外排程 | 4 |
 | [隨業務功能](#隨業務功能) | 跟某個 G 項目的新功能一起做 | 2 |
 | [看壓測數據](#看壓測數據) | 等 G-10 壓測結果證實瓶頸再決定 | 3 |
@@ -24,7 +24,6 @@
 | 項目 | 來源文件／章節 | 暫緩原因 | 前提或觸發條件 | 預估影響範圍 |
 |---|---|---|---|---|
 | PENDING 付款逾時收斂 | [付款後續](backend/payment-service-implementation-plan.md#之後再處理) | 訂單取消後可能保留 PENDING；目前付款結果只由回呼決定 | 2026-11-13 已決定：新增 `CANCELLED` 終態並消費 `OrderCancelled`；見 [T-01](deferred-now-tasks.md#t-01-訂單取消後收斂-pending-付款) | payment 狀態／事件、order 取消、顧客付款頁 |
-| 並行註冊衝突錯誤碼一致性 | [使用者計畫](backend/user-service-implementation-plan.md) | 目前唯一鍵競爭回 DATA_CONFLICT，先查存在回 EMAIL_ALREADY_EXISTS | 2026-11-13 已決定統一回 `EMAIL_ALREADY_EXISTS`；見 [T-02](deferred-now-tasks.md#t-02-並行註冊衝突統一回-email_already_exists) | user exception mapping、API／並行測試、前端訊息 |
 | 共用電腦登出後購物車政策 | [前台後續](vue-customer/README.md#之後再處理) | 目前保留非帳號綁定 localStorage cart，尚未定清除政策 | 2026-11-13 已決定：使用者主動登出時清空，不做依帳號存放；見 [T-03](deferred-now-tasks.md#t-03-共用電腦登出後清空購物車) | 顧客 auth／cart、切帳號與回歸測試 |
 
 ## 隨開發流程
@@ -83,6 +82,8 @@
 - 安全文件「還沒有檢查的」是待驗證而非已知漏洞；過往測試數字、kind 實測及未檢查宣告均維持原文。本次沒有重新安全測試或清理探測資料。
 
 ## 變更紀錄
+
+- 2026-11-13：T-02 已完成，並行註冊 uq_users_email 衝突統一回 EMAIL_ALREADY_EXISTS；原始使用者計畫與立即處理項目已更新，移出現在清單。
 
 - 2026-11-13：加入「處理時機」分類。Bloom filter／ETag、商品 SEO／SSR、前後台共用 workspace 套件三項原為條件式候選，移入[路線圖「暫不排入」](middleware/middleware-roadmap.md#暫不排入記錄理由)，原始來源已加註。「圖片 CDN」與「正式圖片物件對帳清理」合併為一列；「剩餘安全驗證工作」拆出 Maven 依賴，隨 G-03 處理。
 

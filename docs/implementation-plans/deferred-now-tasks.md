@@ -5,7 +5,7 @@
 | 編號 | 項目 | 狀態 |
 |---|---|---|
 | T-01 | 訂單取消後收斂 PENDING 付款 | 待實作 |
-| T-02 | 並行註冊衝突統一回 EMAIL_ALREADY_EXISTS | 待實作 |
+| T-02 | 並行註冊衝突統一回 EMAIL_ALREADY_EXISTS | 已完成（本分支提交） |
 | T-03 | 共用電腦登出後清空購物車 | 待實作 |
 
 ## T-01 訂單取消後收斂 PENDING 付款
@@ -79,7 +79,7 @@
 
 ### 完成紀錄
 
-（Codex 完成後填寫）
+2026-11-13：完成於 `fix/t02-registration-email-conflict` 的單一提交（commit ID 以該分支 git log 為準）。register 在交易外捕捉 DataIntegrityViolationException，只有 Hibernate 約束名稱 uq_users_email 才轉 EMAIL_ALREADY_EXISTS；未改動管理員初始化行為。新增同步屏障並行測試重複 5 次，均為一筆 201、一筆 409 EMAIL_ALREADY_EXISTS、只有一個使用者與一筆 UserRegistered；另驗證其他資料庫限制不轉換且交易與 outbox 回滾。新增 6 項與既有註冊 15 項，共 21 項通過。並行測試先穩定重現原錯誤；測試資料與 outbox 信封查詢修正後全部通過。文件本機連結／錨點、UTF-8 無 BOM 與 git diff --check 通過；未在 kind 驗證。
 
 ## T-03 共用電腦登出後清空購物車
 
