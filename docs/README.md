@@ -29,6 +29,7 @@
 |---|---|
 | [類別關係文件索引](class-relationships/README.md) | 圖例、分類與維護方式；依後端模組逐步補齊 |
 | [common 類別關係圖與職責說明](class-relationships/common.md) | 32 個來源檔的職責、Spring 接線、類別依賴與對照測試 |
+| [observability 類別關係圖與職責說明](class-relationships/observability.md) | 一個自訂類別與共用設定的分工、Logback 接線、指標／追蹤／日誌資料流 |
 
 ## 實作計畫
 
@@ -63,6 +64,8 @@
 | [known-issues.md](security/known-issues.md) | 已知的安全問題與 SEC 編號追蹤、驗證過沒有問題的項目、還沒檢查的範圍；**上線前必讀** |
 
 ## 文件維護
+
+2026-11-13 補上 observability 類別與設定導讀，涵蓋一個 Java 類別、三個資源與 Maven 設定，包含四張 Mermaid 圖。三份異動文件的 54 個本機連結（含章節引用）、七個應用的依賴／設定匯入與 UTF-8 無 BOM 已核對，圖形區塊結構檢查通過；未執行 Mermaid 渲染、應用程式測試或 Collector 端到端驗收。
 
 2026-11-13 新增 `class-relationships/` 文件類型與 common 導讀，涵蓋 32 個 Java 主程式來源檔、9 張 Mermaid 圖與重要內部型別。三份異動文件的 91 個本機連結（含章節引用）、UTF-8 無 BOM 與圖形區塊結構已檢查；未執行 Mermaid 渲染或重新執行應用程式測試。
 
