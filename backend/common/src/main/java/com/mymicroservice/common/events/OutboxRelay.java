@@ -71,20 +71,24 @@ public class OutboxRelay {
                                     rs.getObject("event_id", UUID.class), rs.getString("topic"),
                                     rs.getString("aggregate_id"), rs.getString("payload"), rs.getString("traceparent")), Math.max(1, batchSize));
                     List<CompletableFuture<SendResult<String, String>>> futures = new ArrayList<>();
+                    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
                     for (PendingEvent event : events) {
+                        if (System.nanoTime() >= deadline) break;
                         ProducerRecord<String, String> record = new ProducerRecord<>(event.topic(), event.aggregateId(), event.payload());
                         if (event.traceparent() != null) {
                             record.headers().add(new RecordHeader("traceparent", event.traceparent().getBytes(StandardCharsets.UTF_8)));
                         }
                         try {
-                            futures.add(send(record, event.traceparent()));
+                            var future = send(record, event.traceparent());
+                            futures.add(future);
+                            if (future.isCompletedExceptionally()) break;
                         } catch (Exception failure) {
                             futures.add(CompletableFuture.failedFuture(failure));
+                            break;
                         }
                     }
                     List<UUID> acknowledged = new ArrayList<>();
-                    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
-                    for (int i = 0; i < events.size(); i++) {
+                    for (int i = 0; i < futures.size(); i++) {
                         try {
                             futures.get(i).get(Math.max(1, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
                             acknowledged.add(events.get(i).id());

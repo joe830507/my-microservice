@@ -115,6 +115,20 @@ class OutboxRelayIntegrationTests {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void metadataFailureStopsSendingRemainingBatchAndLeavesAllEventsPending() {
+        jdbc.execute("TRUNCATE event_test.outbox_event");
+        for (int i = 0; i < 5; i++) writer.append("payment.events", "test", "metadata-" + i, Map.of());
+        KafkaTemplate<String, String> template = mock(KafkaTemplate.class);
+        when(template.send(any(org.apache.kafka.clients.producer.ProducerRecord.class))).thenReturn(
+                java.util.concurrent.CompletableFuture.failedFuture(new org.apache.kafka.common.errors.TimeoutException("metadata unavailable")));
+        new OutboxRelay(jdbc, template, transactions, new OutboxMetrics(new SimpleMeterRegistry()), "event_test").publishPending();
+        org.mockito.Mockito.verify(template, org.mockito.Mockito.times(1)).send(any(org.apache.kafka.clients.producer.ProducerRecord.class));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM event_test.outbox_event WHERE published_at IS NULL", Long.class)).isEqualTo(5L);
+        jdbc.execute("TRUNCATE event_test.outbox_event");
+    }
+
+    @Test
     void cleanupKeepsRecentDedupeAndDeletesOnlyExpiredRows() {
         jdbc.execute("TRUNCATE event_test.processed_event");
         jdbc.update("INSERT INTO event_test.processed_event VALUES (?, 'test', now()-interval '15 days'), (?, 'test', now()-interval '13 days')",

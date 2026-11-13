@@ -385,3 +385,107 @@ RUN java -Djarmode=tools -jar /src/spring-${SERVICE}/target/${SERVICE}-0.0.1-SNA
 - 每一點各自一個 commit（第 1～4 點與第 19 點優先），附上跑過的測試（後端 `mvn test` 的相關模組、前端 `npm run test:unit` 與相關的 e2e）。
 - 第 6、9 點附上 `EXPLAIN` 結果。
 - 決定不做或暫緩的項目，在這份文件對應段落下方註明原因。
+
+---
+
+## 修正後審查（第一輪，2026-11-13）
+
+範圍：`fc76e00..3b466b4`（Review #1～#20 共 20 個 commit）。方式：逐項比對上面的建議與實際程式、migration、測試及 evidence；靜態閱讀，未重跑測試。
+
+結論：20 項都有照建議（或註記的替代方案）完成，測試也對準了各點的風險，沒有阻擋合併的問題。以下是修正本身帶進來的新問題與遺漏，依優先順序排列。
+
+| # | 優先 | 項目 |
+|---|---|---|
+| R1 | 中 | Outbox relay 在 Kafka metadata 取不到時，每筆 `send` 各阻塞 `max.block.ms`，一批 100 筆可達 5 分鐘 |
+| R2 | 中低 | 去重清理第一次執行是一個無上限的 DELETE，會卡住唯一的排程執行緒 |
+| R3 | 低 | 第 9 點的複合索引沒有涵蓋「含子分類」與「createdAt 升冪」兩種實際查詢 |
+| R4 | 低 | 第 15 點「是否需要 OrderCompleted」的結論沒寫進 event-contracts |
+| R5 | 低 | 第 19 點的暫時性錯誤分類可以再涵蓋 JDBC 層的 transient／recoverable 例外 |
+| R6 | 低 | DLT 重放沿用舊的 record timestamp |
+| R7 | 低 | 過時註解與程式風格 |
+
+### R1.（中）Outbox relay 在 metadata 不可用時逐筆阻塞
+
+> 修正完成：送出前即建立三秒共用截止時間；每次送出前檢查，遇到已失敗 future 或同步例外便停止送出剩餘事件，仍保留前面已成功的 ACK。正在進行的單次 send 無法中止，最多仍可超過截止時間一個 max.block.ms，但不再逐筆累積整批等待。common 模組完整測試通過（57 個，其中 OutboxRelayIntegrationTests 8 個），新增五筆事件遇 metadata TimeoutException 時僅 send 一次、全部保留待送的案例。
+
+位置：`backend/common/src/main/java/com/mymicroservice/common/events/OutboxRelay.java`（`publishPending` 的送出迴圈）
+
+問題：`KafkaProducer.send` 在 topic metadata 還沒取得時（例如服務啟動時 Kafka 不在、或新 topic）會**同步**阻塞到 `max.block.ms`（各服務設 3000ms），之後才回傳失敗的 future。修正前遇到第一筆失敗就 `break`，一輪最多卡 3 秒；修正後迴圈會把整批 100 筆都送完才開始等 ACK，最壞一批 100 × 3 秒 = 5 分鐘。這段期間：
+
+- 交易與 `FOR UPDATE SKIP LOCKED` 的列鎖一直持有；
+- Spring 預設排程執行緒池只有 1 條（各服務沒設定 `spring.task.scheduling.pool.size`），`refreshMetrics`、`PaymentTimeoutJob`、`ReservationExpiryJob` 等全部排在後面；
+- 3 秒 ACK 窗口在送出迴圈之後才起算，對這種情況沒有作用。
+
+建議：
+
+- 送出迴圈也受同一個截止時間約束：截止時間在送出前就開始計算，超過就不再送剩下的事件（留給下一輪）。
+- 某筆 `send` 回傳時 future 已經失敗（`future.isCompletedExceptionally()`，metadata 逾時就是這種情況），就停止送出這一批剩下的事件。已送出的照常等 ACK、成功的照常標記。
+- 補一個測試：mock `KafkaTemplate.send` 回傳已失敗的 future（`org.apache.kafka.common.errors.TimeoutException`），驗證一批多筆事件時 `send` 只被呼叫一次（或在截止時間內有上限），而且沒有任何事件被標記。
+
+### R2.（中低）去重清理的第一次 DELETE 沒有上限
+
+位置：`backend/common/src/main/java/com/mymicroservice/common/events/ProcessedEventCleanup.java`
+
+問題：`processed_event` 過去從沒清過，上線後第一次執行會一次刪掉所有 14 天前的資料，資料多時是一個長時間的大交易（產生大量 WAL、長時間持有被刪列的鎖）。而且它和 outbox relay 共用唯一的排程執行緒（見 R1），刪除期間這個副本的事件發布會停住。`purgePublishedEvents` 也是同樣的寫法，只是它每天都在跑，量比較小。
+
+建議：改成分批刪除，每批一個短交易，直到刪除筆數小於批次大小為止，例如：
+
+```sql
+DELETE FROM <schema>.processed_event
+WHERE event_id IN (
+    SELECT event_id FROM <schema>.processed_event
+    WHERE processed_at < now() - (? * interval '1 second')
+    LIMIT 5000)
+```
+
+批次大小做成設定值（或固定常數即可）。`purgePublishedEvents` 可以一併改成同樣的寫法。另外可考慮設定 `spring.task.scheduling.pool.size`（例如 2～4），讓清理與發布不互相阻塞；若加了，要確認現有排程沒有依賴「單執行緒不會並行」的假設。
+
+### R3.（低）複合索引沒有涵蓋兩種實際查詢
+
+位置：`backend/spring-product-service/src/main/resources/db/migration/V8__optimize_product_listing.sql`；evidence `codebase-optimization-explain.sql`
+
+問題：
+
+1. 前台分類頁一定帶 `includeSubcategories=true`，上層分類會產生 `category_id IN (多個 id)`。`(category_id, status, created_at DESC, id)` 對多個 category_id 無法直接給出整體的 `created_at` 順序，仍然要排序；evidence 只量了單一分類的等號條件，代表不了最常見的上層分類頁。
+2. `sortDirection=asc` 時 ORDER BY 是 `created_at ASC, id ASC`，索引是 `created_at DESC, id ASC`，反向掃描得到的是 `created_at ASC, id DESC`，順序對不上，一樣要排序。
+
+建議：不一定要再加索引（分類數少、資料量小時影響有限），但請在第 9 點的修正註記補一句這兩種情況的實際表現：在 evidence SQL 補一條 `category_id IN (…10 個…)` 的 `EXPLAIN ANALYZE`，結果可以接受就記錄下來即可。
+
+### R4.（低）OrderCompleted 的結論沒寫進 event-contracts
+
+位置：`docs/architecture/event-contracts.md`；第 15 點的建議最後一句
+
+問題：第 15 點要求確認是否需要 `OrderCompleted` 事件，不需要的話在 event-contracts 註明。`docs/implementation-plans/middleware/notification-implementation-plan.md:34` 已經有結論（不新增），但 event-contracts 和第 15 點的修正註記都沒有提到。
+
+建議：在 event-contracts 的 order.events 說明加一句「訂單完成不發事件（見 notification 實作計畫），之後若要寄完成通知再新增」，第 15 點註記也補上。
+
+### R5.（低）暫時性錯誤分類可以再涵蓋 JDBC 層例外
+
+位置：`backend/common/src/main/java/com/mymicroservice/common/events/EventsAutoConfiguration.java`（`setBackOffFunction`）
+
+問題：分類只看 Spring 的 `DataAccessException` 子類別。若某次失敗的例外沒有經過 Spring 轉換（例如 Hibernate 直接拋出、或包在其他例外裡），cause 鏈上只會有 `java.sql.SQLTransientException`／`SQLRecoverableException`，這次就會被當成「未分類」。`DefaultErrorHandler` 預設在例外類型改變時重設重試狀態，所以 DB 故障期間只要有一次例外類型不同，就會改用 `FixedBackOff(500, 3)`，約 1.5 秒後進 DLT，等於第 19 點要防止的情況又回來了。
+
+建議：cause 鏈的判斷再加上 `java.sql.SQLTransientException`、`java.sql.SQLRecoverableException`、`org.springframework.dao.RecoverableDataAccessException`。另外可以把這段判斷抽成一個有名稱的方法（例如 `isTransient(Throwable)`），並把完整類名改成 import，順便補一個不需要 Kafka 的單元測試，逐一驗證這些例外（含包在 `ListenerExecutionFailedException` 裡的情況）會拿到指數退避。
+
+### R6.（低）DLT 重放沿用舊的 record timestamp
+
+位置：`infra/scripts/DltReplay.java`（`new ProducerRecord<>(..., record.timestamp(), ...)`）
+
+問題：重放時沿用 DLT 訊息的時間戳（通常就是原事件的時間）。原 topic 依時間保留（7 天）時，接近 7 天前的事件被送回去後，只要所在的 segment 一關閉，就可能很快被保留機制刪掉；consumer 若有 lag，可能還沒讀到就消失了。lag 的時間型指標也會被這些舊時間戳拉偏。
+
+建議：timestamp 傳 `null`，讓 broker 使用重放當下的時間；原時間戳已經在 DLT header `kafka_dlt-original-timestamp` 裡，會跟著 headers 一起保留。手冊相應補一句「重放後的 record 時間是重放時間」。測試目前沒有斷言 timestamp，不受影響。
+
+### R7.（低）過時註解與程式風格
+
+- `common/.../scheduling/SchedulingLockAutoConfiguration.java:20` 的註解「沒設定的服務（例如沒有排程的 product-service）」：product-service 現在有排程也有 shedlock 表，請更新。
+- `AuthServiceImpl.login` 上方的「會寫入 refresh token，不能是 readOnly」：方法已經沒有交易註解，改成說明「交易只包在簽發 token 那一段」。
+- `PaymentServiceImpl.mockCallback`：`Payment current = payment;` 多餘，直接用 `payment`；兩個 `if (completed)` 可以合併。
+- 完整類名寫在程式裡：`ProductServiceImpl` 的 `com.mymicroservice.product.cache.CategoryTreeCache`、`EventsAutoConfiguration` 的多個例外類別、`CategoryTreeCache` 的 `java.util.stream.Collectors`，改成 import。`OutboxRelay`、`CategoryTreeCache` 新增的 import 順序也請整理。
+- `CategoryTreeCache.descendantIds` 的註解是英文，專案其他註解都是中文，請統一；`LINKS_KEY` 的 TTL 也可以比照 `KEY` 加上隨機秒數，避免兩個 key 同時過期。
+- `OutboxRelay.send` 的 `finally` 區塊和 `publishPending` 結尾各留了一個多餘的空行。
+
+### 修正後請回報
+
+- R1、R2 各一個 commit，附相關模組的 `mvn test` 結果；R3～R7 可以合成一個 commit。
+- R3 附上 `IN` 查詢的 `EXPLAIN ANALYZE`（追加到既有 evidence 即可）。
+- 決定不改的項目，在本節對應段落下方註明原因。
