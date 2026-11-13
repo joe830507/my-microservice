@@ -8,4 +8,4 @@ CREATE TABLE processed_event (
     event_type VARCHAR(120) NOT NULL,
     processed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_processed_event_processed_at ON processed_event (processed_at);
+CREATE INDEX idx_processed_event_processed_at ON processed_event USING BRIN (processed_at);
