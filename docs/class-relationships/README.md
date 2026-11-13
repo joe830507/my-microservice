@@ -12,6 +12,7 @@
 | spring-order-service | [訂單服務類別關係圖與職責說明](spring-order-service.md) | 建單快照／冪等、狀態交易、下游補償、付款事件、逾時與 outbox |
 | spring-payment-service | [付款服務類別關係圖與職責說明](spring-payment-service.md) | 有效付款唯一性、模擬回呼、條件更新、outbox 與通知機制退役 |
 | spring-product-service | [商品服務類別關係圖與職責說明](spring-product-service.md) | 商品／分類／圖片、Redis、搜尋查詢／索引重建與 outbox |
+| spring-user-service | [使用者服務類別關係圖與職責說明](spring-user-service.md) | 註冊／登入、JWT／JWKS、cookie、refresh 輪替、失敗計數與初始化 |
 
 ## 圖例
 
