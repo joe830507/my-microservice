@@ -32,6 +32,7 @@
 | [observability 類別關係圖與職責說明](class-relationships/observability.md) | 一個自訂類別與共用設定的分工、Logback 接線、指標／追蹤／日誌資料流 |
 | [spring-api-gateway 類別關係圖與職責說明](class-relationships/spring-api-gateway.md) | 13 個來源檔的分工、兩種過濾鏈、JWT／header／限流／熔斷與錯誤回應 |
 | [spring-inventory-service 類別關係圖與職責說明](class-relationships/spring-inventory-service.md) | 25 個來源檔的分工、庫存預扣交易與狀態圖、事件與排程入口、六個 migration |
+| [spring-notification-service 類別關係圖與職責說明](class-relationships/spring-notification-service.md) | 12 個來源檔的分工、事件投影／去重、SMTP 租約與重試、五個 migration |
 
 ## 實作計畫
 
@@ -66,6 +67,8 @@
 | [known-issues.md](security/known-issues.md) | 已知的安全問題與 SEC 編號追蹤、驗證過沒有問題的項目、還沒檢查的範圍；**上線前必讀** |
 
 ## 文件維護
+
+2026-11-13 補上 spring-notification-service 類別導讀，涵蓋 12 個 Java 來源檔、三個內部 record、五個 migration、五份信件模板與六張 Mermaid 圖，說明事件投影、交易去重、租約與 SMTP 重試。三份異動文件的 62 個本機連結、全部 24 個主程式／資源／設定檔與 UTF-8 無 BOM 已核對，圖形區塊結構檢查通過；未重新執行服務測試或渲染 Mermaid。
 
 2026-11-13 補上 spring-inventory-service 類別導讀，涵蓋 25 個 Java 來源檔、三個內部 record、六個 migration 與七張 Mermaid 圖，說明數量與狀態轉換、交易／冪等及 HTTP／事件／排程入口。三份異動文件的 78 個本機連結（含章節引用）、全部 33 個來源／設定檔與 UTF-8 無 BOM 已核對，圖形區塊結構檢查通過；未重新執行服務測試或渲染 Mermaid。
 

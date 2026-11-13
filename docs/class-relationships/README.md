@@ -8,6 +8,7 @@
 | observability | [observability 類別關係圖與職責說明](observability.md) | Logback 與 OpenTelemetry 接線、共用設定、三種資料流、框架與服務責任界線 |
 | spring-api-gateway | [Gateway 類別關係圖與職責說明](spring-api-gateway.md) | WebFlux／路由過濾鏈、JWT、身分 header、來源 IP、Redis 限流、熔斷與錯誤回應 |
 | spring-inventory-service | [庫存服務類別關係圖與職責說明](spring-inventory-service.md) | 庫存與預扣、狀態與數量轉換、交易／冪等、訂單事件、逾時回收與 migration |
+| spring-notification-service | [通知服務類別關係圖與職責說明](spring-notification-service.md) | 事件投影、郵件入列／去重、租約寄送、重試與模板 |
 
 ## 圖例
 
