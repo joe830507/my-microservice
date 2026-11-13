@@ -6,6 +6,7 @@
 |---|---|---|
 | common | [common 類別關係圖與職責說明](common.md) | 自動設定、身分與權限、錯誤處理、JPA 稽核、下游呼叫保護、事件與排程鎖 |
 | observability | [observability 類別關係圖與職責說明](observability.md) | Logback 與 OpenTelemetry 接線、共用設定、三種資料流、框架與服務責任界線 |
+| spring-api-gateway | [Gateway 類別關係圖與職責說明](spring-api-gateway.md) | WebFlux／路由過濾鏈、JWT、身分 header、來源 IP、Redis 限流、熔斷與錯誤回應 |
 
 ## 圖例
 
