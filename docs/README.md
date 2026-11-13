@@ -69,13 +69,14 @@
 
 ### 進行中的追蹤
 
-`implementation-plans/` 根目錄只放仍在更新的追蹤文件；已結案的審查放在 `reviews/`，各服務與部署計畫放在 `backend/`。
+`implementation-plans/` 根目錄只放仍在更新的追蹤文件；已結案的審查放在 `reviews/`，各服務與部署計畫放在 `backend/`，開發流程與測試基礎（G-01～G-03、G-10～G-12）的計畫放在 `dev-workflow/`。
 
 | 文件 | 內容 |
 |---|---|
 | [deferred-items.md](implementation-plans/deferred-items.md) | 暫緩項目依處理時機分類（現在／隨開發流程／隨業務功能／看壓測數據／需求出現時／上線前），含來源、原因及影響 |
 | [deferred-now-tasks.md](implementation-plans/deferred-now-tasks.md) | 暫緩清單中「現在」處理的實作任務；T-01～T-03 已完成 |
 | [system-gaps-assessment.md](implementation-plans/system-gaps-assessment.md) | 尚未列入任何追蹤清單的缺口（G-01～17）：CI、備份、契約測試、收件地址等，含建議順序 |
+| [dev-workflow/ci-implementation-plan.md](implementation-plans/dev-workflow/ci-implementation-plan.md) | G-01 CI 流水線：前置問題 P1～P4、workflow 設計、實作步驟與驗收條件 |
 
 ### 審查紀錄（`reviews/`）
 
