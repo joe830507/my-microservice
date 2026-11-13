@@ -34,6 +34,7 @@
 | [spring-inventory-service 類別關係圖與職責說明](class-relationships/spring-inventory-service.md) | 25 個來源檔的分工、庫存預扣交易與狀態圖、事件與排程入口、六個 migration |
 | [spring-notification-service 類別關係圖與職責說明](class-relationships/spring-notification-service.md) | 12 個來源檔的分工、事件投影／去重、SMTP 租約與重試、五個 migration |
 | [spring-order-service 類別關係圖與職責說明](class-relationships/spring-order-service.md) | 28 個來源檔的分工、建單補償／冪等、訂單狀態、付款事件與九個 migration |
+| [spring-payment-service 類別關係圖與職責說明](class-relationships/spring-payment-service.md) | 19 個來源檔的分工、建立／回呼交易、付款狀態與七個 migration |
 
 ## 實作計畫
 
@@ -68,6 +69,8 @@
 | [known-issues.md](security/known-issues.md) | 已知的安全問題與 SEC 編號追蹤、驗證過沒有問題的項目、還沒檢查的範圍；**上線前必讀** |
 
 ## 文件維護
+
+2026-11-13 補上 spring-payment-service 類別導讀，涵蓋 19 個 Java 來源檔、一個內部 record、七個 migration 與六張 Mermaid 圖，說明有效付款唯一性、回呼交易、事件傳遞與舊通知機制退役。三份異動文件的 73 個本機連結、全部 28 個主程式／資源／設定檔與 UTF-8 無 BOM 已核對，圖形區塊結構檢查通過；未重新執行服務測試或渲染 Mermaid。
 
 2026-11-13 補上 spring-order-service 類別導讀，涵蓋 28 個 Java 來源檔、九個內部 record、一個內部 enum、九個 migration 與七張 Mermaid 圖，說明建單快照／補償、冪等、狀態交易、付款事件與逾時排程。三份異動文件的 88 個本機連結、全部 39 個主程式／資源／設定檔與 UTF-8 無 BOM 已核對，圖形區塊結構檢查通過；未重新執行服務測試或渲染 Mermaid。
 
