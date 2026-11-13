@@ -125,7 +125,7 @@ frontend/vue-customer/
 
 - **建單冪等**：`POST /orders` 加 `Idempotency-Key`，網路重送不會建立第二張訂單
 - **購物車同步到帳號**：登入後合併、換裝置也看得到；需要後端的購物車服務或 user-service 的欄位
-- **登出時是否清空購物車**：共用電腦的情境
+- **登出時是否清空購物車**：共用電腦的情境（2026-11-13 決定主動登出時清空，見[立即處理項目](../deferred-now-tasks.md#t-03-共用電腦登出後清空購物車)）
 - **個人資料修改、改密碼、忘記密碼**：user-service 補 API（忘記密碼還要寄信）
 - **SEO**：商品頁要被搜尋引擎收錄時評估 SSR（Nuxt）或預先產生頁面（2026-11-13 改列[路線圖「暫不排入」](../middleware/middleware-roadmap.md#暫不排入記錄理由)）
 - **和後台共用程式碼**：重複多了再改成 monorepo workspace 的共用套件（2026-11-13 改列[路線圖「暫不排入」](../middleware/middleware-roadmap.md#暫不排入記錄理由)）

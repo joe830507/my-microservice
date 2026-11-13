@@ -25,7 +25,7 @@
 |---|---|---|---|---|
 | PENDING 付款逾時收斂 | [付款後續](backend/payment-service-implementation-plan.md#之後再處理) | 訂單取消後可能保留 PENDING；目前付款結果只由回呼決定 | 2026-11-13 已決定：新增 `CANCELLED` 終態並消費 `OrderCancelled`；見 [T-01](deferred-now-tasks.md#t-01-訂單取消後收斂-pending-付款) | payment 狀態／事件、order 取消、顧客付款頁 |
 | 並行註冊衝突錯誤碼一致性 | [使用者計畫](backend/user-service-implementation-plan.md) | 目前唯一鍵競爭回 DATA_CONFLICT，先查存在回 EMAIL_ALREADY_EXISTS | 2026-11-13 已決定統一回 `EMAIL_ALREADY_EXISTS`；見 [T-02](deferred-now-tasks.md#t-02-並行註冊衝突統一回-email_already_exists) | user exception mapping、API／並行測試、前端訊息 |
-| 共用電腦登出後購物車政策 | [前台後續](vue-customer/README.md#之後再處理) | 目前保留非帳號綁定 localStorage cart，尚未定清除政策 | **待使用者決定**；選項見 [T-03](deferred-now-tasks.md#t-03-共用電腦登出後的購物車政策) | 顧客 auth／cart、切帳號與回歸測試 |
+| 共用電腦登出後購物車政策 | [前台後續](vue-customer/README.md#之後再處理) | 目前保留非帳號綁定 localStorage cart，尚未定清除政策 | 2026-11-13 已決定：使用者主動登出時清空，不做依帳號存放；見 [T-03](deferred-now-tasks.md#t-03-共用電腦登出後清空購物車) | 顧客 auth／cart、切帳號與回歸測試 |
 
 ## 隨開發流程
 
