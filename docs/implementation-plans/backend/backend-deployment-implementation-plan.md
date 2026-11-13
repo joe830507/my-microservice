@@ -5,7 +5,7 @@
 > 位置：`backend/Dockerfile`、`infra/k8s/`
 > 狀態：完成（在本機 kind 上驗證，含 NetworkPolicy 的實際攔截）
 
-把整個系統（6 個後端服務、5 個 PostgreSQL、3 個 Redis、物件儲存、商店與後台兩個前端）放進 K8s。服務探索用 K8s 原生（Service 名稱 + ConfigMap／Secret），不用註冊中心，這是之前定好的做法。前端的部署見 [vue-customer Step 11](vue-customer/README.md#step-11)、[vue-management Step 11](vue-management/README.md#step-11)。
+把整個系統（6 個後端服務、5 個 PostgreSQL、3 個 Redis、物件儲存、商店與後台兩個前端）放進 K8s。服務探索用 K8s 原生（Service 名稱 + ConfigMap／Secret），不用註冊中心，這是之前定好的做法。前端的部署見 [vue-customer Step 11](../vue-customer/README.md#step-11)、[vue-management Step 11](../vue-management/README.md#step-11)。
 
 ## 內容
 
@@ -70,7 +70,7 @@ Spring 的 relaxed binding 讓 `SPRING_DATASOURCE_URL`、`SPRING_DATA_REDIS_HOST
 
 新增可選的 `storage.upload-endpoint`（環境變數 `STORAGE_UPLOAD_ENDPOINT`），只給 S3Presigner 用，沒設定就沿用 `endpoint`，既有行為不變。測試：`PresignUploadEndpointDefault/ConfiguredIntegrationTests`；product-service 158 個測試全過。
 
-### 安全（對應 [known-issues](../security/known-issues.md)）
+### 安全（對應 [known-issues](../../security/known-issues.md)）
 
 - **網路隔離（SEC-02）**：`default-deny-ingress` + 逐一開放。結果：沒有授權的 Pod 只連得到前端；前端只連得到 Gateway；Gateway 連得到各服務與自己的 Redis；order-service 連 product／inventory 與自己的資料庫；payment-service 連 order-service 與自己的資料庫；每個資料庫、Redis、物件儲存只有對應的服務連得到
 - **Secret（SEC-03）**：資料庫與 Redis 密碼、JWT 金鑰、物件儲存金鑰、管理員密碼全部由 `create-secrets.sh` 隨機產生，**不使用 repo 裡的開發用預設值**（本機的 JWT 金鑰、`s3.json` 金鑰都不會帶進叢集）；服務以 `secretKeyRef` 讀取，JWT 金鑰以唯讀檔案掛載。repo 裡沒有任何 Secret 的值

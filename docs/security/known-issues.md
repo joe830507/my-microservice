@@ -45,7 +45,7 @@
 - **驗證**：對 `http://localhost:8082/api/v1/orders` 帶隨機的 `X-User-Id`，回 200。
 - **不受影響的路徑**：經過 Gateway 時這些 header 會被清掉再重新帶上；探測過「顧客帶偽造 `X-User-Roles: ADMIN`」、「匿名帶偽造 `X-User-Id` 建單」、「匿名帶偽造 `X-User-Roles` 讀草稿」都被擋下。
 - **風險**：安全完全取決於「服務的埠不能被外部連到」。
-- **進度（2026-11-11）**：[後端部署](../implementation-plans/backend-deployment-implementation-plan.md) 已完成。所有服務都是 `ClusterIP`，並加上 `default-deny-ingress` 與逐一開放的 `NetworkPolicy`。**實際測過攔截**：從沒有授權的 Pod 連不到任何後端服務、資料庫、Redis、物件儲存，只連得到前端；前端只連得到 Gateway；各服務只連得到被允許的對象（完整矩陣見該文件）。
+- **進度（2026-11-11）**：[後端部署](../implementation-plans/backend/backend-deployment-implementation-plan.md) 已完成。所有服務都是 `ClusterIP`，並加上 `default-deny-ingress` 與逐一開放的 `NetworkPolicy`。**實際測過攔截**：從沒有授權的 Pod 連不到任何後端服務、資料庫、Redis、物件儲存，只連得到前端；前端只連得到 Gateway；各服務只連得到被允許的對象（完整矩陣見該文件）。
   - 重要：**kind 預設的 kindnet 在 Windows／WSL2 上完全不執行 NetworkPolicy**（policy 建立成功卻沒有作用），要用 Calico（`infra/k8s/scripts/kind-up.sh`）。換任何叢集都要用同樣的對照組實測，不能只看 `kubectl apply` 成功
   - 還沒做：出去（Egress）的限制；本機直接啟動（非 K8s）的開發環境仍然沒有隔離
 - **處理方向**：

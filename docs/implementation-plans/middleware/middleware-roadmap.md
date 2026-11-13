@@ -55,7 +55,7 @@
 每個階段的共同收尾（不再每階段重複列出）：
 
 - `infra/docker-compose.yml`、`infra/k8s/` 加上新元件；埠一律綁 `127.0.0.1`；密碼放 Secret（`create-secrets.sh`）
-- `network-policies.yaml` 與 `network-policies-egress.yaml` 同步開放，並用對照組實測（見 [backend-deployment](../backend-deployment-implementation-plan.md)）
+- `network-policies.yaml` 與 `network-policies-egress.yaml` 同步開放，並用對照組實測（見 [backend-deployment](../backend/backend-deployment-implementation-plan.md)）
 - 更新 `docs/architecture/microservice-architecture.md`、`docs/README.md`、`docs/security/known-issues.md`（新元件的安全事項）
 - 兩個前端的 E2E 在本機與 kind 上都要通過
 

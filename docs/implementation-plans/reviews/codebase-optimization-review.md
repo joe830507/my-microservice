@@ -12,7 +12,7 @@
 
 ## 優先順序總覽
 
-> 2026-11-13 文件整理：暫緩／後續項目的現況、前提與影響範圍統一見[集中清單](deferred-items.md)；本處原始說明與歷史紀錄保留。
+> 2026-11-13 文件整理：暫緩／後續項目的現況、前提與影響範圍統一見[集中清單](../deferred-items.md)；本處原始說明與歷史紀錄保留。
 
 
 ### 修正進度（optimize/codebase-review）
@@ -42,7 +42,7 @@
 | 19 暫時事件錯誤重試 | 完成 | PostgreSQL 暫停五秒後成功，DLT 無增加 |
 | 20 DLT 維運與重放 | 完成 | 手冊、確認流程與真實 Kafka 二進位保留測試 |
 
-後端 819 個測試、前端 603 個單元測試及四個 Chrome 檢查通過；兩個前端型別檢查／正式打包與 Docker 建置／啟動亦通過。詳細命令、範圍及計數見 [驗證紀錄](evidence/codebase-optimization-validation.md)。
+後端 819 個測試、前端 603 個單元測試及四個 Chrome 檢查通過；兩個前端型別檢查／正式打包與 Docker 建置／啟動亦通過。詳細命令、範圍及計數見 [驗證紀錄](../evidence/codebase-optimization-validation.md)。
 
 | # | 優先 | 範圍 | 類型 | 項目 |
 |---|---|---|---|---|
@@ -150,7 +150,7 @@ return PageRequest.of(page, size, Sort.by(direction(), column).and(Sort.by(Sort.
 
 ## 6.（中）Outbox 的索引與查詢條件不符
 
-> 2026-11-13 修正註記：六個服務新增 migration，刪除 occurred_at 舊索引，改用 (topic, aggregate_id, sequence_id) 部分索引；保留 pending sequence 索引。PostgreSQL 18.6／五萬事件的 EXPLAIN ANALYZE 確認使用新索引，約 3.001ms → 0.462ms。查詢計畫與可重現 SQL 見 [evidence](evidence/codebase-optimization-explain.txt) 及 [SQL](evidence/codebase-optimization-explain.sql)。
+> 2026-11-13 修正註記：六個服務新增 migration，刪除 occurred_at 舊索引，改用 (topic, aggregate_id, sequence_id) 部分索引；保留 pending sequence 索引。PostgreSQL 18.6／五萬事件的 EXPLAIN ANALYZE 確認使用新索引，約 3.001ms → 0.462ms。查詢計畫與可重現 SQL 見 [evidence](../evidence/codebase-optimization-explain.txt) 及 [SQL](../evidence/codebase-optimization-explain.sql)。
 
 位置：各服務的 outbox migration（例如 `backend/spring-order-service/src/main/resources/db/migration/` 中建立 `idx_outbox_event_pending`、`idx_outbox_event_aggregate_pending` 的檔案）
 
@@ -397,7 +397,7 @@ RUN java -Djarmode=tools -jar /src/spring-${SERVICE}/target/${SERVICE}-0.0.1-SNA
 
 結論：20 項都有照建議（或註記的替代方案）完成，測試也對準了各點的風險，沒有阻擋合併的問題。以下是修正本身帶進來的新問題與遺漏，依優先順序排列。
 
-> 本輪修正：R1～R7 已逐項處理；R1、R2 各自提交，R3～R7 合併提交。七個相關模組 93 個重點測試及 common 完整 67 個測試通過（兩者有重疊），命令與範圍見[本輪驗證紀錄](evidence/codebase-optimization-validation.md)。R3 補測並記錄限制，未額外新增索引。
+> 本輪修正：R1～R7 已逐項處理；R1、R2 各自提交，R3～R7 合併提交。七個相關模組 93 個重點測試及 common 完整 67 個測試通過（兩者有重疊），命令與範圍見[本輪驗證紀錄](../evidence/codebase-optimization-validation.md)。R3 補測並記錄限制，未額外新增索引。
 
 | # | 優先 | 項目 |
 |---|---|---|

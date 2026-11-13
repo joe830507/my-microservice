@@ -32,7 +32,7 @@
 |---|---|---|---|---|
 | Gateway 測試設定共用與 Docker 分離 | G-01 CI | [Gateway 後續](backend/api-gateway-implementation-plan.md#之後再處理) | 原計畫記載重複 WireMock／JWKS／Redis 設定及全部依賴 TestRedis | Gateway 測試 base／annotation、CI |
 | Gateway Boot／Cloud 升級 | G-01 CI 建好之後 | [Gateway 後續](backend/api-gateway-implementation-plan.md#之後再處理) | 目前 POM 因相容性維持 Boot 4.0.9／Cloud 2025.1.4；有 CI 再升級較安全 | Gateway POM、OTel 相依、路由／JWT／限流測試 |
-| CDS／AOT cache | G-02 映像檔發佈 | [最佳化 #18](codebase-optimization-review.md#18低後端映像檔沒有分層啟動沒用-cdsaot-cache) | 已有映像分層；訓練啟動依賴環境，需要可重現基準 | 所有 Java Dockerfile、CI、啟動／訓練環境 |
+| CDS／AOT cache | G-02 映像檔發佈 | [最佳化 #18](reviews/codebase-optimization-review.md#18低後端映像檔沒有分層啟動沒用-cdsaot-cache) | 已有映像分層；訓練啟動依賴環境，需要可重現基準 | 所有 Java Dockerfile、CI、啟動／訓練環境 |
 | 剩餘安全驗證工作：Maven 依賴漏洞 | G-03 漏洞掃描 | [未檢查清單](../security/known-issues.md#還沒有檢查的) | 只檢查過 vue-customer 的 npm 依賴；其餘驗證工作列在[上線前](#上線前) | 後端依賴；驗證後回填來源 |
 
 ## 隨業務功能
@@ -40,14 +40,14 @@
 | 項目 | 隨哪一項 | 來源文件／章節 | 暫緩原因 | 預估影響範圍 |
 |---|---|---|---|---|
 | 個人資料修改／改密碼／忘記密碼 | G-13 地址簿（共用顧客帳號頁） | [前台後續](vue-customer/README.md#之後再處理) | 後端尚無 API；忘記密碼依賴郵件與安全流程，可能晚於修改與改密碼 | user API、兩個 token 流程、顧客帳號頁、notification |
-| 自動退款／自動 DLT listener（條件式，未承諾） | G-14 退款與售後 | [最佳化 #20](codebase-optimization-review.md#20中dlt-只有告警沒有處理手冊與重放工具)；[人工流程](../architecture/event-contracts.md#dlt-處理與重放) | 現況人工追蹤；真實金流階段 F 明確不實作；未決定前不自動重放 | payment／order 狀態機、金流憑證、DLT 稽核與人工核對 |
+| 自動退款／自動 DLT listener（條件式，未承諾） | G-14 退款與售後 | [最佳化 #20](reviews/codebase-optimization-review.md#20中dlt-只有告警沒有處理手冊與重放工具)；[人工流程](../architecture/event-contracts.md#dlt-處理與重放) | 現況人工追蹤；真實金流階段 F 明確不實作；未決定前不自動重放 | payment／order 狀態機、金流憑證、DLT 稽核與人工核對 |
 
 ## 看壓測數據
 
 | 項目 | 來源文件／章節 | 暫緩原因 | 觸發條件 | 預估影響範圍 |
 |---|---|---|---|---|
-| 後端獨立縮圖／多尺寸 | [最佳化 #7](codebase-optimization-review.md#7中商品圖片沒有縮圖列表直接載入原圖)；[圖片後續](backend/product-image-upload-implementation-plan.md#之後再處理) | 已採前端 1600px／WebP，避免本輪擴 API／儲存／刪除契約 | 列表流量／圖片大小有實測瓶頸時再設計，含既有圖片策略 | product、物件儲存、ProductListItem、顧客卡片與刪除補償 |
-| 首頁統計 API 與趨勢圖 | [最佳化 #13](codebase-optimization-review.md#13低後台首頁一次發-9-個請求)；[管理首頁紀錄](vue-management/README.md#vue-management-step-4layout) | 短期三十秒計數快取已消除重複請求 | 資料量／監控證實 count 瓶頸，或有每日訂單／營收需求 | product／order／user 統計查詢、ADMIN API、管理首頁 |
+| 後端獨立縮圖／多尺寸 | [最佳化 #7](reviews/codebase-optimization-review.md#7中商品圖片沒有縮圖列表直接載入原圖)；[圖片後續](backend/product-image-upload-implementation-plan.md#之後再處理) | 已採前端 1600px／WebP，避免本輪擴 API／儲存／刪除契約 | 列表流量／圖片大小有實測瓶頸時再設計，含既有圖片策略 | product、物件儲存、ProductListItem、顧客卡片與刪除補償 |
+| 首頁統計 API 與趨勢圖 | [最佳化 #13](reviews/codebase-optimization-review.md#13低後台首頁一次發-9-個請求)；[管理首頁紀錄](vue-management/README.md#vue-management-step-4layout) | 短期三十秒計數快取已消除重複請求 | 資料量／監控證實 count 瓶頸，或有每日訂單／營收需求 | product／order／user 統計查詢、ADMIN API、管理首頁 |
 | 快取擊穿 per-key 協調 | [快取現況](../design/product-service-middleware-evaluation.md#現況) | 目前規模可接受，不使用會破壞動態 TTL 的 sync=true | 熱門 key 同時 miss 確實壓垮 DB 時量測再做 | ProductDetailCache、Redis 鎖與 TTL／失敗恢復 |
 
 ## 需求出現時
