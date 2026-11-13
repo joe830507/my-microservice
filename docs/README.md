@@ -7,6 +7,7 @@
 | 資料夾 | 放什麼 |
 |---|---|
 | `architecture/` | 整體架構：服務切分、API、全域慣例、服務之間的互動 |
+| `component-relationships/` | 前端元件關係與職責：路由、頁面／共用元件、store、API 及操作流程 |
 | `class-relationships/` | 類別關係圖與職責說明：依後端模組整理類別分工、依賴、建立方式與程式閱讀入口 |
 | `implementation-plans/` | 實作步驟、進度與實際驗證結果；分 `backend/`（各服務與共用模組）、`middleware/`（中介軟體各階段）、`vue-customer/`、`vue-management/`，跨層的後端部署計畫放在根目錄 |
 | `design/` | 單一功能或技術選型的設計、評估，還沒排進實作計畫的也放這裡 |
@@ -37,6 +38,14 @@
 | [spring-payment-service 類別關係圖與職責說明](class-relationships/spring-payment-service.md) | 19 個來源檔的分工、建立／回呼交易、付款狀態與七個 migration |
 | [spring-product-service 類別關係圖與職責說明](class-relationships/spring-product-service.md) | 76 個來源檔的職責、快取、圖片補償、搜尋與八個 migration |
 | [spring-user-service 類別關係圖與職責說明](class-relationships/spring-user-service.md) | 37 個來源檔的職責、token 輪替／撤銷、登入保護與九個 migration |
+
+## 前端元件關係與職責
+
+| 文件 | 內容 |
+|---|---|
+| [前端元件文件索引](component-relationships/README.md) | 圖例、範圍與維護方式 |
+| [vue-customer 元件關係與職責](component-relationships/vue-customer.md) | 商店路由、元件、狀態、結帳冪等與付款流程 |
+| [vue-management 元件關係與職責](component-relationships/vue-management.md) | 管理路由、權限、分類／商品、圖片直傳、庫存與訂單操作 |
 
 ## 實作計畫
 
@@ -71,6 +80,8 @@
 | [known-issues.md](security/known-issues.md) | 已知的安全問題與 SEC 編號追蹤、驗證過沒有問題的項目、還沒檢查的範圍；**上線前必讀** |
 
 ## 文件維護
+
+2026-11-13 新增 component-relationships 前端文件分類，完成 vue-customer／vue-management 元件關係與職責導讀，涵蓋 52／51 個正式應用來源檔、各五個入口／套件／代理設定檔與七張 Mermaid 圖，整理路由、狀態、驗證、結帳付款及後台圖片／庫存流程。四份異動文件的 175 個本機連結、來源覆蓋、UTF-8 無 BOM 與圖形區塊結構檢查通過；未重新執行前端測試、建置或渲染 Mermaid。
 
 2026-11-13 補上 spring-user-service 類別導讀，涵蓋 37 個 Java 來源檔、兩個內部 record、九個 migration 與八張 Mermaid 圖，說明註冊／登入、JWT／JWKS、cookie、refresh 輪替／撤銷、登入失敗計數及管理員初始化。三份異動文件的 108 個本機連結、全部 49 個主程式／資源／設定檔與 UTF-8 無 BOM 已核對，圖形區塊結構檢查通過；未重新執行服務測試或渲染 Mermaid。
 
