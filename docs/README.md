@@ -63,14 +63,27 @@
 | [product-image-upload-implementation-plan.md](implementation-plans/backend/product-image-upload-implementation-plan.md) | 商品圖片上傳的設計、實作與驗收（相容 S3，本機用 SeaweedFS）；完成並可正常上架 |
 | [vue-management/](implementation-plans/vue-management/README.md) | 完成（Step 0–12）：後台前端（Vue 3 + TS + Element Plus），登入、商品、圖片、庫存、訂單、使用者 |
 | [vue-customer/](implementation-plans/vue-customer/README.md) | 完成（Step 0–12）：顧客用的商店前台（Vue 3 + TS），瀏覽、購物車、下單、模擬付款、我的訂單 |
-| [backend-deployment-implementation-plan.md](implementation-plans/backend-deployment-implementation-plan.md) | 完成：後端 6 個服務與資料庫、Redis、物件儲存、兩個前端放進 K8s（kind 驗證）；NetworkPolicy、Secret；含實際攔截測試 |
+| [backend-deployment-implementation-plan.md](implementation-plans/backend/backend-deployment-implementation-plan.md) | 完成：後端 6 個服務與資料庫、Redis、物件儲存、兩個前端放進 K8s（kind 驗證）；NetworkPolicy、Secret；含實際攔截測試 |
 | [middleware-roadmap.md](implementation-plans/middleware/middleware-roadmap.md) | 中介軟體導覽、階段狀態、決策與暫緩範圍；各階段計畫、紀錄與證據由此進入 |
 | [implementation-guidelines.md](implementation-plans/middleware/implementation-guidelines.md) | 階段 D／E 共用流程、提交、文件、測試與誠實回報原則 |
-| [codebase-optimization-review.md](implementation-plans/codebase-optimization-review.md) | 20 項完成、兩輪修正後審查結案；[驗證證據](implementation-plans/evidence/codebase-optimization-validation.md)，暫緩範圍見[集中清單](implementation-plans/deferred-items.md) |
-| [documentation-gaps-review.md](implementation-plans/documentation-gaps-review.md) | 本次四項文件缺口與完成註記，含告警手冊、安全總表、索引與暫緩清單 |
+
+### 進行中的追蹤
+
+`implementation-plans/` 根目錄只放仍在更新的追蹤文件；已結案的審查放在 `reviews/`，各服務與部署計畫放在 `backend/`。
+
+| 文件 | 內容 |
+|---|---|
 | [deferred-items.md](implementation-plans/deferred-items.md) | 暫緩項目依處理時機分類（現在／隨開發流程／隨業務功能／看壓測數據／需求出現時／上線前），含來源、原因及影響 |
-| [deferred-now-tasks.md](implementation-plans/deferred-now-tasks.md) | 暫緩清單中「現在」處理的實作任務（T-01 PENDING 付款收斂、T-02 註冊錯誤碼、T-03 登出清空購物車） |
+| [deferred-now-tasks.md](implementation-plans/deferred-now-tasks.md) | 暫緩清單中「現在」處理的實作任務；T-01～T-03 已完成 |
 | [system-gaps-assessment.md](implementation-plans/system-gaps-assessment.md) | 尚未列入任何追蹤清單的缺口（G-01～17）：CI、備份、契約測試、收件地址等，含建議順序 |
+
+### 審查紀錄（`reviews/`）
+
+| 文件 | 內容 |
+|---|---|
+| [codebase-optimization-review.md](implementation-plans/reviews/codebase-optimization-review.md) | 20 項完成、兩輪修正後審查結案；[驗證證據](implementation-plans/evidence/codebase-optimization-validation.md)，暫緩範圍見[集中清單](implementation-plans/deferred-items.md) |
+| [documentation-gaps-review.md](implementation-plans/reviews/documentation-gaps-review.md) | 四項文件缺口與完成註記，含告警手冊、安全總表、索引與暫緩清單 |
+| [deferred-now-tasks-review.md](implementation-plans/reviews/deferred-now-tasks-review.md) | T-01～T-03 審查：R1～R7 修正與複審驗證結果 |
 
 
 ## 維運

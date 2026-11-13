@@ -642,7 +642,7 @@ vue-customer 與真的後端對接時發現：上面第一輪漏掉 `/products/b
 
 - **CSP 已在 [Step 12](#step-12) 於真實 Chrome 驗證**：對著這個 nginx 映像檔跑 E2E，10 個測試全過、沒有 CSP 違規（商品圖片、API、建單到付款的整條流程）
 - 上面 kind 驗證的流程是用 HTTP 呼叫走的，不是瀏覽器點擊；前端畫面在真實瀏覽器裡的行為由 Step 12 的 E2E 驗證（對著同一個 nginx 映像檔）
-- 後端的 Dockerfile／K8s 設定、`NetworkPolicy` 見 [後端部署](../backend-deployment-implementation-plan.md)（兩個前端與後端已經一起在 kind 上部署並驗證）
+- 後端的 Dockerfile／K8s 設定、`NetworkPolicy` 見 [後端部署](../backend/backend-deployment-implementation-plan.md)（兩個前端與後端已經一起在 kind 上部署並驗證）
 - Ingress、TLS、HSTS；映像檔倉庫與 CI；`securityContext.readOnlyRootFilesystem`
 - 和後台一起規劃網域（例如 `shop.example.com`、`admin.example.com`）
 

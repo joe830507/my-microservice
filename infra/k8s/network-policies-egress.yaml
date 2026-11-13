@@ -5,7 +5,7 @@
 # 連線的兩端都要放行：這裡開放「出去」，network-policies.yaml 對應的「進來」也要有（兩邊對得上才通）。
 # kubelet 的探針從節點發出，不受這裡的限制。
 #
-# 改動這份清單後要用對照組實測（見 docs/implementation-plans/backend-deployment-implementation-plan.md）：
+# 改動這份清單後要用對照組實測（見 docs/implementation-plans/backend/backend-deployment-implementation-plan.md）：
 # 從該 Pod 連「應該通」與「不該通」的目標，包含叢集外的位址。
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

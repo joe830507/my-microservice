@@ -104,7 +104,7 @@
 
 ### G-10 壓力與效能測試
 
-- **現況證據**：沒有 k6、Gatling、JMeter、Locust 等腳本。[最佳化審查](codebase-optimization-review.md)的驗證是靠 EXPLAIN 和推理，沒有負載下的數據。
+- **現況證據**：沒有 k6、Gatling、JMeter、Locust 等腳本。[最佳化審查](reviews/codebase-optimization-review.md)的驗證是靠 EXPLAIN 和推理，沒有負載下的數據。
 - **建議範圍**：以 k6 撰寫情境：
   1. 熱門商品同時建單，驗證庫存不超賣，並量測條件式更新的鎖競爭。
   2. 搜尋與列表的吞吐量與 P95。

@@ -1,6 +1,6 @@
 # K8s 部署
 
-部署步驟、設計決定、驗證結果與已知限制：[docs/implementation-plans/backend-deployment-implementation-plan.md](../../docs/implementation-plans/backend-deployment-implementation-plan.md)
+部署步驟、設計決定、驗證結果與已知限制：[docs/implementation-plans/backend/backend-deployment-implementation-plan.md](../../docs/implementation-plans/backend/backend-deployment-implementation-plan.md)
 
 快速開始（本機 kind）：
 

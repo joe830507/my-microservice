@@ -1030,7 +1030,7 @@ vitest 254 個通過（新增 11 個）、`npm run build`（含 `vue-tsc`）通�
 ### 還沒做的
 
 - **CSP 已在 [Step 12](#step-12) 於真實 Chrome 驗證**：對著這個 nginx 映像檔跑 E2E，Element Plus 的元件、圖片直傳（`connect-src`）與圖片顯示（`img-src`）都沒有被擋；原本擔心的 `style-src 'self'` 沒有問題
-- 後端的 Dockerfile／K8s 設定與 `NetworkPolicy` 見 [後端部署](../backend-deployment-implementation-plan.md)
+- 後端的 Dockerfile／K8s 設定與 `NetworkPolicy` 見 [後端部署](../backend/backend-deployment-implementation-plan.md)
 - Ingress、TLS、HSTS、映像檔倉庫與 CI；和商店一起規劃網域（例如 `shop.example.com`、`admin.example.com`）
 - 後台不應該對外公開給所有人：之後在 Ingress 層限制來源（例如內網、VPN 或 IP allowlist），前端的登入檢查只是畫面，真正的權限在後端
 

@@ -129,7 +129,7 @@ cd frontend/vue-management && npm ci && npm run dev    # http://localhost:5173
 
 ### 部署到 Kubernetes（kind）
 
-從 [infra/k8s/README.md](infra/k8s/README.md) 開始；部署設計與驗證結果見[後端部署計畫](docs/implementation-plans/backend-deployment-implementation-plan.md)。
+從 [infra/k8s/README.md](infra/k8s/README.md) 開始；部署設計與驗證結果見[後端部署計畫](docs/implementation-plans/backend/backend-deployment-implementation-plan.md)。
 
 ## 測試
 
@@ -156,6 +156,6 @@ npm run test:e2e     # Playwright，需要先啟動後端
 | 告警響起時如何診斷與處理 | [告警手冊](docs/operations/alert-runbook.md) |
 | 還有哪些暫緩項目 | [暫緩清單](docs/implementation-plans/deferred-items.md) |
 | 系統還缺什麼（未列入追蹤的缺口） | [系統缺口評估](docs/implementation-plans/system-gaps-assessment.md) |
-| 最佳化與文件缺口修正結果 | [最佳化審查](docs/implementation-plans/codebase-optimization-review.md)、[驗證證據](docs/implementation-plans/evidence/codebase-optimization-validation.md)、[文件缺口審查](docs/implementation-plans/documentation-gaps-review.md) |
+| 最佳化與文件缺口修正結果 | [最佳化審查](docs/implementation-plans/reviews/codebase-optimization-review.md)、[驗證證據](docs/implementation-plans/evidence/codebase-optimization-validation.md)、[文件缺口審查](docs/implementation-plans/reviews/documentation-gaps-review.md) |
 | 已知安全問題與上線前檢查 | [安全清單](docs/security/known-issues.md) |
 | 所有文件 | [文件索引](docs/README.md) |
