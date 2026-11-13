@@ -1,3 +1,4 @@
+// 歷史檔名保留；執行 browser-tests 的所有 API 攔截瀏覽器回歸測試，包含購物車登出政策。
 import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: './browser-tests',

@@ -41,7 +41,7 @@ payment
   order_id             UUID
   user_id              UUID            付款的人，必須是訂單的擁有者
   amount               NUMERIC(14,2)   一律取自 order-service，不接受前端傳入
-  status               PENDING | SUCCEEDED | FAILED
+  status               PENDING | SUCCEEDED | FAILED | CANCELLED
   order_notification   PENDING | DONE | REJECTED，只有 SUCCEEDED 才有值
   completed_at
   + 稽核欄位、version
@@ -90,6 +90,7 @@ payment
 | `PENDING` | 改成 `SUCCEEDED`，commit 後通知 order-service | 改成 `FAILED` |
 | `SUCCEEDED` | 200（冪等） | 409 `PAYMENT_ALREADY_COMPLETED` |
 | `FAILED` | 409 `PAYMENT_ALREADY_COMPLETED` | 200（冪等） |
+| `CANCELLED` | 409 `PAYMENT_ALREADY_COMPLETED` | 409 `PAYMENT_ALREADY_COMPLETED` |
 
 - 狀態轉換用條件式 UPDATE（`WHERE status = 'PENDING'`），重複或同時回呼只有一個生效
 - 通知 order-service 的結果：200 → `DONE`；409 訂單已取消 → `REJECTED`（記 error log，之後要退款）；連不上、5xx → 維持 `PENDING`
@@ -141,5 +142,5 @@ payment
 
 - 真實金流：回呼改由第三方呼叫並驗證簽章，`mock-callback` 移除（**不實作**，見路線圖階段 F；本專案維持模擬金流）
 - 退款流程（`REJECTED` 的付款）
-- PENDING 付款逾時：訂單被取消後，留著的 `PENDING` 付款改成 `FAILED`（2026-11-13 改為新增 `CANCELLED` 終態並由 `OrderCancelled` 事件收斂，見[立即處理項目](../deferred-now-tasks.md#t-01-訂單取消後收斂-pending-付款)）
+- 已完成（2026-11-13）：payment 消費 `OrderCancelled` 將 PENDING 收斂為 `CANCELLED`，去重與更新同一交易、不發事件。前台顯示訂單已取消並停止付款；有效付款唯一索引不改，成功回呼先提交仍由訂單端追蹤退款。見 [T-01](../deferred-now-tasks.md#t-01-訂單取消後收斂-pending-付款) 與[集中清單](../deferred-items.md)。
 - Kafka 導入後，付款成功改成發 `PaymentSucceeded` 事件

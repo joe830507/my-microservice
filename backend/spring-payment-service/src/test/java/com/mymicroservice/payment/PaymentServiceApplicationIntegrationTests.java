@@ -45,13 +45,19 @@ class PaymentServiceApplicationIntegrationTests {
     }
 
     @Test
-    void flyway_createsPaymentTable() {
+    void flyway_createsPaymentAndEventTables() {
         List<String> tables = jdbcTemplate.queryForList("""
                 SELECT table_name FROM information_schema.tables
                 WHERE table_schema = 'payment_service' AND table_name <> 'flyway_schema_history'
                 """, String.class);
 
-        assertThat(tables).containsExactlyInAnyOrder("payment", "shedlock", "outbox_event");
+        assertThat(tables).containsExactlyInAnyOrder("payment", "shedlock", "outbox_event", "processed_event");
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT am.amname FROM pg_class idx
+                JOIN pg_namespace ns ON ns.oid = idx.relnamespace
+                JOIN pg_am am ON am.oid = idx.relam
+                WHERE ns.nspname = 'payment_service' AND idx.relname = 'idx_processed_event_processed_at'
+                """, String.class)).isEqualTo("brin");
     }
 
     @Test

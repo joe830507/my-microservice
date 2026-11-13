@@ -114,7 +114,7 @@ describe('帳號頁', () => {
       expect(auth.isAuthenticated).toBe(true)
     })
 
-    it('成功：帶 access token 呼叫、清除本機狀態、回首頁，購物車保留', async () => {
+    it('成功：帶 access token 呼叫、清除本機狀態與購物車、回首頁', async () => {
       let authorization: string | null = null
       server.use(
         http.delete('*/users/me/sessions', ({ request }) => {
@@ -134,7 +134,8 @@ describe('帳號頁', () => {
       expect(auth.accessToken).toBeNull()
       expect(localStorage.getItem(SESSION_HINT_KEY)).toBeNull()
       expect(router.currentRoute.value.name).toBe('home')
-      expect(useCartStore().items).toEqual([{ productId: 'p1', qty: 2 }])
+      expect(useCartStore().items).toEqual([])
+      expect(localStorage.getItem(CART_KEY)).toBeNull()
 
       // 登出後再進帳號頁會被導到登入頁
       await router.push('/account')
@@ -151,6 +152,8 @@ describe('帳號頁', () => {
         ),
       )
       const { wrapper, router, auth } = await mountAccount()
+      useCartStore().add('p1', 2)
+      const storedCart = localStorage.getItem(CART_KEY)
 
       await openConfirm(wrapper)
       await wrapper.find('[role="alertdialog"] .btn').trigger('click')
@@ -161,6 +164,8 @@ describe('帳號頁', () => {
       expect(auth.isAuthenticated).toBe(true)
       expect(localStorage.getItem(SESSION_HINT_KEY)).toBe('1')
       expect(router.currentRoute.value.name).toBe('account')
+      expect(useCartStore().items).toEqual([{ productId: 'p1', qty: 2 }])
+      expect(localStorage.getItem(CART_KEY)).toBe(storedCart)
 
       fail = false
       await openConfirm(wrapper)

@@ -49,7 +49,7 @@ flowchart TD
     Active -->|是| TokenTx[短交易：簽發 access token 與保存 refresh token]
 ```
 
-email 在資料庫、註冊與登入查詢均區分大小寫，不自動轉小寫。註冊先查重，但並行仍由唯一約束裁決；先查到重複回 EMAIL_ALREADY_EXISTS，競爭寫入失敗由 common 回 DATA_CONFLICT。UserRegistered 的 aggregateId 為 userId，payload 為 userId／email／displayName；不含密碼，且與使用者、角色寫入共用交易，由 common relay 稍後發布。
+email 在資料庫、註冊與登入查詢均區分大小寫，不自動轉小寫。註冊先查重，但並行仍由唯一約束裁決；先查到重複與競爭寫入違反 uq_users_email 均回 EMAIL_ALREADY_EXISTS；AuthServiceImpl 在 TransactionTemplate.execute 外捕捉 DataIntegrityViolationException，只依 Hibernate ConstraintViolationException 的約束名稱轉換，其餘完整性錯誤原樣拋出。UserRegistered 的 aggregateId 為 userId，payload 為 userId／email／displayName；不含密碼，且與使用者、角色寫入共用交易，由 common relay 稍後發布。
 
 登入密碼檢查與 Redis 操作不包資料庫交易；未知帳號仍執行 dummy password hash 比對以減少時間差。密碼錯與帳號不存在皆回 INVALID_CREDENTIALS 並累計失敗，密碼正確後才檢查停用狀態。此流程不保證檢查與簽發間的帳號狀態具有跨請求原子性。
 

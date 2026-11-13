@@ -2,11 +2,13 @@
 
 建立日期：2026-11-13。來源是[暫緩清單](deferred-items.md)中「處理時機」標為**現在**的項目。由 Codex 實作，Claude 審查；每一項各自一個 commit，先寫測試、跑過再提交。完成後依暫緩清單的[維護規則](deferred-items.md#維護規則)更新原始來源與清單，並在本文件對應章節填寫「完成紀錄」。
 
+審查後維護規則：後端完成紀錄以完整 `-pl <module> -am test` 結果為準；只跑部分測試須明確標示範圍。多任務共用追蹤文件時採堆疊分支，或集中在最後一個分支更新，避免平行修改計數與清單。審查 R1～R7 的處理結果見[審查紀錄](deferred-now-tasks-review.md)；三項整合後前台完整 Vitest 344 項通過。
+
 | 編號 | 項目 | 狀態 |
 |---|---|---|
-| T-01 | 訂單取消後收斂 PENDING 付款 | 待實作 |
-| T-02 | 並行註冊衝突統一回 EMAIL_ALREADY_EXISTS | 待實作 |
-| T-03 | 共用電腦登出後清空購物車 | 待實作 |
+| T-01 | 訂單取消後收斂 PENDING 付款 | 已完成（`fix/t01-cancel-pending-payments`） |
+| T-02 | 並行註冊衝突統一回 EMAIL_ALREADY_EXISTS | 已完成（`fix/t02-registration-email-conflict`） |
+| T-03 | 共用電腦登出後清空購物車 | 已完成（`fix/t03-clear-cart-on-logout`） |
 
 ## T-01 訂單取消後收斂 PENDING 付款
 
@@ -51,7 +53,9 @@
 
 ### 完成紀錄
 
-（Codex 完成後填寫：commit、測試數量與結果、是否在 kind 驗證）
+2026-11-13：完成於 `fix/t01-cancel-pending-payments` 的單一提交（commit ID 以該分支 git log 為準）。新增 CANCELLED、V8、OrderCancelled consumer 與交易去重／清理；前台取得 CANCELLED 後顯示訂單已取消並停用付款。payment 原有 Kafka egress 已允許 9092，未修改 NetworkPolicy。新 consumer 設 earliest，涵蓋保留期內歷史取消事件。
+
+原完成時只挑選取消 Testcontainers 11 項、回呼 15 項與 outbox 1 項，共 27 項；未跑整個模組，漏掉 Flyway 表清單斷言。審查 R1 已補上 processed_event，並以完整模組指令重新驗證：payment 61 項、common 67 項，全部通過（-pl spring-payment-service -am test）。前台付款頁 23 項通過（新增測試先重現失敗），type-check 與異動檔 Prettier 通過。後端初次執行因 wrapper／測試編譯問題未完成，改用已安裝 Maven 並修正測試後通過。文件本機連結／章節錨點、UTF-8 無 BOM 與 git diff --check 通過。未在 kind 部署或驗證 Kafka broker 投遞；本次整合測試直接呼叫實際 listener，使用真實 PostgreSQL。
 
 ## T-02 並行註冊衝突統一回 EMAIL_ALREADY_EXISTS
 
@@ -79,7 +83,7 @@
 
 ### 完成紀錄
 
-（Codex 完成後填寫）
+2026-11-13：完成於 `fix/t02-registration-email-conflict` 的單一提交（commit ID 以該分支 git log 為準）。register 在交易外捕捉 DataIntegrityViolationException，只有 Hibernate 約束名稱 uq_users_email 才轉 EMAIL_ALREADY_EXISTS；未改動管理員初始化行為。新增同步屏障並行測試重複 5 次，均為一筆 201、一筆 409 EMAIL_ALREADY_EXISTS、只有一個使用者與一筆 UserRegistered；另驗證其他資料庫限制不轉換且交易與 outbox 回滾。原先只跑新增 6 項與既有註冊 15 項，共 21 項。審查修正後執行完整 -pl spring-user-service -am test：user 170 項、common 67 項全部通過。並行測試先穩定重現原錯誤；測試資料與 outbox 信封查詢修正後全部通過。文件本機連結／錨點、UTF-8 無 BOM 與 git diff --check 通過；未在 kind 驗證。
 
 ## T-03 共用電腦登出後清空購物車
 
@@ -120,4 +124,4 @@
 
 ### 完成紀錄
 
-（Codex 完成後填寫）
+2026-11-13：完成於 `fix/t03-clear-cart-on-logout` 的單一提交（commit ID 以該分支 git log 為準）。cart.clear() 清空記憶體並移除 CART_KEY；StoreLayout 在等待主動登出回應前呼叫，AccountView 只在撤銷所有裝置成功後呼叫，避免 auth/cart 循環依賴。登入、refresh 4xx 與登入取得使用者資料失敗時保留購物車；撤銷失敗同樣保留。審查修正後前台完整 Vitest 30 檔 342 項通過（主動登出兩項先重現失敗），type-check 與異動檔 Prettier 通過。Playwright 完整 4 項通過；登出案例已移至 browser-tests/cart-logout.spec.ts，實際點選登入、加入商品、登出，確認兩分頁件數歸零與 localStorage 被移除；使用攔截 API 的 Chrome 測試，未跑真實後端 E2E、未部署 kind。文件本機連結／錨點、UTF-8 無 BOM、git diff --check 通過。

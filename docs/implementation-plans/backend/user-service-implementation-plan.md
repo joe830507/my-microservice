@@ -24,7 +24,7 @@
 
 **Step 4 待確認**：
 
-- 併發註冊同一個 email 時，目前由 `uq_users_email` 擋下後回傳共用的 `DATA_CONFLICT`（409），還沒有轉成 `EMAIL_ALREADY_EXISTS`；與下方「需要注意」的寫法不一致。2026-11-13 決定統一轉成 `EMAIL_ALREADY_EXISTS`，實作任務見[立即處理項目](../deferred-now-tasks.md#t-02-並行註冊衝突統一回-email_already_exists)
+- 已完成（2026-11-13）：併發註冊同一個 email，由 `uq_users_email` 裁決後統一回 409 `EMAIL_ALREADY_EXISTS`。只轉換 Hibernate 回報該約束名稱的資料完整性例外，其他錯誤原樣拋出；使用者、角色與 outbox 隨失敗交易回滾。見 [T-02](../deferred-now-tasks.md#t-02-並行註冊衝突統一回-email_already_exists) 與[集中清單](../deferred-items.md)。
 - 4-4 第 6 步「金鑰路徑錯誤時啟動失敗、錯誤訊息看得出是哪個檔案」尚未實際驗證
 
 ---
@@ -257,7 +257,7 @@ RSAKey  →  new JWKSet(rsaKey)  →  new ImmutableJWKSet<>(jwkSet)  →  new Ni
 
 | 錯誤碼 | 情境 |
 |---|---|
-| `EMAIL_ALREADY_EXISTS` | 註冊時 email 已存在 |
+| `EMAIL_ALREADY_EXISTS` | 註冊時 email 已存在，含並行寫入的 uq_users_email 衝突（409） |
 | `INVALID_CREDENTIALS` | 帳號不存在或密碼錯誤 |
 | `USER_DISABLED` | 帳號已停用 |
 

@@ -6,6 +6,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
@@ -71,7 +73,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public RegisterResDto register(RegisterReqDto registerReqDto) {
         // 1. 檢查 email 是否已註冊
-        // 併發註冊同一個 email 時兩邊都可能通過此檢查，最後由 uq_users_email 擋下，回 DATA_CONFLICT
+        // 並行請求仍由 uq_users_email 裁決，交易回滾後統一映射為 EMAIL_ALREADY_EXISTS。
         if (userRepository.existsByEmail(registerReqDto.email())) {
             throw new AppException(UserErrorCode.EMAIL_ALREADY_EXISTS);
         }
@@ -84,13 +86,24 @@ public class AuthServiceImpl implements AuthService {
         user.setStatus(UserStatus.ACTIVE);
         user.getRoles().add(Role.CUSTOMER);
 
-        return transactions.execute(status -> {
-            User savedUser = userRepository.save(user);
-            outbox.append("user.events", "UserRegistered", savedUser.getId().toString(),
-                    Map.of("userId", savedUser.getId().toString(),
-                            "email", savedUser.getEmail(), "displayName", savedUser.getDisplayName()));
-            return RegisterResDto.from(savedUser);
-        });
+        try {
+            return transactions.execute(status -> {
+                User savedUser = userRepository.save(user);
+                outbox.append("user.events", "UserRegistered", savedUser.getId().toString(),
+                        Map.of("userId", savedUser.getId().toString(),
+                                "email", savedUser.getEmail(), "displayName", savedUser.getDisplayName()));
+                return RegisterResDto.from(savedUser);
+            });
+        } catch (DataIntegrityViolationException failure) {
+            // 包住 execute，包含 flush／commit 才出現的約束錯誤；不用例外訊息猜約束。
+            for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+                if (cause instanceof ConstraintViolationException violation
+                        && "uq_users_email".equals(violation.getConstraintName())) {
+                    throw new AppException(UserErrorCode.EMAIL_ALREADY_EXISTS);
+                }
+            }
+            throw failure;
+        }
     }
 
     // 密碼與登入次數檢查不開交易；交易只包在簽發 token、寫入 refresh token 的那一段。

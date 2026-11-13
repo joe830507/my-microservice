@@ -128,6 +128,16 @@ const buttons = (wrapper: VueWrapper) => ({
 
 describe('付款頁', () => {
   describe('等待付款', () => {
+    it('建立付款回應已 CANCELLED：顯示取消且不能送出回呼', async () => {
+      const { calls } = serve({
+        createPayment: () => HttpResponse.json(payment('pay-1', 'CANCELLED')),
+      })
+      const wrapper = await mountPay()
+      expect(wrapper.text()).toContain('訂單已取消')
+      expect(wrapper.find('.pay__actions').exists()).toBe(false)
+      expect(calls.callbacks).toEqual([])
+    })
+
     it('顯示金額、商品與剩餘時間；建立付款只帶 orderId', async () => {
       const { calls } = serve()
 
@@ -254,6 +264,19 @@ describe('付款頁', () => {
   })
 
   describe('回呼失敗時以後端記錄的付款狀態為準', () => {
+    it('付款已 CANCELLED：顯示訂單已取消，停止操作且不輪詢訂單', async () => {
+      const { calls } = serve({
+        callback: () => problem(409, 'PAYMENT_ALREADY_COMPLETED'),
+        getPayment: (id) => HttpResponse.json({ ...payment(id), status: 'CANCELLED' }),
+      })
+      const wrapper = await mountPay()
+      await buttons(wrapper).success.trigger('click')
+      await flushPromises()
+      expect(wrapper.text()).toContain('訂單已取消')
+      expect(wrapper.text()).not.toContain('已付的款項會退回')
+      expect(wrapper.find('.pay__actions').exists()).toBe(false)
+      expect(calls.getOrder).toBe(1)
+    })
     it('409 PAYMENT_ALREADY_COMPLETED、實際上已成功：不當成失敗，繼續確認訂單', async () => {
       serve({
         callback: () => problem(409, 'PAYMENT_ALREADY_COMPLETED'),

@@ -1,6 +1,6 @@
 # spring-payment-service 類別關係圖與職責說明
 
-核對日期：2026-11-13。涵蓋 19 個 Java 主程式來源檔、一個內部 record、七個 migration、application.yml 與 Maven 設定，共 28 個主程式／資源／設定檔。
+核對日期：2026-11-13。涵蓋 20 個 Java 主程式來源檔、一個內部 record、八個 migration、application.yml 與 Maven 設定，共 30 個主程式／資源／設定檔。
 
 付款服務保存付款金額與結果。建立付款時同步讀訂單，模擬回呼則在本地交易中更新付款並寫入 outbox，由 common relay 發布 payment.events。訂單服務消費成功事件後更新訂單；付款 SUCCEEDED 不代表訂單已經 PAID，也不代表庫存已確認。此模組目前沒有真實金流 API、回呼簽章驗證或自動退款實作。
 
@@ -21,7 +21,7 @@ classDiagram
     PaymentServiceImpl ..> PaymentResDto : from
 ```
 
-除介面、enum、Entity 與 DTO 外，應用元件由 Spring 元件掃描與建構子注入建立。PaymentRepository 由 Spring Data 提供實作；AuditorAware、OutboxEventWriter、UuidV7 屬於 common，未計入本模組 19 個來源檔。
+除介面、enum、Entity 與 DTO 外，應用元件由 Spring 元件掃描與建構子注入建立。PaymentRepository 由 Spring Data 提供實作；AuditorAware、OutboxEventWriter、UuidV7 屬於 common，未計入本模組 20 個來源檔。
 
 | 來源 | 職責與界線 |
 |---|---|
@@ -76,8 +76,8 @@ classDiagram
 | 來源 | 職責 |
 |---|---|
 | [Payment](../../backend/spring-payment-service/src/main/java/com/mymicroservice/payment/entities/Payment.java) | payment 表映射，繼承 CommonEntity 的 version／稽核欄位；保存 orderId、userId、amount、status、completedAt。orderId／userId 為識別碼，沒有跨服務 JPA 關聯。equals 以非 null ID 與 Hibernate 類型判斷。 |
-| [PaymentRepository](../../backend/spring-payment-service/src/main/java/com/mymicroservice/payment/repositories/PaymentRepository.java) | 查有效付款與 completeIfPending；後者以 `WHERE status=PENDING` 控制競爭，自行增加 version、寫入時間及 auditor，flush 並 clear persistence context。 |
-| [PaymentStatus](../../backend/spring-payment-service/src/main/java/com/mymicroservice/payment/enums/PaymentStatus.java) | PENDING／SUCCEEDED／FAILED；兩個結果均為終止狀態。 |
+| [PaymentRepository](../../backend/spring-payment-service/src/main/java/com/mymicroservice/payment/repositories/PaymentRepository.java) | 查有效付款、cancelPendingByOrderId 與 completeIfPending；後者以 `WHERE status=PENDING` 控制競爭，自行增加 version、寫入時間及 auditor，flush 並 clear persistence context。 |
+| [PaymentStatus](../../backend/spring-payment-service/src/main/java/com/mymicroservice/payment/enums/PaymentStatus.java) | PENDING／SUCCEEDED／FAILED／CANCELLED；後三者為終態。 |
 | [MockPaymentResult](../../backend/spring-payment-service/src/main/java/com/mymicroservice/payment/enums/MockPaymentResult.java) | 回呼輸入 SUCCESS／FAILED；SUCCESS 映射成付款 SUCCEEDED。 |
 | [PaymentErrorCode](../../backend/spring-payment-service/src/main/java/com/mymicroservice/payment/exception/PaymentErrorCode.java) | 實作 common ErrorCode；付款／訂單不可見回 404，狀態衝突回 409，下游不可用回 503。 |
 
@@ -87,6 +87,8 @@ stateDiagram-v2
     PENDING --> SUCCEEDED : SUCCESS 回呼
     PENDING --> FAILED : FAILED 回呼
     SUCCEEDED --> [*]
+    PENDING --> CANCELLED : OrderCancelled
+    CANCELLED --> [*]
     FAILED --> [*]
 ```
 
@@ -120,7 +122,7 @@ Outbox 寫入失敗會回滾付款結果；counter 在提交前增加，不能�
 
 付款回呼不重新查訂單，也不受訂單服務當下可用性影響。若訂單已取消，付款仍可 SUCCEEDED；訂單端拒絕成功事件並進入錯誤處理／DLT，留下人工退款檢視訊息。付款端沒有通知結果欄位、回寫退款狀態或自動補救交易。付款成功信由訂單端產生的 OrderPaid 觸發，通知服務直接忽略 PaymentSucceeded。
 
-此模組沒有自訂 Kafka Listener、processed_event 表或付款逾時 Job。YAML 的 consumer 設定及 SchedulingConfig 不代表存在這些業務元件；排程主要服務共用 OutboxRelay 等基礎設施。
+[OrderEventListener](../../backend/spring-payment-service/src/main/java/com/mymicroservice/payment/messaging/OrderEventListener.java) 透過 ResilientEventConsumer 消費 order.events，只處理 OrderCancelled，其餘類型明確忽略。ProcessedEventHandler 將去重與 cancelPendingByOrderId 放在同一交易；只將 PENDING 改為 CANCELLED，補 completedAt、version 與系統稽核，不發事件。取消與回呼競爭時先提交者生效；CANCELLED 的任一回呼均回 409。ProcessedEventCleanup 透過 ShedLock 清除超過 14 天的去重紀錄；沒有付款逾時 Job，逾時仍由 order 發取消事件。
 
 ## DTO、下游 Client 與設定
 
@@ -183,3 +185,7 @@ V1 與 Entity 註解提到的通知結果是歷史設計；現況沒有 order_no
 | [Retire notification migration](../../backend/spring-payment-service/src/test/java/com/mymicroservice/payment/RetireOrderNotificationMigrationTests.java) | 舊通知 PENDING 轉事件、避免重複、移除舊欄位。 |
 
 本次僅更新文件，靜態核對全部主程式／資源／設定來源、相對連結、UTF-8 無 BOM 與 Mermaid 區塊結構；未重新執行服務測試或渲染 Mermaid。上述測試是閱讀入口，不代表本次重新驗收通過。
+
+[V8 migration](../../backend/spring-payment-service/src/main/resources/db/migration/V8__cancel_pending_payments.sql) 擴充狀態 CHECK，建立 processed_event 與時間索引；有效付款唯一索引不改。
+
+[取消整合測試](../../backend/spring-payment-service/src/test/java/com/mymicroservice/payment/OrderCancellationIntegrationTests.java) 涵蓋重送、終態、不存在付款、其他事件忽略及取消後回呼 409、不寫 outbox。

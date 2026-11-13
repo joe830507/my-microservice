@@ -1,7 +1,7 @@
 // 對應 payment-service 的 PaymentResDto；BigDecimal 在 JSON 是數字
 
-// PENDING → SUCCEEDED 或 FAILED（由金流回呼決定），兩者都是終點
-export type PaymentStatus = 'PENDING' | 'SUCCEEDED' | 'FAILED'
+// PENDING → SUCCEEDED／FAILED（回呼），或 CANCELLED（訂單取消）；三者都是終態
+export type PaymentStatus = 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED'
 
 export interface Payment {
   id: string

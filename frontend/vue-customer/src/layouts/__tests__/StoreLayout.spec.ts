@@ -8,7 +8,7 @@ import apiClient from '@/api/http'
 import { installAuthInterceptors } from '@/features/auth/interceptors'
 import { SESSION_HINT_KEY, useAuthStore } from '@/features/auth/store'
 import { me } from '@/features/auth/__tests__/fixtures'
-import { useCartStore } from '@/features/cart/store'
+import { CART_KEY, useCartStore } from '@/features/cart/store'
 import { categoryTree } from '@/features/catalog/__tests__/fixtures'
 import { installAuthGuard } from '@/router'
 
@@ -64,6 +64,40 @@ async function mountLayout(path = '/') {
 }
 
 describe('StoreLayout', () => {
+  it('登出請求仍在等待時，就清空購物車與 localStorage', async () => {
+    let release!: () => void
+    const pending = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let requestStarted = false
+    server.use(
+      http.post('*/auth/logout', async () => {
+        requestStarted = true
+        await pending
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { wrapper, auth } = await mountLayout()
+    auth.accessToken = 'access-1'
+    auth.hasSession = true
+    auth.user = me()
+    useCartStore().add('p1', 2)
+    await flushPromises()
+    try {
+      await wrapper.find('.store-nav__logout').trigger('click')
+      await flushPromises()
+      expect(requestStarted).toBe(true)
+      expect(auth.isAuthenticated).toBe(false)
+      expect(useCartStore().items).toEqual([])
+      expect(localStorage.getItem(CART_KEY)).toBeNull()
+      expect(wrapper.find('.store-nav__badge').exists()).toBe(false)
+    } finally {
+      release()
+      await flushPromises()
+      wrapper.unmount()
+    }
+  })
+
   it('購物車連結：有商品才顯示件數（數量加總），加入後即時更新', async () => {
     localStorage.setItem(
       'vue-customer.cart',
@@ -151,6 +185,7 @@ describe('StoreLayout', () => {
     auth.accessToken = 'access-1'
     auth.hasSession = true
     auth.user = me()
+    useCartStore().add('p1', 2)
     await flushPromises()
 
     expect(wrapper.find('.store-nav__user').text()).toBe('小明')
@@ -161,6 +196,9 @@ describe('StoreLayout', () => {
     await flushPromises()
 
     expect(auth.isAuthenticated).toBe(false)
+    expect(useCartStore().items).toEqual([])
+    expect(localStorage.getItem(CART_KEY)).toBeNull()
+    expect(wrapper.find('.store-nav__badge').exists()).toBe(false)
     expect(localStorage.getItem(SESSION_HINT_KEY)).toBeNull()
     expect(wrapper.find('.store-nav__user').exists()).toBe(false)
     expect(wrapper.text()).toContain('登入')

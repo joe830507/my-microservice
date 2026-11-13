@@ -1,8 +1,9 @@
 package com.mymicroservice.payment.enums;
 
-// PENDING → SUCCEEDED 或 FAILED（由金流回呼決定）；SUCCEEDED、FAILED 都是終點
+// PENDING → SUCCEEDED／FAILED（回呼），或 CANCELLED（訂單取消）；三者都是終態。
 public enum PaymentStatus {
     PENDING,
     SUCCEEDED,
-    FAILED
+    FAILED,
+    CANCELLED
 }
