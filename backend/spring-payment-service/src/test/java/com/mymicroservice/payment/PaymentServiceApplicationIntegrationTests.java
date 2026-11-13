@@ -45,13 +45,13 @@ class PaymentServiceApplicationIntegrationTests {
     }
 
     @Test
-    void flyway_createsPaymentTable() {
+    void flyway_createsPaymentAndEventTables() {
         List<String> tables = jdbcTemplate.queryForList("""
                 SELECT table_name FROM information_schema.tables
                 WHERE table_schema = 'payment_service' AND table_name <> 'flyway_schema_history'
                 """, String.class);
 
-        assertThat(tables).containsExactlyInAnyOrder("payment", "shedlock", "outbox_event");
+        assertThat(tables).containsExactlyInAnyOrder("payment", "shedlock", "outbox_event", "processed_event");
     }
 
     @Test
