@@ -194,6 +194,9 @@ Gateway（8080）+ user-service + product-service + `gateway-redis`，用 curl �
 
 ## 之後再處理
 
+> 2026-11-13 文件整理：暫緩／後續項目的現況、前提與影響範圍統一見[集中清單](../deferred-items.md)；本處原始說明與歷史紀錄保留。
+
+
 - CORS（前端接上時）
 - 上 K8s：目標 URI 改成 Service 名稱、`/internal` 加 NetworkPolicy
 - 升級到 Boot 4.1 + Spring Cloud 2026.0.0（正式版發布後）

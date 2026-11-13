@@ -20,6 +20,9 @@
 
 ## 服務清單
 
+> 2026-11-13 文件整理：暫緩／後續項目的現況、前提與影響範圍統一見[集中清單](../implementation-plans/deferred-items.md)；本處原始說明與歷史紀錄保留。
+
+
 | 服務 | 職責 | 狀態 |
 |---|---|---|
 | `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、限流 | 已實作；細節見 [api-gateway-implementation-plan.md](../implementation-plans/backend/api-gateway-implementation-plan.md) |

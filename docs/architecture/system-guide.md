@@ -375,6 +375,8 @@ JWT 金鑰、開發管理員與環境變數需依設定準備，不要把別人�
 | 後端類別、依賴與交易邊界 | [後端類別關係索引](../class-relationships/README.md) |
 | 前端元件、路由、狀態與 API 流程 | [前端元件關係索引](../component-relationships/README.md) |
 | 精確事件格式、版本與消費行為 | [事件契約](event-contracts.md) |
+| 告警診斷與操作 | [告警手冊](../operations/alert-runbook.md)，保留原始查詢／門檻與未驗證界線 |
+| 未完成工作的前提與範圍 | [暫緩清單](../implementation-plans/deferred-items.md)，原始決策仍保留在各文件 |
 | 技術選型與刻意暫緩的範圍 | [中介軟體路線圖](../implementation-plans/middleware/middleware-roadmap.md) |
 | 哪些情境真的驗過、還有哪些限制 | 各階段實作紀錄及其 `evidence/`；由[文件索引](../README.md)進入 |
 | 對外部署前有哪些風險 | [安全清單](../security/known-issues.md) |

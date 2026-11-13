@@ -143,6 +143,9 @@ D1–D7 已完成。步驟與驗收要求見[搜尋計畫](search-implementation
 
 ## 階段 E：通知（notification-service）
 
+> 2026-11-13 文件整理：暫緩／後續項目的現況、前提與影響範圍統一見[集中清單](../deferred-items.md)；本處原始說明與歷史紀錄保留。
+
+
 E1–E6 已實作並驗收；E7 真實信箱驗證暫緩，需使用者配合，**不是結案條件**。步驟、事件訂閱與驗收要求見[通知計畫](notification-implementation-plan.md#步驟)，結果與限制見[通知紀錄](notification-implementation-record.md)，原始證據在 [phase-e](evidence/phase-e)。
 
 - 部署順序：inventory → order → notification；每階段前後檢查 DLT／dead-letter 告警。這是時間點檢查，不代表持續監測。

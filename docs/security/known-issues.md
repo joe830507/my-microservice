@@ -8,6 +8,9 @@
 
 ## 總表
 
+> 2026-11-13 文件整理：暫緩／後續項目的現況、前提與影響範圍統一見[集中清單](../implementation-plans/deferred-items.md)；本處原始說明與歷史紀錄保留。
+
+
 | 編號 | 問題 | 嚴重度 | 狀態 | 預計處理 |
 | ---- | ---- | ------ | ---- | -------- |
 | [SEC-01](#sec-01-顧客可以自己把訂單標成付款成功) | 顧客可以自己把訂單標成付款成功 | 高 | **已緩解並接受剩餘風險**：預設關閉的設定開關（`PAYMENT_MOCK_CALLBACK_ENABLED`）；不接真實金流（路線圖階段 F 不實作），僅適用於隔離的示範環境 | `feature/security-hardening` |
@@ -23,6 +26,8 @@
 | [SEC-11](#sec-11-productsbatch-洩漏非上架商品的內容) | `/products/batch` 洩漏非上架商品的內容 | 中 | **已修正** | `0139c00` |
 | [SEC-12](#sec-12-非-dev-環境沒有建立管理員的方式) | 非 dev 環境沒有建立管理員的方式 | 中 | **已處理**：由設定開關 `app.bootstrap-admin.enabled` 控制 | — |
 | [SEC-13](#sec-13-kafka-尚未啟用用戶端認證) | Kafka 尚未啟用用戶端認證與 ACL | 中 | **限制已記錄**：目前依 NetworkPolicy 限制叢集內連線，外部環境上線前要補認證 | 階段 C |
+| [SEC-14](#sec-14-elasticsearch-尚未啟用認證與-tls) | Elasticsearch 尚未啟用認證與 TLS | 中 | **限制已記錄**：本機／隔離示範以網路限制連線，對外或多租戶前須補 TLS、認證及最小權限 | 階段 D；對外部署前 |
+| [SEC-15](#sec-15-通知服務的測試-smtp-與-email-個資保護) | 測試 SMTP 與 Email 個資保護 | 中 | **限制已記錄**：Mailpit 限隔離環境；對外前補 SMTP 認證／TLS、個資保留／清理與存取稽核 | 階段 E；上線前 |
 
 ---
 
@@ -127,6 +132,25 @@
 - **處理方向**：把建立管理員改成由設定開關控制（例如 `app.bootstrap-admin.enabled`）而不是綁在 `dev` profile；建立後要有輪替或停用的作法（第一個管理員建好之後關掉開關、改密碼）。這是後端程式碼的修改，要補整合測試。
 - **處理結果（2026-11-11）**：`BootstrapAdminInitializer` 改由 `app.bootstrap-admin.enabled` 控制（預設關閉；`application-dev.yml` 開啟；K8s 設 `BOOTSTRAP_ADMIN_ENABLED=true` 並移除 `SPRING_PROFILES_ACTIVE=dev`）。建好第一個管理員後，把開關關掉並換掉 Secret 裡的密碼即可（已存在的帳號不受影響）。
 
+
+## SEC-13 Kafka 尚未啟用用戶端認證
+
+階段 C 的本機與 kind Kafka 使用明文 listener，服務來源以 NetworkPolicy 限制；叢集內已授權的 Pod 仍可直接連線，topic 沒有 ACL。這套設定只適用本機與隔離的示範叢集。對外或多租戶環境部署前，需啟用 TLS 與 SASL/SCRAM（或等效機制）、topic ACL，並把憑證放入 Secret。
+
+
+## SEC-14 Elasticsearch 尚未啟用認證與 TLS
+
+階段 D 的本機與 kind ES 使用明文 HTTP，未啟用用戶端認證。Compose 只綁 127.0.0.1:9200；kind 以 NetworkPolicy 只允許 product-service 連線。Kibana 僅供本機 dev-tools profile，未部署到 kind。這些設定限本機與隔離的示範環境；對外或多租戶環境前必須補 TLS、認證與最小權限帳號，憑證放入 Secret。Pod 標籤不是用戶端身分認證。搜尋服務的索引延遲與退回 SQL 監控已納入 D6 儀表板與告警設定；kind 實際 firing 驗收已於 D7 完成。見[搜尋實作紀錄](../implementation-plans/middleware/search-implementation-record.md)。
+
+## SEC-15 通知服務的測試 SMTP 與 Email 個資保護
+
+階段 E 的 Compose 與 kind 使用 Mailpit，不啟用 SMTP 認證或 TLS；Mailpit UI 也沒有登入保護。Compose 僅將 SMTP 1025 與 UI 8025 綁到 `127.0.0.1`；kind 以 NetworkPolicy 僅允許 notification-service 連 SMTP，UI 不建立 Service，只能透過 port-forward 使用。這些設定只供本機與隔離的示範環境。對外環境必須改用啟用認證與 TLS 的 SMTP，並使用 Secret 管理憑證。
+
+notification-service 的 `user_contact` 與 `email_message` 會保存 Email、顯示名稱及通知狀態，目前沒有資料保留期限或自動清理機制。資料庫只允許 notification-service 存取；上線前需決定保留期限、清理流程與資料存取稽核。Mailpit 內文與測試證據不得放入真實個資。
+
+
+E5 adds bounded SMTP retries, immediate failure for permanent SMTP errors, and `SKIPPED` outcomes after five attempts when order/contact references remain unavailable. Metrics and alerts expose permanent failures and queue age. These controls do not change the outstanding data-retention and access-audit requirements above, and SMTP delivery still needs end-to-end validation after the local Testcontainers port-mapping issue is resolved.
+
 ---
 
 ## 驗證過沒有問題的
@@ -160,21 +184,3 @@
 ## 探測遺留的測試資料
 
 探測與對接測試在開發資料庫留下測試帳號：`sec-*`、`flood-*`（本次約 17 個）、`api-*`（先前的 API 對接檢查），以及這些帳號的訂單。都沒有刪除；`E2E` 開頭的舊分類與商品只在商店隱藏（分類停用、商品封存）。要徹底清除需要直接操作資料庫，需要你確認清單後才做。
-
-## SEC-13 Kafka 尚未啟用用戶端認證
-
-階段 C 的本機與 kind Kafka 使用明文 listener，服務來源以 NetworkPolicy 限制；叢集內已授權的 Pod 仍可直接連線，topic 沒有 ACL。這套設定只適用本機與隔離的示範叢集。對外或多租戶環境部署前，需啟用 TLS 與 SASL/SCRAM（或等效機制）、topic ACL，並把憑證放入 Secret。
-
-
-## SEC-14 Elasticsearch 尚未啟用認證與 TLS
-
-階段 D 的本機與 kind ES 使用明文 HTTP，未啟用用戶端認證。Compose 只綁 127.0.0.1:9200；kind 以 NetworkPolicy 只允許 product-service 連線。Kibana 僅供本機 dev-tools profile，未部署到 kind。這些設定限本機與隔離的示範環境；對外或多租戶環境前必須補 TLS、認證與最小權限帳號，憑證放入 Secret。Pod 標籤不是用戶端身分認證。搜尋服務的索引延遲與退回 SQL 監控已納入 D6 儀表板與告警設定；kind 實際 firing 驗收已於 D7 完成。見[搜尋實作紀錄](../implementation-plans/middleware/search-implementation-record.md)。
-
-## SEC-15 通知服務的測試 SMTP 與 Email 個資保護
-
-階段 E 的 Compose 與 kind 使用 Mailpit，不啟用 SMTP 認證或 TLS；Mailpit UI 也沒有登入保護。Compose 僅將 SMTP 1025 與 UI 8025 綁到 `127.0.0.1`；kind 以 NetworkPolicy 僅允許 notification-service 連 SMTP，UI 不建立 Service，只能透過 port-forward 使用。這些設定只供本機與隔離的示範環境。對外環境必須改用啟用認證與 TLS 的 SMTP，並使用 Secret 管理憑證。
-
-notification-service 的 `user_contact` 與 `email_message` 會保存 Email、顯示名稱及通知狀態，目前沒有資料保留期限或自動清理機制。資料庫只允許 notification-service 存取；上線前需決定保留期限、清理流程與資料存取稽核。Mailpit 內文與測試證據不得放入真實個資。
-
-
-E5 adds bounded SMTP retries, immediate failure for permanent SMTP errors, and `SKIPPED` outcomes after five attempts when order/contact references remain unavailable. Metrics and alerts expose permanent failures and queue age. These controls do not change the outstanding data-retention and access-audit requirements above, and SMTP delivery still needs end-to-end validation after the local Testcontainers port-mapping issue is resolved.

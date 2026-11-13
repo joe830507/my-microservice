@@ -11,6 +11,7 @@
 | `class-relationships/` | 類別關係圖與職責說明：依後端模組整理類別分工、依賴、建立方式與程式閱讀入口 |
 | `implementation-plans/` | 實作步驟、進度與實際驗證結果；分 `backend/`（各服務與共用模組）、`middleware/`（中介軟體各階段）、`vue-customer/`、`vue-management/`，跨層的後端部署計畫放在根目錄 |
 | `design/` | 單一功能或技術選型的設計、評估，還沒排進實作計畫的也放這裡 |
+| `operations/` | 維運：告警處理、日常診斷與操作界線 |
 | `security/` | 已知的安全問題：現象、驗證方式、處理方向與處理狀態 |
 
 新增文件時依上表分類，使用相對路徑連結、繁體中文與 UTF-8 無 BOM。
@@ -65,7 +66,16 @@
 | [backend-deployment-implementation-plan.md](implementation-plans/backend-deployment-implementation-plan.md) | 完成：後端 6 個服務與資料庫、Redis、物件儲存、兩個前端放進 K8s（kind 驗證）；NetworkPolicy、Secret；含實際攔截測試 |
 | [middleware-roadmap.md](implementation-plans/middleware/middleware-roadmap.md) | 中介軟體導覽、階段狀態、決策與暫緩範圍；各階段計畫、紀錄與證據由此進入 |
 | [implementation-guidelines.md](implementation-plans/middleware/implementation-guidelines.md) | 階段 D／E 共用流程、提交、文件、測試與誠實回報原則 |
+| [codebase-optimization-review.md](implementation-plans/codebase-optimization-review.md) | 20 項完成、兩輪修正後審查結案；[驗證證據](implementation-plans/evidence/codebase-optimization-validation.md)，暫緩範圍見[集中清單](implementation-plans/deferred-items.md) |
+| [documentation-gaps-review.md](implementation-plans/documentation-gaps-review.md) | 本次四項文件缺口與完成註記，含告警手冊、安全總表、索引與暫緩清單 |
+| [deferred-items.md](implementation-plans/deferred-items.md) | 暫緩項目的來源章節、前提、原因及影響；區分已完成與明確不做 |
 
+
+## 維運
+
+| 文件 | 內容 |
+|---|---|
+| [alert-runbook.md](operations/alert-runbook.md) | 12 條告警的原始查詢／門檻／持續時間、診斷與處理；含本次 kind 查詢結果及未驗證界線 |
 
 ## 設計與評估
 
@@ -80,6 +90,8 @@
 | [known-issues.md](security/known-issues.md) | 已知的安全問題與 SEC 編號追蹤、驗證過沒有問題的項目、還沒檢查的範圍；**上線前必讀** |
 
 ## 文件維護
+
+2026-11-13 完成文件缺口四項：新增 12 條告警手冊及 kind 原始查詢結果、集中 28 項暫緩／條件式工作、補 SEC-14／15 總表並整理 SEC-13～15 位置、補最佳化與文件審查入口。共異動 25 個檔案（24 份 Markdown、一份查詢 JSON）；全庫 47 份 Markdown 的 1,141 個本機連結、210 個章節引用與 UTF-8 無 BOM 檢查通過，git diff --check 通過。12 條告警的查詢／門檻／for 已對照產生設定，全部原始 A 查詢在 kind Prometheus 成功執行，但部分結果空集合或 NaN；未做故障注入、告警 firing／恢復／通知驗收，亦未執行手冊的修復命令、Loki／Tempo／通知 SQL、服務測試、建置或部署。
 
 2026-11-13 同步根 README、架構／系統導讀、模組計畫與紀錄的程式導讀入口；補上兩個前端的專案 README，取代管理端 Vite 範本，保留歷史驗收內容。22 份異動文件的 307 個本機連結（含明確章節錨點）、UTF-8 無 BOM 與差異空白檢查通過；前端 scripts 已對照 package.json，未重新執行測試、建置或文件圖形渲染。
 

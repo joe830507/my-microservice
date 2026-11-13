@@ -242,6 +242,9 @@ Gateway、user-service、inventory-service 都用真的程式啟動，經過 Gat
 
 ## 之後再處理
 
+> 2026-11-13 文件整理：暫緩／後續項目的現況、前提與影響範圍統一見[集中清單](../deferred-items.md)；本處原始說明與歷史紀錄保留。
+
+
 - 接收 product 的 `ProductCreated` 事件，自動建立庫存紀錄
 - 換成 Redis Lua 扣庫存（熱門商品高併發）
 - Kafka 導入後，確認與釋放改成接收 `PaymentSucceeded`、`OrderCancelled` 事件

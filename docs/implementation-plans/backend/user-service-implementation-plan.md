@@ -513,5 +513,8 @@ set -a; . secrets/dev.env; set +a
 
 ## 之後再處理
 
+> 2026-11-13 文件整理：暫緩／後續項目的現況、前提與影響範圍統一見[集中清單](../deferred-items.md)；本處原始說明與歷史紀錄保留。
+
+
 - Gateway 接上 JWKS 驗簽（`feature/api-gateway` 分支）
 - Gateway 依來源 IP 限制登入請求次數，補 email 限制的不足
