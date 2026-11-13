@@ -7,6 +7,7 @@
 | common | [common 類別關係圖與職責說明](common.md) | 自動設定、身分與權限、錯誤處理、JPA 稽核、下游呼叫保護、事件與排程鎖 |
 | observability | [observability 類別關係圖與職責說明](observability.md) | Logback 與 OpenTelemetry 接線、共用設定、三種資料流、框架與服務責任界線 |
 | spring-api-gateway | [Gateway 類別關係圖與職責說明](spring-api-gateway.md) | WebFlux／路由過濾鏈、JWT、身分 header、來源 IP、Redis 限流、熔斷與錯誤回應 |
+| spring-inventory-service | [庫存服務類別關係圖與職責說明](spring-inventory-service.md) | 庫存與預扣、狀態與數量轉換、交易／冪等、訂單事件、逾時回收與 migration |
 
 ## 圖例
 
@@ -18,6 +19,9 @@
 | `Interface <\|.. Implementation` | Implementation 實作介面 |
 | `A --> B` | A 持有 B 的參照，例如建構子注入的欄位 |
 | `A ..> B` | A 使用 B、呼叫靜態方法或建立 B；由箭頭文字進一步說明 |
+| `A *-- B` | 組合關係，B 的生命週期從屬於 A，例如預扣與其明細 |
+
+關聯旁的 `1`、`0..*` 表示一個與零到多個。狀態圖另外描述允許的狀態轉換，不把其中的箭頭解讀成 Java 繼承或方法呼叫。
 
 自動設定的註冊總覽與資料流使用流程圖。Spring 註冊、框架回呼與間接協作不等於 Java 繼承；文件會分別說明。外部服務類別與框架型別僅作協作背景，不計入各模組自訂類別的來源檔數。
 
