@@ -29,6 +29,9 @@ DefaultErrorHandler 負責重試與 DLT。暫時性資料存取錯誤、資料�
 
 ## DLT 處理與重放
 
+> 2026-11-13 文件整理：暫緩／後續項目的現況、前提與影響範圍統一見[集中清單](../implementation-plans/deferred-items.md)；本處原始說明與歷史紀錄保留。
+
+
 告警的當班維運人員先建立追蹤紀錄，記下 topic、partition、offset、例外、orderId／paymentId 與負責人。以下命令只讀取，不提交消費 offset；輸出可能含個資，勿貼到公開工單。
 
 ```sh

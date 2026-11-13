@@ -216,6 +216,9 @@ Gateway、user、product、inventory、order 五個服務都用真的程式啟�
 
 ## 之後再處理
 
+> 2026-11-13 文件整理：暫緩／後續項目的現況、前提與影響範圍統一見[集中清單](../deferred-items.md)；本處原始說明與歷史紀錄保留。
+
+
 - 建單的冪等（前端連點兩次會建兩張單）：用 `Idempotency-Key` header
 - Resilience4j 的 retry、circuit breaker
 - ~~出貨（`SHIPPED`、`COMPLETED`）的後台 API~~：`ship`、`complete` 已完成，見 [vue-management Step 0](../vue-management/README.md#step-00)
