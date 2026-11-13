@@ -58,6 +58,8 @@ class OrderJobsIntegrationTests {
     private JdbcTemplate jdbcTemplate;
     @Autowired
     private ScheduledTaskHolder scheduledTaskHolder;
+    @Autowired
+    private org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler taskScheduler;
 
     @BeforeEach
     void setUp() {
@@ -117,6 +119,7 @@ class OrderJobsIntegrationTests {
 
     @Test
     void jobs_areScheduledWithConfiguredCron() {
+        assertThat(taskScheduler.getScheduledThreadPoolExecutor().getCorePoolSize()).isEqualTo(4);
         assertThat(scheduledTaskHolder.getScheduledTasks())
                 .map(scheduledTask -> scheduledTask.getTask())
                 .filteredOn(task -> task instanceof CronTask)

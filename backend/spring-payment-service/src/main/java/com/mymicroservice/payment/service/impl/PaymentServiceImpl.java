@@ -102,17 +102,12 @@ public class PaymentServiceImpl implements PaymentService {
         payment = paymentRepository.findById(paymentId).orElseThrow();
         if (completed) {
             Metrics.counter("payments.completed", "result", success ? "succeeded" : "failed").increment();
-        } else {
-            if (payment.getStatus() != target) {
-                throw new AppException(PaymentErrorCode.PAYMENT_ALREADY_COMPLETED, paymentId, payment.getStatus());
-            }
-        }
-        if (completed) {
-            Payment current = payment;
             outbox.append("payment.events", success ? "PaymentSucceeded" : "PaymentFailed",
-                    current.getOrderId().toString(), Map.of("paymentId", paymentId.toString(),
-                            "orderId", current.getOrderId().toString(), "status", target.name(),
-                            "amount", current.getAmount()));
+                    payment.getOrderId().toString(), Map.of("paymentId", paymentId.toString(),
+                            "orderId", payment.getOrderId().toString(), "status", target.name(),
+                            "amount", payment.getAmount()));
+        } else if (payment.getStatus() != target) {
+            throw new AppException(PaymentErrorCode.PAYMENT_ALREADY_COMPLETED, paymentId, payment.getStatus());
         }
         return PaymentResDto.from(payment);
     }

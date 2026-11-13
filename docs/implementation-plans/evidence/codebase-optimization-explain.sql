@@ -133,3 +133,16 @@ EXPLAIN (ANALYZE, BUFFERS) SELECT e.event_id,e.topic,e.aggregate_id,e.payload::t
 WHERE e.published_at IS NULL AND NOT EXISTS (SELECT 1 FROM outbox_event older WHERE older.topic=e.topic
 AND older.aggregate_id=e.aggregate_id AND older.published_at IS NULL AND older.sequence_id<e.sequence_id)
 ORDER BY e.sequence_id LIMIT 100 FOR UPDATE SKIP LOCKED;
+
+\echo REVIEW_R3_TEN_CATEGORIES_DESC
+EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM product
+WHERE status='ACTIVE' AND category_id IN (md5('category-1')::uuid,md5('category-2')::uuid,md5('category-3')::uuid,md5('category-4')::uuid,md5('category-5')::uuid,md5('category-6')::uuid,md5('category-7')::uuid,md5('category-8')::uuid,md5('category-9')::uuid,md5('category-10')::uuid)
+ORDER BY created_at DESC,id LIMIT 20;
+\echo REVIEW_R3_TEN_CATEGORIES_ASC
+EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM product
+WHERE status='ACTIVE' AND category_id IN (md5('category-1')::uuid,md5('category-2')::uuid,md5('category-3')::uuid,md5('category-4')::uuid,md5('category-5')::uuid,md5('category-6')::uuid,md5('category-7')::uuid,md5('category-8')::uuid,md5('category-9')::uuid,md5('category-10')::uuid)
+ORDER BY created_at ASC,id LIMIT 20;
+\echo REVIEW_R3_GLOBAL_ASC
+EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM product WHERE status='ACTIVE' ORDER BY created_at ASC,id ASC LIMIT 20;
+\echo REVIEW_R3_SINGLE_CATEGORY_ASC
+EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM product WHERE status='ACTIVE' AND category_id=md5('category-1')::uuid ORDER BY created_at ASC,id ASC LIMIT 20;

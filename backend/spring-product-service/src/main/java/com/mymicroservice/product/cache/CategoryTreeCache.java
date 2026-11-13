@@ -1,16 +1,16 @@
 package com.mymicroservice.product.cache;
 
 import java.time.Duration;
-import java.util.Optional;
-import java.util.List;
-import java.util.UUID;
-import java.util.Set;
-import java.util.HashSet;
 import java.util.ArrayDeque;
 import java.util.Arrays;
-import java.util.function.Supplier;
-import com.mymicroservice.product.entity.Category;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -19,9 +19,11 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.mymicroservice.product.dto.category.getCategoriesTree.GetCategoriesTreeRes;
+import com.mymicroservice.product.entity.Category;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
 import tools.jackson.databind.json.JsonMapper;
 
 @Component
@@ -52,15 +54,14 @@ public class CategoryTreeCache {
 
     public void put(GetCategoriesTreeRes tree) {
         try {
-            long randomPlusTime = ThreadLocalRandom.current().nextLong(0, 300);
             redisTemplate.opsForValue().set(KEY, jsonMapper.writeValueAsString(tree),
-                    Duration.ofHours(1).plusSeconds(randomPlusTime));
+                    treeTtl());
         } catch (Exception e) {
             log.warn("Failed to put redis key {}", KEY, e);
         }
     }
 
-    // Include inactive categories: the public tree deliberately omits them.
+    // 連同停用分類一起快取父子關係，保留與公開分類樹不同的查詢語意。
     public Set<UUID> descendantIds(UUID root, Supplier<List<Category>> loader) {
         CategoryLink[] links = null;
         try {
@@ -73,13 +74,13 @@ public class CategoryTreeCache {
             links = loader.get().stream().map(c -> new CategoryLink(c.getId(), c.getParentId()))
                     .toArray(CategoryLink[]::new);
             try {
-                redisTemplate.opsForValue().set(LINKS_KEY, jsonMapper.writeValueAsString(links), Duration.ofHours(1));
+                redisTemplate.opsForValue().set(LINKS_KEY, jsonMapper.writeValueAsString(links), treeTtl());
             } catch (Exception failure) {
                 log.warn("Failed to write category links cache", failure);
             }
         }
         var children = Arrays.stream(links).filter(link -> link.parentId() != null)
-                .collect(java.util.stream.Collectors.groupingBy(CategoryLink::parentId));
+                .collect(Collectors.groupingBy(CategoryLink::parentId));
         Set<UUID> result = new HashSet<>();
         var pending = new ArrayDeque<UUID>();
         pending.add(root);
@@ -88,6 +89,10 @@ public class CategoryTreeCache {
             if (result.add(id)) children.getOrDefault(id, List.of()).forEach(link -> pending.add(link.id()));
         }
         return result;
+    }
+
+    private static Duration treeTtl() {
+        return Duration.ofHours(1).plusSeconds(ThreadLocalRandom.current().nextLong(0, 300));
     }
 
     public record CategoryLink(UUID id, UUID parentId) {}

@@ -61,7 +61,7 @@ public class DltReplay {
         try (var producer = new KafkaProducer<byte[], byte[]>(producerConfig)) {
             for (var record : records) {
                 var result = producer.send(new ProducerRecord<>(originalTopic(record), originalPartition(record),
-                        record.timestamp(), record.key(), record.value(), record.headers())).get();
+                        null, record.key(), record.value(), record.headers())).get();
                 System.out.printf("replayed DLT offset %d -> %s-%d@%d%n", record.offset(), result.topic(), result.partition(), result.offset());
             }
         }

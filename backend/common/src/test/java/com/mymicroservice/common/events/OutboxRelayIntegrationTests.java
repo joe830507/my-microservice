@@ -129,6 +129,23 @@ class OutboxRelayIntegrationTests {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void synchronousSendUsesTheSameDeadlineAndStillCommitsItsAcknowledgment() {
+        jdbc.execute("TRUNCATE event_test.outbox_event");
+        for (int i = 0; i < 5; i++) writer.append("payment.events", "test", "deadline-" + i, Map.of());
+        KafkaTemplate<String, String> template = mock(KafkaTemplate.class);
+        when(template.send(any(org.apache.kafka.clients.producer.ProducerRecord.class))).thenAnswer(invocation -> {
+            TimeUnit.MILLISECONDS.sleep(3100);
+            return java.util.concurrent.CompletableFuture.completedFuture(null);
+        });
+        new OutboxRelay(jdbc, template, transactions, new OutboxMetrics(new SimpleMeterRegistry()), "event_test").publishPending();
+        org.mockito.Mockito.verify(template, org.mockito.Mockito.times(1)).send(any(org.apache.kafka.clients.producer.ProducerRecord.class));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM event_test.outbox_event WHERE published_at IS NOT NULL", Long.class)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM event_test.outbox_event WHERE published_at IS NULL", Long.class)).isEqualTo(4L);
+        jdbc.execute("TRUNCATE event_test.outbox_event");
+    }
+
+    @Test
     void cleanupKeepsRecentDedupeAndDeletesOnlyExpiredRows() {
         jdbc.execute("TRUNCATE event_test.processed_event");
         jdbc.update("INSERT INTO event_test.processed_event VALUES (?, 'test', now()-interval '15 days'), (?, 'test', now()-interval '13 days')",
@@ -244,20 +261,23 @@ class OutboxRelayIntegrationTests {
         try (var admin = AdminClient.create(Map.of("bootstrap.servers", kafka.getBootstrapServers()))) {
             admin.createTopics(List.of(new NewTopic(topic, 1, (short) 1), new NewTopic(topic + ".DLT", 1, (short) 1))).all().get();
         }
+        long originalTimestamp = System.currentTimeMillis() - Duration.ofDays(1).toMillis();
         byte[] key = {0, 1, -1};
         byte[] value = "{\"eventId\":\"unchanged\",\"payload\":\"hello\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         var headers = new org.apache.kafka.common.header.internals.RecordHeaders();
         headers.add("kafka_dlt-original-topic", topic.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         headers.add("kafka_dlt-original-partition", java.nio.ByteBuffer.allocate(4).putInt(0).array());
+        headers.add("kafka_dlt-original-timestamp", java.nio.ByteBuffer.allocate(8).putLong(originalTimestamp).array());
         headers.add("traceparent", "trace-value".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         var config = Map.<String, Object>of("bootstrap.servers", kafka.getBootstrapServers(),
                 "key.serializer", org.apache.kafka.common.serialization.ByteArraySerializer.class,
                 "value.serializer", org.apache.kafka.common.serialization.ByteArraySerializer.class);
         try (var producer = new org.apache.kafka.clients.producer.KafkaProducer<byte[], byte[]>(config)) {
-            producer.send(new org.apache.kafka.clients.producer.ProducerRecord<>(topic + ".DLT", 0, null, key, value, headers)).get();
+            producer.send(new org.apache.kafka.clients.producer.ProducerRecord<>(topic + ".DLT", 0, originalTimestamp, key, value, headers)).get();
         }
         String javaExecutable = java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java").toString();
         String source = java.nio.file.Path.of("..", "..", "infra", "scripts", "DltReplay.java").toAbsolutePath().normalize().toString();
+        long replayStarted = System.currentTimeMillis();
         for (String confirmation : List.of("CANCEL", "REPLAY")) {
             var outputFile = java.nio.file.Files.createTempFile("dlt-replay-test", ".log");
             var process = new ProcessBuilder(javaExecutable, "--class-path", System.getProperty("surefire.test.class.path", System.getProperty("java.class.path")),
@@ -284,6 +304,9 @@ class OutboxRelayIntegrationTests {
             var records = consumer.poll(Duration.ofSeconds(10));
             assertThat(records.count()).isEqualTo(1);
             var record = records.iterator().next();
+            assertThat(record.timestamp()).isBetween(replayStarted, System.currentTimeMillis());
+            assertThat(record.headers().lastHeader("kafka_dlt-original-timestamp").value())
+                    .isEqualTo(java.nio.ByteBuffer.allocate(8).putLong(originalTimestamp).array());
             assertThat(record.key()).isEqualTo(key);
             assertThat(record.value()).isEqualTo(value);
             assertThat(record.headers().toArray()).containsExactly(headers.toArray());

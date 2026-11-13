@@ -93,7 +93,7 @@ public class AuthServiceImpl implements AuthService {
         });
     }
 
-    // 會寫入 refresh token，不能是 readOnly
+    // 密碼與登入次數檢查不開交易；交易只包在簽發 token、寫入 refresh token 的那一段。
     @Override
     public TokenResDto login(LoginReqDto loginReqDto, String clientIp) {
         String email = loginReqDto.email();

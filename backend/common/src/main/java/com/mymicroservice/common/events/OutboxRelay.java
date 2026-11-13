@@ -1,5 +1,23 @@
 package com.mymicroservice.common.events;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.internals.RecordHeader;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
+
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanContext;
@@ -7,24 +25,10 @@ import io.opentelemetry.api.trace.TraceFlags;
 import io.opentelemetry.api.trace.TraceState;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
-import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.concurrent.CompletableFuture;
-import org.springframework.kafka.support.SendResult;
+
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
+
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.header.internals.RecordHeader;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @Component
@@ -116,7 +120,6 @@ public class OutboxRelay {
         } catch (Exception exception) {
             log.warn("Outbox relay cycle failed", exception);
         }
-
     }
 
     @Scheduled(fixedDelayString = "${app.events.outbox-metrics-interval:15000}")
@@ -168,7 +171,6 @@ public class OutboxRelay {
             throw failure;
         } finally {
             if (scope != null) scope.close();
-
         }
     }
 }

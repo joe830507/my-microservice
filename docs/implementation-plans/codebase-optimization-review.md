@@ -205,7 +205,7 @@ CREATE INDEX idx_outbox_event_aggregate_pending_seq
 
 ## 9.（中）商品前台列表缺少複合索引
 
-> 2026-11-13 修正註記：新增 status/created_at/id 及 category_id/status/created_at/id 複合索引，移除前綴重複的 status 單欄索引。五萬商品 EXPLAIN ANALYZE 確認兩條查詢皆不再排序：全站約 6.798ms → 0.032ms，單分類約 0.569ms → 0.044ms。詳見第 6 點 evidence，時間僅代表此測試資料分布，不是正式環境 SLA。
+> 2026-11-13 修正註記：新增 status/created_at/id 及 category_id/status/created_at/id 複合索引，移除前綴重複的 status 單欄索引。五萬商品 EXPLAIN ANALYZE 確認兩條查詢皆不再排序：全站約 6.798ms → 0.032ms，單分類約 0.569ms → 0.044ms。詳見第 6 點 evidence，時間僅代表此測試資料分布，不是正式環境 SLA。第一輪審查追加：十個分類的常數 IN 降冪查詢由 status 複合索引依序掃描再篩選，約 0.199ms；IN 升冪約 0.146ms，全站／單分類升冪約 0.027／0.110ms，均需 Incremental Sort 補正 id ASC。category 複合索引無法直接提供多分類全域順序；本 fixture 的表現可接受，暫不再加索引，後續資料分布／同時戳筆數增加時需重新評估。
 
 位置：`backend/spring-product-service/src/main/resources/db/migration/`（目前只有 `idx_product_status`、`idx_product_category` 單欄索引）
 
@@ -278,7 +278,7 @@ CREATE INDEX idx_product_category_status_created ON product_service.product (cat
 
 ## 15.（低）`completeOrder` 沒有 `@Transactional`、`markCompletedIfShipped` 沒有 clear
 
-> 2026-11-13 修正註記：completeOrder 加 @Transactional；markCompletedIfShipped 加 clearAutomatically/flushAutomatically，確保同一交易回應讀到新狀態。由既有完成訂單的成功、冪等、404／409 整合測試覆蓋。
+> 2026-11-13 修正註記：completeOrder 加 @Transactional；markCompletedIfShipped 加 clearAutomatically/flushAutomatically，確保同一交易回應讀到新狀態。由既有完成訂單的成功、冪等、404／409 整合測試覆蓋。訂單完成目前不發 OrderCompleted（通知實作計畫既有決策），已補入 event-contracts；未來需要完成通知時再擴充。
 
 位置：`OrderServiceImpl.java:247`、`OrderRepository.markCompletedIfShipped`
 
@@ -394,6 +394,8 @@ RUN java -Djarmode=tools -jar /src/spring-${SERVICE}/target/${SERVICE}-0.0.1-SNA
 
 結論：20 項都有照建議（或註記的替代方案）完成，測試也對準了各點的風險，沒有阻擋合併的問題。以下是修正本身帶進來的新問題與遺漏，依優先順序排列。
 
+> 本輪修正：R1～R7 已逐項處理；R1、R2 各自提交，R3～R7 合併提交。七個相關模組 93 個重點測試及 common 完整 67 個測試通過（兩者有重疊），命令與範圍見[本輪驗證紀錄](evidence/codebase-optimization-validation.md)。R3 補測並記錄限制，未額外新增索引。
+
 | # | 優先 | 項目 |
 |---|---|---|
 | R1 | 中 | Outbox relay 在 Kafka metadata 取不到時，每筆 `send` 各阻塞 `max.block.ms`，一批 100 筆可達 5 分鐘 |
@@ -424,7 +426,7 @@ RUN java -Djarmode=tools -jar /src/spring-${SERVICE}/target/${SERVICE}-0.0.1-SNA
 
 ### R2.（中低）去重清理的第一次 DELETE 沒有上限
 
-> 修正完成：processed_event 與已發布 outbox 都改為每批一個短交易，以 LIMIT／SKIP LOCKED 刪除，預設每批 5000 筆（app.events.cleanup-batch-size），直到不足一批為止。六個 outbox 服務的 scheduling pool 調為 4，避免清理占用唯一排程執行緒。已檢查排程：fixed-delay 任務同一註冊不會重疊；業務 cron 使用 ShedLock 與條件式更新，SMTP 使用租約，relay 使用列鎖，沒有依賴其他任務必須依序執行。common clean test 通過，新增去重／outbox 每批三筆、逐批獨立提交與近期／待送資料保留的整合測試。服務層回歸結果將於本輪驗證紀錄補齊。
+> 修正完成：processed_event 與已發布 outbox 都改為每批一個短交易，以 LIMIT／SKIP LOCKED 刪除，預設每批 5000 筆（app.events.cleanup-batch-size），直到不足一批為止。六個 outbox 服務的 scheduling pool 調為 4，避免清理占用唯一排程執行緒。已檢查排程：fixed-delay 任務同一註冊不會重疊；業務 cron 使用 ShedLock 與條件式更新，SMTP 使用租約，relay 使用列鎖，沒有依賴其他任務必須依序執行。common clean test 通過，新增去重／outbox 每批三筆、逐批獨立提交與近期／待送資料保留的整合測試。七個相關模組的 93 個重點回歸亦通過，含實際 pool size、ShedLock 及 SMTP 多副本驗證，詳見本輪驗證紀錄。
 
 位置：`backend/common/src/main/java/com/mymicroservice/common/events/ProcessedEventCleanup.java`
 
@@ -444,6 +446,8 @@ WHERE event_id IN (
 
 ### R3.（低）複合索引沒有涵蓋兩種實際查詢
 
+> 修正完成：既有 evidence SQL／計畫追加十個常數分類 IN 的降冪、升冪，以及全站／單分類升冪查詢，亦補入第 9 點註記。本次五萬筆 fixture 的 IN 降冪採 status 複合索引有序掃描後篩選，約 0.199ms；IN 升冪約 0.146ms，全站／單分類升冪約 0.027／0.110ms，升冪都需 Incremental Sort 補正 id ASC。沒有宣稱 category 複合索引提供多分類全域順序；目前量測可接受，暫不新增索引，以免增加寫入成本，資料分布或同時戳筆數改變時再評估。
+
 位置：`backend/spring-product-service/src/main/resources/db/migration/V8__optimize_product_listing.sql`；evidence `codebase-optimization-explain.sql`
 
 問題：
@@ -455,6 +459,8 @@ WHERE event_id IN (
 
 ### R4.（低）OrderCompleted 的結論沒寫進 event-contracts
 
+> 修正完成：event-contracts 的訂單事件發送規則與第 15 點註記均已補上「目前不發 OrderCompleted，之後有完成通知需求再新增」，並連結既有通知實作計畫。未新增事件或改變訂單完成行為。
+
 位置：`docs/architecture/event-contracts.md`；第 15 點的建議最後一句
 
 問題：第 15 點要求確認是否需要 `OrderCompleted` 事件，不需要的話在 event-contracts 註明。`docs/implementation-plans/middleware/notification-implementation-plan.md:34` 已經有結論（不新增），但 event-contracts 和第 15 點的修正註記都沒有提到。
@@ -462,6 +468,8 @@ WHERE event_id IN (
 建議：在 event-contracts 的 order.events 說明加一句「訂單完成不發事件（見 notification 實作計畫），之後若要寄完成通知再新增」，第 15 點註記也補上。
 
 ### R5.（低）暫時性錯誤分類可以再涵蓋 JDBC 層例外
+
+> 修正完成：抽出 isTransient／retryBackOff，新增 SQLTransientException、SQLRecoverableException、RecoverableDataAccessException，保留既有 Spring 資源／交易錯誤及 5xx AppException；類別名稱改用 import。不需 Kafka 的八個單元案例已通過，涵蓋七種暫時性錯誤的原始／ListenerExecutionFailedException 包裝形式及未知錯誤的三次有限重試；指數退避確認 1 秒起、最高 30 秒且持續重試。
 
 位置：`backend/common/src/main/java/com/mymicroservice/common/events/EventsAutoConfiguration.java`（`setBackOffFunction`）
 
@@ -471,6 +479,8 @@ WHERE event_id IN (
 
 ### R6.（低）DLT 重放沿用舊的 record timestamp
 
+> 修正完成：ProducerRecord timestamp 改傳 null，手冊註明重放時使用當下時間，原時間仍保留在 DLT header（若有提供）與事件內容。真實 Kafka 整合測試改用一天前的 DLT timestamp，確認重放後 timestamp 不早於本次重放開始時間，且原時間 header、key、payload、其他 headers 仍完整保留。
+
 位置：`infra/scripts/DltReplay.java`（`new ProducerRecord<>(..., record.timestamp(), ...)`）
 
 問題：重放時沿用 DLT 訊息的時間戳（通常就是原事件的時間）。原 topic 依時間保留（7 天）時，接近 7 天前的事件被送回去後，只要所在的 segment 一關閉，就可能很快被保留機制刪掉；consumer 若有 lag，可能還沒讀到就消失了。lag 的時間型指標也會被這些舊時間戳拉偏。
@@ -478,6 +488,8 @@ WHERE event_id IN (
 建議：timestamp 傳 `null`，讓 broker 使用重放當下的時間；原時間戳已經在 DLT header `kafka_dlt-original-timestamp` 裡，會跟著 headers 一起保留。手冊相應補一句「重放後的 record 時間是重放時間」。測試目前沒有斷言 timestamp，不受影響。
 
 ### R7.（低）過時註解與程式風格
+
+> 修正完成：更新鎖設定與登入交易範圍註解；合併付款成功分支並移除多餘別名；production 類別改用 import 並整理 OutboxRelay／CategoryTreeCache 的 import 順序；子分類快取註解統一中文，兩個 key 共用一小時加 0～299 隨機秒數的 TTL 方法，新增 LINKS_KEY TTL 整合斷言；移除 relay 多餘空行。付款 callback、登入及分類快取回歸均已通過。
 
 - `common/.../scheduling/SchedulingLockAutoConfiguration.java:20` 的註解「沒設定的服務（例如沒有排程的 product-service）」：product-service 現在有排程也有 shedlock 表，請更新。
 - `AuthServiceImpl.login` 上方的「會寫入 refresh token，不能是 readOnly」：方法已經沒有交易註解，改成說明「交易只包在簽發 token 那一段」。

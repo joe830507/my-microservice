@@ -52,6 +52,7 @@ class CategoryTreeCacheIntegrationTests {
         var child = categoryService.addOneNewCategory(new AddOneNewCategoryReq(root.id(), "Child", "child", null, 0, false));
         assertThat(linksCache.descendantIds(root.id(), categoryRepository::findAll)).contains(root.id(), child.id());
         assertThat(redisTemplate.hasKey(CategoryTreeCache.LINKS_KEY)).isTrue();
+        assertThat(redisTemplate.getExpire(CategoryTreeCache.LINKS_KEY)).isBetween(3500L, 3900L);
         assertThat(linksCache.descendantIds(root.id(), () -> { throw new AssertionError("cache miss"); }))
                 .contains(root.id(), child.id());
         addCategory("Other", "other");

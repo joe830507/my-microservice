@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mymicroservice.product.cache.ProductDetailCache;
+import com.mymicroservice.product.cache.CategoryTreeCache;
 import com.mymicroservice.product.dto.product.addOneNewProduct.AddOneNewProductReq;
 import com.mymicroservice.product.dto.product.addOneNewProduct.AddOneNewProductRes;
 import com.mymicroservice.product.dto.product.changeProductStatus.ChangeProductStatusReq;
@@ -52,7 +53,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final EntityManager entityManager;
     private final CategoryRepository categoryRepository;
-    private final com.mymicroservice.product.cache.CategoryTreeCache categoryTreeCache;
+    private final CategoryTreeCache categoryTreeCache;
     private final ProductImageRepository productImageRepository;
     private final ProductDetailCache productDetailCache;
     private final ImageStorage imageStorage;
