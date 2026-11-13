@@ -11,6 +11,7 @@
 | spring-notification-service | [通知服務類別關係圖與職責說明](spring-notification-service.md) | 事件投影、郵件入列／去重、租約寄送、重試與模板 |
 | spring-order-service | [訂單服務類別關係圖與職責說明](spring-order-service.md) | 建單快照／冪等、狀態交易、下游補償、付款事件、逾時與 outbox |
 | spring-payment-service | [付款服務類別關係圖與職責說明](spring-payment-service.md) | 有效付款唯一性、模擬回呼、條件更新、outbox 與通知機制退役 |
+| spring-product-service | [商品服務類別關係圖與職責說明](spring-product-service.md) | 商品／分類／圖片、Redis、搜尋查詢／索引重建與 outbox |
 
 ## 圖例
 
