@@ -1,5 +1,7 @@
 # 可觀測性（階段 A）實作紀錄
 
+目前程式分工與依賴圖見[類別關係與職責](../../class-relationships/observability.md)；本文件保留實作步驟、設計決策與當時驗收紀錄。
+
 > 完成日期：2026-11-11
 > 分支：`feature/middleware-roadmap`
 > 對應：[middleware-roadmap.md](middleware-roadmap.md)「階段 A」

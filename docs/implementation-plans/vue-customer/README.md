@@ -1,5 +1,7 @@
 # vue-customer 前台（商店）實作與驗收紀錄
 
+目前程式分工與依賴圖見[元件關係與職責](../../component-relationships/vue-customer.md)；本文件保留實作步驟、設計決策與當時驗收紀錄。
+
 > 建立日期：2026-11-10
 > 實作分支： `feature/vue-customer`
 > 位置：`frontend/vue-customer`

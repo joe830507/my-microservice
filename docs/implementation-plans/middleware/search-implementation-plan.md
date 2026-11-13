@@ -1,5 +1,7 @@
 # 搜尋（Elasticsearch）實作計畫（階段 D）
 
+目前程式分工與依賴圖見[類別關係與職責](../../class-relationships/spring-product-service.md)；本文件保留實作步驟、設計決策與當時驗收紀錄。
+
 > 建立日期：2026-11-11
 > 分支：實作時開 `feature/search-phase-d`（從階段 C 合併後的 `main` 切出；階段 C 尚未合併時，從 `feature/event-driven-phase-c` 切出並做 stacked PR）
 > 對應：[middleware-roadmap.md](middleware-roadmap.md)「階段 D」、[product-service-middleware-evaluation.md](../../design/product-service-middleware-evaluation.md)「2. 全文檢索」

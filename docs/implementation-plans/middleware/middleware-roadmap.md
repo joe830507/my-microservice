@@ -9,6 +9,8 @@
 
 ---
 
+目前各模組的類別、事件協作與設定接線可由[後端類別導讀](../../class-relationships/README.md)進入；本路線圖保留階段順序、決策與歷史基準。前端操作與狀態分工見[元件導讀](../../component-relationships/README.md)。
+
 ## 導入前基準（歷史紀錄，2026-11-11）
 
 | 服務              | PostgreSQL |    Redis    |        物件儲存        | 服務之間怎麼溝通              | 排程                       |

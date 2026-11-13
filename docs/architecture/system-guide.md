@@ -329,6 +329,8 @@ docs/                         導讀、契約、設計、紀錄與安全事項
 | 5 | [common events](../../backend/common/src/main/java/com/mymicroservice/common/events/)與[庫存 listener](../../backend/spring-inventory-service/src/main/java/com/mymicroservice/inventory/messaging/OrderEventListener.java) | Outbox、去重、重試與業務更新怎樣接在一起？ |
 | 6 | [商品搜尋](../../backend/spring-product-service/src/main/java/com/mymicroservice/product/search/)與[通知派送器](../../backend/spring-notification-service/src/main/java/com/mymicroservice/notification/mail/EmailDispatcher.java) | 為什麼這兩種非同步工作採不同失敗策略？ |
 
+上表用來追跨服務路徑；需要單一模組的依賴圖與完整來源職責時，讀[後端類別導讀](../class-relationships/README.md)；追畫面、store、composable 與 API 時，讀[顧客端元件導讀](../component-relationships/vue-customer.md)及[管理端元件導讀](../component-relationships/vue-management.md)。這些文件說明目前實作，歷史驗收仍以各實作紀錄為準。
+
 ### 開始執行前
 
 準備 Java 21、Docker、專案所需 Node 環境；後端使用 Maven Wrapper，前端依各自 `package.json` 與 lockfile 安裝。離線 Maven 指令只適用於依賴與容器映像已準備好的環境。
@@ -370,6 +372,8 @@ JWT 金鑰、開發管理員與環境變數需依設定準備，不要把別人�
 | 想知道什麼 | 閱讀入口 |
 |---|---|
 | API、服務與 port 細節 | [架構參考](microservice-architecture.md)；歷史描述有差異時核對目前 controller 與設定 |
+| 後端類別、依賴與交易邊界 | [後端類別關係索引](../class-relationships/README.md) |
+| 前端元件、路由、狀態與 API 流程 | [前端元件關係索引](../component-relationships/README.md) |
 | 精確事件格式、版本與消費行為 | [事件契約](event-contracts.md) |
 | 技術選型與刻意暫緩的範圍 | [中介軟體路線圖](../implementation-plans/middleware/middleware-roadmap.md) |
 | 哪些情境真的驗過、還有哪些限制 | 各階段實作紀錄及其 `evidence/`；由[文件索引](../README.md)進入 |
