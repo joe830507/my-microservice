@@ -12,3 +12,5 @@ kubectl --context kind-my-microservice apply -k infra/k8s
 ```
 
 `data/`、`services/`、`network-policies.yaml` 是產生出來的 YAML，之後直接手動維護。
+
+告警觸發後的唯讀診斷、Compose／kind 命令與恢復核對見[告警處理手冊](../../docs/operations/alert-runbook.md)；對外部署前的未完工作另見[安全清單](../../docs/security/known-issues.md)與[暫緩清單](../../docs/implementation-plans/deferred-items.md)。
