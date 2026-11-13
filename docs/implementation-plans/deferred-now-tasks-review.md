@@ -79,7 +79,7 @@
   - `AccountView.vue` 的「登出所有裝置」**維持現狀**：撤銷失敗時要保留登入與購物車，所以必須等撤銷成功後才清空。
 - **測試**：在 `StoreLayout.spec.ts` 加一個案例，讓 `/auth/logout` 延遲回應（MSW `delay` 或手動控制的 Promise），斷言在回應之前購物車就已經清空。
 
-**處理結果**：
+**處理結果**：StoreLayout 改成先 cart.clear()，再 await auth.logout()；AccountView 保留撤銷成功後才清空。新增手動控制 logout 回應的測試，先重現等待期間購物車殘留，修正後回應前即清空。完整 Vitest 342 項與 vue-tsc --build --force 通過。
 
 ## R4（低）T-01 的 processed_event 索引沒有沿用 BRIN
 

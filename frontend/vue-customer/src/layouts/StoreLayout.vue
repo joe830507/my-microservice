@@ -30,8 +30,8 @@ function onSearch(): void {
 }
 
 async function onLogout(): Promise<void> {
-  await auth.logout()
   cart.clear()
+  await auth.logout()
   // 留在需要登入的頁面會看到別人的資料或錯誤：回首頁
   if (route.meta.requiresAuth) {
     await router.push({ name: 'home' })
