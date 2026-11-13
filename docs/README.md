@@ -69,6 +69,7 @@
 | [codebase-optimization-review.md](implementation-plans/codebase-optimization-review.md) | 20 項完成、兩輪修正後審查結案；[驗證證據](implementation-plans/evidence/codebase-optimization-validation.md)，暫緩範圍見[集中清單](implementation-plans/deferred-items.md) |
 | [documentation-gaps-review.md](implementation-plans/documentation-gaps-review.md) | 本次四項文件缺口與完成註記，含告警手冊、安全總表、索引與暫緩清單 |
 | [deferred-items.md](implementation-plans/deferred-items.md) | 暫緩項目的來源章節、前提、原因及影響；區分已完成與明確不做 |
+| [system-gaps-assessment.md](implementation-plans/system-gaps-assessment.md) | 尚未列入任何追蹤清單的缺口（G-01～17）：CI、備份、契約測試、收件地址等，含建議順序 |
 
 
 ## 維運
