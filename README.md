@@ -155,6 +155,7 @@ npm run test:e2e     # Playwright，需要先啟動後端
 | Kafka、搜尋、通知等中介軟體的階段與決策 | [中介軟體路線圖](docs/implementation-plans/middleware/middleware-roadmap.md) |
 | 告警響起時如何診斷與處理 | [告警手冊](docs/operations/alert-runbook.md) |
 | 還有哪些暫緩項目 | [暫緩清單](docs/implementation-plans/deferred-items.md) |
+| 系統還缺什麼（未列入追蹤的缺口） | [系統缺口評估](docs/implementation-plans/system-gaps-assessment.md) |
 | 最佳化與文件缺口修正結果 | [最佳化審查](docs/implementation-plans/codebase-optimization-review.md)、[驗證證據](docs/implementation-plans/evidence/codebase-optimization-validation.md)、[文件缺口審查](docs/implementation-plans/documentation-gaps-review.md) |
 | 已知安全問題與上線前檢查 | [安全清單](docs/security/known-issues.md) |
 | 所有文件 | [文件索引](docs/README.md) |

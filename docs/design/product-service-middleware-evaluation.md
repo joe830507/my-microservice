@@ -57,7 +57,7 @@
 | Redis 故障降級 | 已完成 | `REJECT_COMMANDS` + `CacheErrorHandler`，直接查 DB |
 | 快取擊穿 | 延後 | 目前規模可接受；要做時自行實作 per-key 鎖，最後用 `put` 寫入 |
 | Caffeine 本機快取 | 延後 | 多實例失效需 MQ 廣播，等 Kafka 導入後再做 |
-| Bloom filter、ETag | 延後 | 非必要 |
+| Bloom filter、ETag | 暫不排入（2026-11-13） | 非必要；改列[路線圖「暫不排入」](../implementation-plans/middleware/middleware-roadmap.md#暫不排入記錄理由) |
 
 ### 踩過的坑
 
