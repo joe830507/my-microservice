@@ -7,6 +7,7 @@
 | 資料夾 | 放什麼 |
 |---|---|
 | `architecture/` | 整體架構：服務切分、API、全域慣例、服務之間的互動 |
+| `class-relationships/` | 類別關係圖與職責說明：依後端模組整理類別分工、依賴、建立方式與程式閱讀入口 |
 | `implementation-plans/` | 實作步驟、進度與實際驗證結果；分 `backend/`（各服務與共用模組）、`middleware/`（中介軟體各階段）、`vue-customer/`、`vue-management/`，跨層的後端部署計畫放在根目錄 |
 | `design/` | 單一功能或技術選型的設計、評估，還沒排進實作計畫的也放這裡 |
 | `security/` | 已知的安全問題：現象、驗證方式、處理方向與處理狀態 |
@@ -21,6 +22,13 @@
 |---|---|
 | [microservice-architecture.md](architecture/microservice-architecture.md) | 架構參考：服務清單、port 分配、各服務 API、Gateway 路由、下單流程、建立順序 |
 | [event-contracts.md](architecture/event-contracts.md) | 事件格式、版本、交易、去重、重試與消費行為的依據 |
+
+## 類別關係與職責
+
+| 文件 | 內容 |
+|---|---|
+| [類別關係文件索引](class-relationships/README.md) | 圖例、分類與維護方式；依後端模組逐步補齊 |
+| [common 類別關係圖與職責說明](class-relationships/common.md) | 32 個來源檔的職責、Spring 接線、類別依賴與對照測試 |
 
 ## 實作計畫
 
@@ -55,6 +63,8 @@
 | [known-issues.md](security/known-issues.md) | 已知的安全問題與 SEC 編號追蹤、驗證過沒有問題的項目、還沒檢查的範圍；**上線前必讀** |
 
 ## 文件維護
+
+2026-11-13 新增 `class-relationships/` 文件類型與 common 導讀，涵蓋 32 個 Java 主程式來源檔、9 張 Mermaid 圖與重要內部型別。三份異動文件的 91 個本機連結（含章節引用）、UTF-8 無 BOM 與圖形區塊結構已檢查；未執行 Mermaid 渲染或重新執行應用程式測試。
 
 2026-11-12 新增系統導讀，作為跨服務的閱讀入口，文件數增為 25 份。內容已核對建單、付款、身分驗證、搜尋、通知與本機啟動程式；本次 2 份異動文件的 53 個本機連結、13 個章節引用及 UTF-8 編碼檢查通過，未重新執行應用程式測試或部署。
 
