@@ -38,6 +38,8 @@ public class OutboxRelay {
     private int batchSize = 100;
     @Value("${app.events.outbox-max-batches:10}")
     private int maxBatches = 10;
+    @Value("${app.events.cleanup-batch-size:5000}")
+    private int cleanupBatchSize = 5000;
     // 使用 Spring 管理的 SDK；GlobalOpenTelemetry 未必已註冊，可能只回傳 no-op。
     @Autowired(required = false)
     private OpenTelemetry openTelemetry = OpenTelemetry.noop();
@@ -125,7 +127,13 @@ public class OutboxRelay {
     @Scheduled(cron = "0 20 3 * * *", zone = "UTC")
     @SchedulerLock(name = "outboxPurge", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     public void purgePublishedEvents() {
-        jdbc.update("DELETE FROM " + schema + ".outbox_event WHERE published_at < now() - interval '7 days'");
+        int limit = Math.max(1, cleanupBatchSize);
+        int deleted;
+        do {
+            deleted = transactions.execute(status -> jdbc.update("DELETE FROM " + schema + ".outbox_event WHERE event_id IN ("
+                    + "SELECT event_id FROM " + schema + ".outbox_event "
+                    + "WHERE published_at < now() - interval '7 days' LIMIT ? FOR UPDATE SKIP LOCKED)", limit));
+        } while (deleted == limit);
     }
 
     private record PendingEvent(UUID id, String topic, String aggregateId, String payload, String traceparent) {}

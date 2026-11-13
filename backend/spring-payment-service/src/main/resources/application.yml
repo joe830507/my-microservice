@@ -13,6 +13,10 @@ payment:
     read-timeout: 5s
 
 spring:
+  task:
+    scheduling:
+      pool:
+        size: 4
   application:
     name: payment-service
   kafka:

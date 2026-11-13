@@ -133,9 +133,56 @@ class OutboxRelayIntegrationTests {
         jdbc.execute("TRUNCATE event_test.processed_event");
         jdbc.update("INSERT INTO event_test.processed_event VALUES (?, 'test', now()-interval '15 days'), (?, 'test', now()-interval '13 days')",
                 UUID.randomUUID(), UUID.randomUUID());
-        new ProcessedEventCleanup(jdbc, "event_test", Duration.ofDays(14)).purge();
+        new ProcessedEventCleanup(jdbc, transactions, "event_test", Duration.ofDays(14), 5000).purge();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM event_test.processed_event", Long.class)).isEqualTo(1L);
         jdbc.execute("TRUNCATE event_test.processed_event");
+    }
+
+    @Test
+    void cleanupBatchesCommitIndependentlyAndPreserveRecentAndPendingEvents() {
+        jdbc.execute("TRUNCATE event_test.processed_event, event_test.outbox_event");
+        for (String table : List.of("processed_event", "outbox_event")) {
+            if (table.equals("processed_event")) {
+                jdbc.execute("INSERT INTO event_test.processed_event SELECT md5('purge-'||g)::uuid, 'test', "
+                        + "now()-interval '15 days' FROM generate_series(1,7) g");
+                jdbc.update("INSERT INTO event_test.processed_event VALUES (?, 'test', now())", UUID.randomUUID());
+            } else {
+                jdbc.execute("INSERT INTO event_test.outbox_event(event_id,topic,event_type,aggregate_id,payload,occurred_at,published_at) "
+                        + "SELECT md5('purge-'||g)::uuid,'test','test','key','{}',now(),now()-interval '8 days' FROM generate_series(1,7) g");
+                writer.append("test", "test", "pending", Map.of());
+                writer.append("test", "test", "recent", Map.of());
+                jdbc.update("UPDATE event_test.outbox_event SET published_at=now() WHERE aggregate_id='recent'");
+            }
+            var committedRemaining = new java.util.ArrayList<Long>();
+            String condition = table.equals("processed_event") ? "processed_at < now()-interval '14 days'"
+                    : "published_at < now()-interval '7 days'";
+            JdbcTemplate tracked = new JdbcTemplate(jdbc.getDataSource()) {
+                @Override
+                public int update(String sql, Object... args) {
+                    int deleted = super.update(sql, args);
+                    org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                            new org.springframework.transaction.support.TransactionSynchronization() {
+                                @Override public void afterCommit() {
+                                    committedRemaining.add(jdbc.queryForObject("SELECT count(*) FROM event_test." + table
+                                            + " WHERE " + condition, Long.class));
+                                }
+                            });
+                    return deleted;
+                }
+            };
+            if (table.equals("processed_event")) {
+                new ProcessedEventCleanup(tracked, transactions, "event_test", Duration.ofDays(14), 3).purge();
+            } else {
+                var cleanupRelay = new OutboxRelay(tracked, kafkaTemplate, transactions,
+                        new OutboxMetrics(new SimpleMeterRegistry()), "event_test");
+                org.springframework.test.util.ReflectionTestUtils.setField(cleanupRelay, "cleanupBatchSize", 3);
+                cleanupRelay.purgePublishedEvents();
+            }
+            assertThat(committedRemaining).containsExactly(4L, 1L, 0L);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM event_test." + table, Long.class))
+                    .isEqualTo(table.equals("processed_event") ? 1 : 2);
+        }
+        jdbc.execute("TRUNCATE event_test.processed_event, event_test.outbox_event");
     }
 
     @Test

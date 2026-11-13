@@ -2,6 +2,10 @@ server:
   port: 8083
 
 spring:
+  task:
+    scheduling:
+      pool:
+        size: 4
   application:
     name: inventory-service
   kafka:

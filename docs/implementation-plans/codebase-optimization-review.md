@@ -424,6 +424,8 @@ RUN java -Djarmode=tools -jar /src/spring-${SERVICE}/target/${SERVICE}-0.0.1-SNA
 
 ### R2.（中低）去重清理的第一次 DELETE 沒有上限
 
+> 修正完成：processed_event 與已發布 outbox 都改為每批一個短交易，以 LIMIT／SKIP LOCKED 刪除，預設每批 5000 筆（app.events.cleanup-batch-size），直到不足一批為止。六個 outbox 服務的 scheduling pool 調為 4，避免清理占用唯一排程執行緒。已檢查排程：fixed-delay 任務同一註冊不會重疊；業務 cron 使用 ShedLock 與條件式更新，SMTP 使用租約，relay 使用列鎖，沒有依賴其他任務必須依序執行。common clean test 通過，新增去重／outbox 每批三筆、逐批獨立提交與近期／待送資料保留的整合測試。服務層回歸結果將於本輪驗證紀錄補齊。
+
 位置：`backend/common/src/main/java/com/mymicroservice/common/events/ProcessedEventCleanup.java`
 
 問題：`processed_event` 過去從沒清過，上線後第一次執行會一次刪掉所有 14 天前的資料，資料多時是一個長時間的大交易（產生大量 WAL、長時間持有被刪列的鎖）。而且它和 outbox relay 共用唯一的排程執行緒（見 R1），刪除期間這個副本的事件發布會停住。`purgePublishedEvents` 也是同樣的寫法，只是它每天都在跑，量比較小。
