@@ -17,7 +17,7 @@ IDE 使用 localhost:9094；Compose 容器與 kind 使用 kafka:9092。
 | order.events | OrderCreated | orderId | userId、totalAmount | 通知服務建立訂單收件人關聯；inventory 去重後忽略 |
 | order.events | OrderPaid | orderId | orderId | 確認庫存預留 |
 | order.events | OrderShipped | orderId | orderId | 通知服務寄送出貨通知；inventory 去重後忽略 |
-| order.events | OrderCancelled | orderId | orderId、選填 reason | 釋放庫存預留 |
+| order.events | OrderCancelled | orderId | orderId、選填 reason | inventory 釋放庫存預留；payment 收斂 PENDING 付款為 CANCELLED；notification 寄取消信 |
 | product.events | ProductCreated、ProductUpdated、ProductStatusChanged | productId | productId、sku、name、description、brand、createdAt、price、categoryId、status、version | product-service 搜尋索引與快取更新 |
 | user.events | UserRegistered | userId | userId、email、displayName | 通知服務維護本地收件人資料 |
 
@@ -72,3 +72,5 @@ UserRegistered 含 email，不可將 payload 或地址複製到 log 或 trace at
 ## 通知服務消費行為
 
 `notification-service` 消費 `UserRegistered` 維護本地收件人資料；消費 `OrderCreated` 建立訂單與使用者的對應並排入「訂單成立」信；消費 `OrderPaid`、`OrderShipped`、`OrderCancelled` 排入對應的信；消費 `PaymentFailed` 排入「付款失敗」信。`PaymentSucceeded` 是已知但不需要的事件，明確忽略，付款成功信由 `OrderPaid` 觸發。事件去重與信件入列放在同一個資料庫交易。SMTP 寄送是非同步且有界重試；找不到訂單或收件人資料時，經重試後標記為 `SKIPPED`。新部署的服務從 earliest 開始消費，會處理 Kafka 保留期內的歷史事件。
+
+付款服務以 `payment-service` 群組消費 `OrderCancelled`，同一交易記錄 `processed_event` 並條件更新 PENDING → CANCELLED（含 completedAt、version、系統稽核欄位），不發任何付款事件；其他 order.events 類型明確忽略。CANCELLED 的 SUCCESS／FAILED 回呼均回 409 PAYMENT_ALREADY_COMPLETED。成功回呼先提交則保留 SUCCEEDED，由訂單端追蹤人工退款。

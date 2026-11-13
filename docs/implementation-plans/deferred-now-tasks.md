@@ -4,7 +4,7 @@
 
 | 編號 | 項目 | 狀態 |
 |---|---|---|
-| T-01 | 訂單取消後收斂 PENDING 付款 | 待實作 |
+| T-01 | 訂單取消後收斂 PENDING 付款 | 已完成（`fix/t01-cancel-pending-payments`） |
 | T-02 | 並行註冊衝突統一回 EMAIL_ALREADY_EXISTS | 已完成（`fix/t02-registration-email-conflict`） |
 | T-03 | 共用電腦登出後清空購物車 | 已完成（`fix/t03-clear-cart-on-logout`） |
 
@@ -51,7 +51,9 @@
 
 ### 完成紀錄
 
-（Codex 完成後填寫：commit、測試數量與結果、是否在 kind 驗證）
+2026-11-13：完成於 `fix/t01-cancel-pending-payments` 的單一提交（commit ID 以該分支 git log 為準）。新增 CANCELLED、V8、OrderCancelled consumer 與交易去重／清理；前台取得 CANCELLED 後顯示訂單已取消並停用付款。payment 原有 Kafka egress 已允許 9092，未修改 NetworkPolicy。新 consumer 設 earliest，涵蓋保留期內歷史取消事件。
+
+測試：新增取消 Testcontainers 整合測試 11 項、既有回呼 15 項與 outbox 1 項，共 27 項通過；前台付款頁 23 項通過（新增測試先重現失敗），type-check 與異動檔 Prettier 通過。後端初次執行因 wrapper／測試編譯問題未完成，改用已安裝 Maven 並修正測試後通過。文件本機連結／章節錨點、UTF-8 無 BOM 與 git diff --check 通過。未在 kind 部署或驗證 Kafka broker 投遞；本次整合測試直接呼叫實際 listener，使用真實 PostgreSQL。
 
 ## T-02 並行註冊衝突統一回 EMAIL_ALREADY_EXISTS
 

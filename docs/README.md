@@ -36,7 +36,7 @@
 | [spring-inventory-service 類別關係圖與職責說明](class-relationships/spring-inventory-service.md) | 25 個來源檔的分工、庫存預扣交易與狀態圖、事件與排程入口、六個 migration |
 | [spring-notification-service 類別關係圖與職責說明](class-relationships/spring-notification-service.md) | 12 個來源檔的分工、事件投影／去重、SMTP 租約與重試、五個 migration |
 | [spring-order-service 類別關係圖與職責說明](class-relationships/spring-order-service.md) | 28 個來源檔的分工、建單補償／冪等、訂單狀態、付款事件與九個 migration |
-| [spring-payment-service 類別關係圖與職責說明](class-relationships/spring-payment-service.md) | 19 個來源檔的分工、建立／回呼交易、付款狀態與七個 migration |
+| [spring-payment-service 類別關係圖與職責說明](class-relationships/spring-payment-service.md) | 20 個來源檔的分工、建立／回呼交易、取消事件、付款狀態與八個 migration |
 | [spring-product-service 類別關係圖與職責說明](class-relationships/spring-product-service.md) | 76 個來源檔的職責、快取、圖片補償、搜尋與八個 migration |
 | [spring-user-service 類別關係圖與職責說明](class-relationships/spring-user-service.md) | 37 個來源檔的職責、token 輪替／撤銷、登入保護與九個 migration |
 

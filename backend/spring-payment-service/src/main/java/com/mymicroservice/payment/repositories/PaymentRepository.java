@@ -16,6 +16,19 @@ import com.mymicroservice.payment.enums.PaymentStatus;
 
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
+    // 與回呼共用 PENDING 條件；只有先取得資料列鎖的一方可以完成付款。
+    @Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Payment p
+            SET p.status = com.mymicroservice.payment.enums.PaymentStatus.CANCELLED,
+                p.completedAt = :now, p.version = p.version + 1,
+                p.updatedAt = :now, p.updatedBy = :updatedBy
+            WHERE p.orderId = :orderId AND p.status = com.mymicroservice.payment.enums.PaymentStatus.PENDING
+            """)
+    int cancelPendingByOrderId(@Param("orderId") UUID orderId, @Param("now") Instant now,
+            @Param("updatedBy") UUID updatedBy);
+
     // 進行中或成功的付款最多一筆（uq_payment_order_active）
     Optional<Payment> findFirstByOrderIdAndStatusIn(UUID orderId, Collection<PaymentStatus> statuses);
 

@@ -124,7 +124,7 @@ export function usePayFlow(orderId: () => string) {
     message.value = ''
     try {
       payment.value = await createPayment(orderId())
-      if (!disposed) phase.value = 'ready'
+      if (!disposed) phase.value = payment.value.status === 'CANCELLED' ? 'cancelled' : 'ready'
     } catch (error) {
       if (disposed) return
       const apiError = toApiError(error)
@@ -193,6 +193,8 @@ export function usePayFlow(orderId: () => string) {
     payment.value = settled
     if (settled.status === 'SUCCEEDED') {
       await confirm()
+    } else if (settled.status === 'CANCELLED') {
+      phase.value = 'cancelled'
     } else if (settled.status === 'FAILED') {
       phase.value = 'failed'
     } else {
