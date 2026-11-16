@@ -1,0 +1,192 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 判斷這次變更影響哪些後端模組、前端應用與 K8s manifest。
+  # push 到 main 與手動觸發一律全部執行；只改文件的 PR 全部跳過。
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.detect.outputs.backend }}
+      has_backend: ${{ steps.detect.outputs.has_backend }}
+      frontend: ${{ steps.detect.outputs.frontend }}
+      has_frontend: ${{ steps.detect.outputs.has_frontend }}
+      k8s: ${{ steps.detect.outputs.k8s }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          ALL_BACKEND=(common observability spring-api-gateway spring-user-service spring-product-service \
+            spring-order-service spring-inventory-service spring-payment-service spring-notification-service)
+          ALL_FRONTEND=(vue-customer vue-management)
+
+          backend=()
+          frontend=()
+          k8s=false
+
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            backend=("${ALL_BACKEND[@]}")
+            frontend=("${ALL_FRONTEND[@]}")
+            k8s=true
+          else
+            files=$(git diff --name-only "origin/${BASE_REF}...HEAD")
+            echo "Changed files:"
+            echo "$files"
+
+            if echo "$files" | grep -qE '^(backend/common/|backend/observability/|backend/pom\.xml$|backend/\.mvn/|backend/mvnw)|^\.github/workflows/'; then
+              backend=("${ALL_BACKEND[@]}")
+            else
+              for m in "${ALL_BACKEND[@]}"; do
+                if echo "$files" | grep -q "^backend/${m}/"; then backend+=("$m"); fi
+              done
+              if echo "$files" | grep -q '^infra/elasticsearch/'; then
+                case " ${backend[*]:-} " in *" spring-product-service "*) ;; *) backend+=("spring-product-service") ;; esac
+              fi
+            fi
+
+            if echo "$files" | grep -q '^\.github/workflows/'; then
+              frontend=("${ALL_FRONTEND[@]}")
+              k8s=true
+            else
+              for a in "${ALL_FRONTEND[@]}"; do
+                if echo "$files" | grep -q "^frontend/${a}/"; then frontend+=("$a"); fi
+              done
+              if echo "$files" | grep -q '^infra/k8s/'; then k8s=true; fi
+            fi
+          fi
+
+          to_json() {
+            local out="" item
+            for item in "$@"; do out="${out:+$out,}\"$item\""; done
+            echo "[$out]"
+          }
+          backend_json=$(to_json "${backend[@]+"${backend[@]}"}")
+          frontend_json=$(to_json "${frontend[@]+"${frontend[@]}"}")
+
+          {
+            echo "backend=${backend_json}"
+            echo "has_backend=$([ "${#backend[@]}" -gt 0 ] && echo true || echo false)"
+            echo "frontend=${frontend_json}"
+            echo "has_frontend=$([ "${#frontend[@]}" -gt 0 ] && echo true || echo false)"
+            echo "k8s=${k8s}"
+          } | tee -a "$GITHUB_OUTPUT"
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.has_backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJSON(needs.changes.outputs.backend) }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: backend/**/pom.xml
+      - name: Test ${{ matrix.module }}
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp -pl ${{ matrix.module }} -am test
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backend-reports-${{ matrix.module }}
+          path: |
+            backend/${{ matrix.module }}/target/surefire-reports
+            backend/${{ matrix.module }}/target/failsafe-reports
+          if-no-files-found: ignore
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.has_frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.changes.outputs.frontend) }}
+    defaults:
+      run:
+        working-directory: frontend/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/${{ matrix.app }}/package-lock.json
+      - run: npm ci
+      - run: npm run lint:check
+      - run: npm run format:check
+      - run: npm run type-check
+      - run: npx vitest run
+      - run: npm run build-only
+      # test:browser 的設定使用 channel: 'chrome'，依賴 runner 內建的 Google Chrome，不安裝瀏覽器
+      - name: Show Chrome version
+        run: google-chrome --version
+      - run: npm run test:browser
+      - name: Upload Playwright reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-${{ matrix.app }}
+          path: |
+            frontend/${{ matrix.app }}/playwright-report
+            frontend/${{ matrix.app }}/test-results
+          if-no-files-found: ignore
+
+  k8s-manifests:
+    needs: changes
+    if: needs.changes.outputs.k8s == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: kubectl kustomize infra/k8s > /dev/null
+
+  # branch protection 只要求這一個檢查：被跳過的 job 不產生狀態，
+  # 若把每個 matrix job 設成必要檢查，只改文件的 PR 會一直等待。
+  ci-result:
+    if: always()
+    needs: [changes, backend, frontend, k8s-manifests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Summarize
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | grep -E '^  "[a-z-]+": \{|"result"'
+          if echo "$NEEDS" | grep -qE '"result": "(failure|cancelled)"'; then
+            echo "One or more required jobs failed or were cancelled."
+            exit 1
+          fi
