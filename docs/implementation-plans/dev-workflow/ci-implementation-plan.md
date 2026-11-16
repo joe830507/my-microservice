@@ -260,16 +260,16 @@ gh 目前沒有授權，以下由使用者在 GitHub 網頁上設定：
 | `backend (spring-api-gateway)` | 1 分 15 秒 | `backend (spring-user-service)` | 2 分 12 秒 |
 | `backend (spring-inventory-service)` | 1 分 45 秒 | `backend (spring-product-service)` | **7 分 54 秒**（P4 的基準，決定整體耗時） |
 | `frontend (vue-customer)` | 50 秒 | `frontend (vue-management)` | 1 分 15 秒 |
-| `ci-result` | 3 秒 | | |
+| `ci-result` | 3 秒 | `k8s-manifests` | 7 秒（使用者補充截圖確認通過） |
 
 - 前端 Vitest 摘要：vue-customer 30 檔、344 測試通過；vue-management 26 檔、267 測試通過，與本機 2026-11-16 的結果一致。
 - 兩個前端的 `test:browser` 在 job 內通過（job 為綠燈），上一節兩項修正在 GitHub 上生效；notification 的離線建置暖機也生效（該 job 2 分 14 秒通過，上一輪是 2 項錯誤、各等約 10 分鐘）。
-- **截圖看不到的**：`k8s-manifests` job（圖形在 `ci-result` 下方被截斷，且 `ci-result` 把 `skipped` 也算通過，無法由它確認）；`google-chrome --version` 的輸出；notification job 的 `setup-java` post step 是否有快取儲存警告；各測試數量。這些要再回報。
+- **截圖看不到的**：`google-chrome --version` 的輸出；notification job 的 `setup-java` post step 是否有快取儲存警告；各測試數量。這些要再回報。
 - P4 初步結論：product 的 7 分 54 秒是其他模組的 3～4 倍，是整體耗時的瓶頸；是否快取 ES 映像，等拿到該 job 內「建置映像」實際花多少時間再決定，目前不處理。
 
 ### 待在 GitHub 驗證（步驟 5）
 
-- [x] 9 個後端模組、2 個前端通過，`ci-result` 綠燈，各 job 時間已記錄；**K8s job 待確認**（見上）。
+- [x] 9 個後端模組、2 個前端通過，`ci-result` 綠燈，各 job 時間已記錄；K8s job 7 秒通過，確認有執行。
 - [ ] P3：測試已通過；**快取儲存是否有警告待確認**。
 - [ ] `google-chrome --version` 有輸出，`test:browser` 使用內建 Chrome 通過。
 - [ ] 故意失敗的 commit 讓 `ci-result` 變紅，再 revert。
