@@ -9,7 +9,7 @@
 | `architecture/` | 整體架構：服務切分、API、全域慣例、服務之間的互動 |
 | `component-relationships/` | 前端元件關係與職責：路由、頁面／共用元件、store、API 及操作流程 |
 | `class-relationships/` | 類別關係圖與職責說明：依後端模組整理類別分工、依賴、建立方式與程式閱讀入口 |
-| `implementation-plans/` | 實作步驟、進度與實際驗證結果；分 `backend/`（各服務與共用模組）、`middleware/`（中介軟體各階段）、`vue-customer/`、`vue-management/`，跨層的後端部署計畫放在根目錄 |
+| `implementation-plans/` | 實作步驟、進度與實際驗證結果；分 `backend/`（各服務、共用模組與後端部署計畫）、`middleware/`（中介軟體各階段）、`vue-customer/`、`vue-management/`、`dev-workflow/`（CI 與測試等開發流程）、`reviews/`（已結案的審查）、`evidence/`（驗證證據）；根目錄只放仍在更新的追蹤文件 |
 | `design/` | 單一功能或技術選型的設計、評估，還沒排進實作計畫的也放這裡 |
 | `operations/` | 維運：告警處理、日常診斷與操作界線 |
 | `security/` | 已知的安全問題：現象、驗證方式、處理方向與處理狀態 |

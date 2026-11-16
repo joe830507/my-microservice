@@ -336,7 +336,7 @@ vitest 73 個通過（新增 46 個）、`npm run build`（含 `vue-tsc`）通�
 
 ### 登入頁改版（2026-11-10）
 
-參考 `docs/pictures/adminstration login page.webp` 的版面重新設計 `LoginView.vue`：
+參考 `docs/pictures/adminstration login page.webp`（只留在本機，不放進 repo）的版面重新設計 `LoginView.vue`：
 
 - 深色背景、大圓角卡片，左上角兩片漸層葉片（自己畫的 inline SVG），中間是品牌名稱與說明、「歡迎回來」
 - 輸入框改成只有底線（`:deep()` 覆寫 `el-input__wrapper`），聚焦時底線變成強調色；Email 格式看起來正確時右邊顯示勾號；密碼沿用 `show-password` 的眼睛圖示

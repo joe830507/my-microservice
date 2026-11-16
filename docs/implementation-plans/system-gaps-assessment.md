@@ -2,7 +2,7 @@
 
 核對日期：2026-11-13。對照 repo 現況，列出**尚未出現在任何追蹤清單**的缺口。已追蹤的項目不重複列入：
 
-- [暫緩項目集中清單](deferred-items.md)（28 項）
+- [暫緩項目集中清單](deferred-items.md)
 - [安全限制 SEC-01～15 與「還沒有檢查的」](../security/known-issues.md)
 - [路線圖「暫不排入」](middleware/middleware-roadmap.md#暫不排入記錄理由)
 
@@ -38,7 +38,7 @@
 
 - **狀態**：實作計畫見 [G-01 CI 流水線實作計畫](dev-workflow/ci-implementation-plan.md)（2026-11-13 建立）。
 - **現況證據**：`.github/` 底下只有 `modernize/java-upgrade/hooks`，沒有 `.github/workflows`，也沒有其他 CI 設定。
-- **影響**：後端 `./mvnw clean test`（含 Testcontainers）、前端 Vitest、type-check、lint 都靠手動執行。PR 合併前沒有自動檢查，目前已經累積 25 個 PR。
+- **影響**：後端 `./mvnw clean test`（含 Testcontainers）、前端 Vitest、type-check、lint 都靠手動執行。PR 合併前沒有自動檢查，2026-11-13 已經累積 25 個 PR。
 - **建議範圍**：
   1. PR 觸發：後端依變更模組執行 `-pl <module> -am test`，`common` 有變更時跑全部。
   2. 兩個前端各自執行 `npm ci`、type-check、lint、`test:unit`。
