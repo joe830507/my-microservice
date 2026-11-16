@@ -116,7 +116,7 @@ cd backend && ./mvnw -DskipTests package && cd ..
 infra/scripts/local-backend.sh start     # OBSERVE=1 可同時送出監控資料到 Grafana :3000
 ```
 
-約 1 分鐘後 `http://localhost:8080/actuator/health` 會變成 `UP`。此腳本不會啟動 notification-service；要觀察寄信流程需另外啟動它，並在 Mailpit（`http://localhost:8025`）查看信件。
+約 1 分鐘後 `http://localhost:8080/actuator/health` 會變成 `UP`。此腳本不會啟動 notification-service；要觀察寄信流程需另外啟動它（指令與疑難排解見[本機開發與疑難排解](docs/operations/local-development.md)），並在 Mailpit（`http://localhost:8025`）查看信件。
 
 **4. 啟動前端**（開發伺服器把 `/api` 轉給 Gateway）
 
@@ -153,6 +153,8 @@ npm run test:e2e     # Playwright，需要先啟動後端
 | 前端路由、元件、狀態與操作流程 | [前端元件關係與職責](docs/component-relationships/README.md) |
 | 事件格式、版本與消費行為 | [事件契約](docs/architecture/event-contracts.md) |
 | Kafka、搜尋、通知等中介軟體的階段與決策 | [中介軟體路線圖](docs/implementation-plans/middleware/middleware-roadmap.md) |
+| 本機開發、notification 啟動與常見失敗 | [本機開發與疑難排解](docs/operations/local-development.md) |
+| 各模組測試與環境依賴 | [測試策略與測試現況](docs/implementation-plans/dev-workflow/testing-overview.md) |
 | 告警響起時如何診斷與處理 | [告警手冊](docs/operations/alert-runbook.md) |
 | 還有哪些暫緩項目 | [暫緩清單](docs/implementation-plans/deferred-items.md) |
 | 系統還缺什麼（未列入追蹤的缺口） | [系統缺口評估](docs/implementation-plans/system-gaps-assessment.md) |

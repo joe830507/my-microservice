@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 本機直接啟動／停止 6 個後端服務（jar），給開發與 E2E 用。先用 docker compose 啟動資料庫、Redis、物件儲存。
 # 用法：infra/scripts/local-backend.sh start|stop|restart
+#   WITH_NOTIFICATION=1 infra/scripts/local-backend.sh start → 一併啟動 notification-service（需要 compose 的 kafka、notification-db、mailpit）
 #   OBSERVE=1 infra/scripts/local-backend.sh start   → 同時把指標、追蹤、log 送到 compose 的 observability（Grafana :3000）
 # log 在 $LOG_DIR（預設 backend/.local-logs）。需要先 ./mvnw -DskipTests package。
 set -euo pipefail
@@ -33,6 +34,9 @@ start() {
   ( cd "$BACKEND/spring-payment-service" && PAYMENT_MOCK_CALLBACK_ENABLED=true \
     nohup java -jar target/payment-service-0.0.1-SNAPSHOT.jar > "$LOG_DIR/payment.log" 2>&1 & )
   ( cd "$BACKEND/spring-api-gateway" && nohup java -jar target/api-gateway-0.0.1-SNAPSHOT.jar > "$LOG_DIR/gateway.log" 2>&1 & )
+  if [ "${WITH_NOTIFICATION:-0}" = "1" ]; then
+    ( cd "$BACKEND/spring-notification-service" && nohup java -jar target/notification-service-0.0.1-SNAPSHOT.jar > "$LOG_DIR/notification.log" 2>&1 & )
+  fi
   echo "已啟動（log：$LOG_DIR）；約 1 分鐘後 http://localhost:8080/actuator/health 變 UP"
 }
 

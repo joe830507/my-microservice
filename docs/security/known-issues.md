@@ -174,12 +174,12 @@ E5 adds bounded SMTP retries, immediate failure for permanent SMTP errors, and `
 
 ## 還沒有檢查的
 
-- SQL injection 與（後台、前台）XSS 的模糊測試。商品關鍵字查詢有跳脫 `%`、`_`，也用 JPA 參數綁定，但沒有實際模糊測試
-- 圖片上傳的類型與內容檢查（presigned URL 有簽 `Content-Type` 與 `Content-Length`，但沒有試過偽造副檔名、內容與類型不符）
-- 後端 Maven 依賴的已知漏洞（只檢查了 vue-customer 的 npm 依賴）
-- JWT 金鑰輪替流程的實際演練
-- vue-management（後台）的前端安全檢查
-- 密碼雜湊參數（bcrypt cost）、refresh token 的產生與儲存方式的審查
+- **CHK-01**：SQL injection 與（後台、前台）XSS 的模糊測試。商品關鍵字查詢有跳脫 `%`、`_`，也用 JPA 參數綁定，但沒有實際模糊測試
+- **CHK-02**：圖片上傳的類型與內容檢查（presigned URL 有簽 `Content-Type` 與 `Content-Length`，但沒有試過偽造副檔名、內容與類型不符）
+- **CHK-03**：後端 Maven 依賴的已知漏洞（只檢查了 vue-customer 的 npm 依賴）
+- **CHK-04**：JWT 金鑰輪替流程的實際演練
+- **CHK-05**：vue-management（後台）的前端安全檢查
+- **CHK-06**：密碼雜湊參數（bcrypt cost）、refresh token 的產生與儲存方式的審查
 
 ## 探測遺留的測試資料
 

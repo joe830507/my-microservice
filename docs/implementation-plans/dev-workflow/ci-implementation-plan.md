@@ -67,7 +67,7 @@ PR 送出後自動執行後端測試、前端檢查與測試；只要有一項�
 ### P4 product 的 Elasticsearch 測試會即時建置映像
 
 - **位置**：`backend/spring-product-service/src/test/java/com/mymicroservice/product/search/ProductIndexEventListenerIntegrationTests.java`
-- **現象**：測試會用 `infra/elasticsearch/Dockerfile` 即時建置含 SmartCN 外掛的 ES 映像，並且使用固定的 host port。每次 CI 都要重新建置，會增加執行時間；GitHub 的 runner 一次只跑一個 job，固定 port 不會衝突。
+- **現象**：`ProductIndexEventListenerIntegrationTests`、`ProductIndexManagerIntegrationTests`、`ProductIndexRebuildIntegrationTests`、`ProductSearchIntegrationTests` 四個類別都會用 `infra/elasticsearch/Dockerfile`（路徑相對於模組目錄）即時建置含 SmartCN 外掛的 ES 映像；其中 `EventListener` 與 `Rebuild` 兩個類別使用固定的 host port（分別是 19200、19201）。每次 CI 都要重新建置，會增加執行時間；GitHub 的 runner 一次只跑一個 job，固定 port 不會衝突。
 - **處理方式**：這次不處理，在完成紀錄寫下 product 模組的實際執行時間，作為之後是否快取映像的依據。
 
 ## Workflow 設計
@@ -146,13 +146,16 @@ npm run format:check
 npm run type-check
 npx vitest run
 npm run build-only
-npx playwright install --with-deps chromium
+（不安裝瀏覽器：使用 runner 內建的 Google Chrome，見下方說明）
 npm run test:browser
 失敗時上傳 playwright-report 與 test-results
 ```
 
 - `vitest` 要用 `vitest run`，避免進入 watch 模式。
-- `test:browser` 是兩個應用都有的免後端瀏覽器測試（`playwright.optimization.config.ts`，API 全部用 route 攔截）。實作時先確認兩份設定在 CI 上的 `webServer`、`reuseExistingServer` 與瀏覽器設定可以用；如果設定只安裝 chromium 不夠，照設定實際需要安裝。
+- `test:browser` 是兩個應用都有的免後端瀏覽器測試（`playwright.optimization.config.ts`，API 全部用 route 攔截）。
+- **瀏覽器通道（使用者決定 2026-11-16）**：兩份設定都是 `channel: 'chrome'`，維持不變，CI 使用 `ubuntu-latest` 內建的 Google Chrome，**不執行** `playwright install`。這是依 GitHub 映像內建 Chrome 的推論，尚未驗證：第一次執行時先在 job 裡印出 `google-chrome --version`，若找不到 Chrome，回報後再決定改用 `browser-actions/setup-chrome` 之類的步驟或 `npx playwright install --with-deps chrome`，不要自行改設定檔的 `channel`。
+- 瀏覽器測試的 dev server 固定使用 port（vue-customer 5184、vue-management 5185，`reuseExistingServer: true`），兩個應用在各自獨立的 job 執行，不會衝突；不要把兩個應用放進同一個 job 並行執行。
+- 前端測試現況與環境依賴見[測試策略與測試現況](testing-overview.md)。
 - **不跑** `test:e2e`，它需要完整後端與管理員帳號（見「範圍」）。
 
 ### `k8s-manifests`
@@ -200,6 +203,7 @@ gh 目前沒有授權，以下由使用者在 GitHub 網頁上設定：
 
 ## 驗收條件
 
+- [ ] `test:browser` 在 CI 上使用 runner 內建的 Chrome 通過，job 記錄印出 Chrome 版本。
 - [ ] 在沒有 `secrets/` 的乾淨環境，user-service 整個模組測試通過（P1）。
 - [ ] 兩個前端的 `lint:check`、`format:check` 不會修改檔案，且目前全部通過（P2）。
 - [ ] 第一次完整執行：9 個後端模組、2 個前端、K8s 全部通過，`ci-result` 綠燈。

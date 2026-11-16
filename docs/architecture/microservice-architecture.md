@@ -26,7 +26,7 @@
 | 服務 | 職責 | 狀態 |
 |---|---|---|
 | `spring-api-gateway` | 路由、JWT 驗證、身分傳遞、限流 | 已實作；細節見 [api-gateway-implementation-plan.md](../implementation-plans/backend/api-gateway-implementation-plan.md) |
-| `spring-product-service` | 分類、商品、商品圖片 | 已實作（含 Redis 快取、圖片上傳到物件儲存）；讀取公開，但不是 ADMIN 只看得到上架中（`ACTIVE`）的商品（列表、單筆、SKU、圖片；其他狀態回 404），批次查詢照舊帶 `status`；新增、修改、刪除限 ADMIN；後台的分類列表 `GET /api/v1/categories`（含停用的分類）也限 ADMIN |
+| `spring-product-service` | 分類、商品、商品圖片、中文搜尋 | 已實作（含 Redis 快取、圖片上傳到物件儲存、ES 搜尋）；端點與權限見下方[product-service API](#product-service) |
 | `spring-user-service` | 註冊、登入、JWT 簽發、會員與角色 | 已實作 |
 | `spring-inventory-service` | 庫存、預扣、確認、釋放 | 已實作；步驟見 [inventory-service-implementation-plan.md](../implementation-plans/backend/inventory-service-implementation-plan.md) |
 | `spring-order-service` | 訂單、商品快照、訂單狀態 | 已實作；步驟見 [order-service-implementation-plan.md](../implementation-plans/backend/order-service-implementation-plan.md) |
@@ -121,6 +121,37 @@ backend/
 - JWT 用 **RS256**：user-service 用私鑰簽，Gateway 用 JWKS 驗簽。Gateway 可以直接用 Spring Security 的 `oauth2ResourceServer().jwt()`，不需要共享 secret
 - 私鑰放在 K8s Secret，本機開發用設定檔或環境變數
 
+### product-service
+
+讀取公開（Gateway 對 `GET` 放行）。不是 ADMIN 時只看得到上架中（`ACTIVE`）的商品，其他狀態回 404（批次查詢例外，見下表）；新增、修改、刪除限 ADMIN。內容依 controller 與 API 介面整理。
+
+| 方法 | 路徑 | 角色 | 說明 |
+|---|---|---|---|
+| POST | `/api/v1/products` | ADMIN | 新增商品，回 201 |
+| GET | `/api/v1/products` | 公開 | 商品列表與搜尋；查詢參數 `keyword`、`categoryId`、`includeSubcategories`、`status`、`minPrice`、`maxPrice`、`page`（從 0）、`size`（1–100，預設 20）、`sortBy`（`relevance`／`createdAt`／`price`／`name`）、`sortDirection`。前台有關鍵字時查 Elasticsearch，後台或搜尋引擎無法使用時退回 SQL |
+| GET | `/api/v1/products/{id}` | 公開 | 單筆商品 |
+| GET | `/api/v1/products/sku/{sku}` | 公開 | 依 SKU 查 |
+| GET | `/api/v1/products/batch?ids=…` | 公開 | 批次查詢，最多 100 個 id；order-service 與前台購物車使用。非 ADMIN 時，非上架商品只回 `id` 與 `status` |
+| PUT | `/api/v1/products/{id}` | ADMIN | 修改商品 |
+| POST | `/api/v1/products/{id}/publish`、`/unpublish`、`/archive` | ADMIN | 上架、下架、封存 |
+| POST | `/api/v1/products/{productId}/images/upload-url` | ADMIN | 申請圖片上傳的簽名網址；瀏覽器用 PUT 直傳物件儲存，不經過 product-service，不建立任何資料 |
+| POST | `/api/v1/products/{productId}/images` | ADMIN | 上傳完成後登記圖片，回 201；第一張自動成為主圖 |
+| GET | `/api/v1/products/{productId}/images` | 公開 | 圖片列表（依 `sortOrder`） |
+| PUT | `/api/v1/products/{productId}/images/{imageId}` | ADMIN | 修改圖片描述類欄位 |
+| DELETE | `/api/v1/products/{productId}/images/{imageId}` | ADMIN | 刪除圖片，回 204 |
+| POST | `/api/v1/products/{productId}/images/{imageId}/primary` | ADMIN | 設為主圖 |
+| PUT | `/api/v1/products/{productId}/images/order` | ADMIN | 調整圖片排序（傳入全部圖片 id 的新順序） |
+| POST | `/api/v1/categories` | ADMIN | 新增分類，回 201 |
+| GET | `/api/v1/categories` | ADMIN | 後台分類列表（含停用的分類） |
+| GET | `/api/v1/categories/{id}`、`/slug/{slug}`、`/tree` | 公開 | 單筆、依 slug、分類樹 |
+| PUT | `/api/v1/categories/{id}` | ADMIN | 修改分類 |
+| DELETE | `/api/v1/categories/{id}` | ADMIN | 刪除分類 |
+| POST | `/internal/v1/products/search-index/rebuild?deleteOld=false` | internal | 重建搜尋索引；Gateway 不轉發，用法見[搜尋實作紀錄](../implementation-plans/middleware/search-implementation-record.md) |
+
+### notification-service
+
+沒有對外業務 API（只有 actuator，叢集內存取）。由事件觸發寄信：`user.events` 的 `UserRegistered`、`order.events` 的 `OrderCreated`／`OrderPaid`／`OrderShipped`／`OrderCancelled`、`payment.events` 的 `PaymentFailed`。細節見[通知類別導讀](../class-relationships/spring-notification-service.md)。
+
 ### inventory-service
 
 | 方法 | 路徑 | 說明 |
@@ -146,7 +177,7 @@ backend/
 | POST | `/api/v1/orders/{id}/ship` | 後台出貨（ADMIN），只限 `PAID`；已出貨的回 200 |
 | POST | `/api/v1/orders/{id}/complete` | 後台完成訂單（ADMIN），只限 `SHIPPED`；已完成的回 200 |
 | GET | `/internal/v1/orders/{id}` | 給 payment-service 查金額與狀態 |
-| POST | `/internal/v1/orders/{id}/paid` | payment-service 通知付款成功 |
+| POST | `/internal/v1/orders/{id}/paid` | 標記付款成功（保留的內部端點；payment 已改用 `PaymentSucceeded` 事件，目前 payment 的 `OrderClient` 只呼叫上一列的 GET，沒有程式呼叫此端點） |
 
 - 狀態：`PENDING_PAYMENT → PAID → SHIPPED → COMPLETED`；取消或逾時變成 `CANCELLED`
 - 建單時把商品名稱、價格**快照**存進 `order_item`，不能只存 productId
@@ -187,7 +218,7 @@ backend/
           │
           ▼
    order-service  POST /api/v1/orders
-     1. ──▶ product   GET  /internal/v1/products/batch           取價格、名稱快照；檢查商品是否已上架
+     1. ──▶ product   GET  /api/v1/products/batch                取價格、名稱快照；檢查商品是否已上架（目前走公開路徑，見下方說明）
      2. ──▶ inventory POST /internal/v1/inventory/reservations   預扣（失敗 → 建單失敗）
      3. 存訂單，狀態 PENDING_PAYMENT
           │
@@ -197,10 +228,14 @@ backend/
      6. Kafka payment.events → order：訂單改為 PAID，並寫 OrderPaid
      7. Kafka order.events → inventory：確認預扣
 
-   取消或逾時：order 寫 OrderCancelled → Kafka order.events → inventory 釋放預扣
+   取消或逾時：order 寫 OrderCancelled → Kafka order.events → inventory 釋放預扣、payment 取消待付款
 ```
 
-### 雛型階段：同步 REST
+第 1 步 order 目前呼叫 `ProductClient` 的 `/api/v1/products/batch`（公開路徑，沒有經過 Gateway，直接打 product-service），不是 `/internal/` 路徑；搬到 internal 是[暫緩項目](../implementation-plans/deferred-items.md#需求出現時)，見上方「本機 port 分配」下的說明。第 2、4 步的 internal 路徑與 `InventoryClient`、payment 的 `OrderClient` 一致。
+
+### 雛型階段：同步 REST（歷史）
+
+下面描述的是雛型當時的做法，現況以上方流程與下一節為準。
 
 - 服務之間用 RestClient 或 HTTP Interface 呼叫，搭配 Resilience4j 的 timeout、retry
 - 原因：中介軟體評估文件把 Kafka 排在第 3 步，事件機制還沒建立
@@ -215,9 +250,9 @@ Kafka 使用單節點 KRaft。業務資料與事件在同一個 PostgreSQL 交�
 
 | Topic | 事件 | 發送方 | 接收方 |
 |---|---|---|---|
-| `payment.events` | `PaymentSucceeded`、`PaymentFailed` | payment | order |
-| `order.events` | `OrderCreated`、`OrderPaid`、`OrderShipped`、`OrderCancelled` | order | inventory（確認／釋放預扣，忽略 `OrderCreated`、`OrderShipped`）、notification |
-| `product.events` | `ProductCreated`、`ProductUpdated`、`ProductStatusChanged` | product | 之後搜尋索引與快取失效 |
+| `payment.events` | `PaymentSucceeded`、`PaymentFailed` | payment | order、notification（只處理 `PaymentFailed`） |
+| `order.events` | `OrderCreated`、`OrderPaid`、`OrderShipped`、`OrderCancelled` | order | inventory（確認／釋放預扣，忽略 `OrderCreated`、`OrderShipped`）、payment（只處理 `OrderCancelled`，取消待付款）、notification |
+| `product.events` | `ProductCreated`、`ProductUpdated`、`ProductStatusChanged` | product | product 自己的搜尋索引 listener（group `product-service-search`） |
 | `user.events` | `UserRegistered` | user | notification |
 
 庫存預扣逾時釋放排程保留，作為訂單服務長時間故障時的安全網。Kafka 目前只靠 NetworkPolicy 隔離，沒有 SASL/ACL；不可直接暴露到不受信任的網路。

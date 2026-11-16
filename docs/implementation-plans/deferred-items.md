@@ -33,7 +33,7 @@
 | Gateway 測試設定共用與 Docker 分離 | G-01 CI | [Gateway 後續](backend/api-gateway-implementation-plan.md#之後再處理) | 原計畫記載重複 WireMock／JWKS／Redis 設定及全部依賴 TestRedis | Gateway 測試 base／annotation、CI |
 | Gateway Boot／Cloud 升級 | G-01 CI 建好之後 | [Gateway 後續](backend/api-gateway-implementation-plan.md#之後再處理) | 目前 POM 因相容性維持 Boot 4.0.9／Cloud 2025.1.4；有 CI 再升級較安全 | Gateway POM、OTel 相依、路由／JWT／限流測試 |
 | CDS／AOT cache | G-02 映像檔發佈 | [最佳化 #18](reviews/codebase-optimization-review.md#18低後端映像檔沒有分層啟動沒用-cdsaot-cache) | 已有映像分層；訓練啟動依賴環境，需要可重現基準 | 所有 Java Dockerfile、CI、啟動／訓練環境 |
-| 剩餘安全驗證工作：Maven 依賴漏洞 | G-03 漏洞掃描 | [未檢查清單](../security/known-issues.md#還沒有檢查的) | 只檢查過 vue-customer 的 npm 依賴；其餘驗證工作列在[上線前](#上線前) | 後端依賴；驗證後回填來源 |
+| 剩餘安全驗證工作：Maven 依賴漏洞（CHK-03） | G-03 漏洞掃描 | [未檢查清單 CHK-03](../security/known-issues.md#還沒有檢查的) | 只檢查過 vue-customer 的 npm 依賴；其餘驗證工作列在[上線前](#上線前) | 後端依賴；驗證後回填來源 |
 
 ## 隨業務功能
 
@@ -71,7 +71,7 @@
 | Elasticsearch TLS／認證／最小權限 | [SEC-14](../security/known-issues.md#sec-14-elasticsearch-尚未啟用認證與-tls) | 隔離環境目前明文 HTTP，Pod 標籤不是認證 | 對外或多租戶前補 TLS、帳號與 Secret | ES、product 查詢／索引／重建、健康檢查 |
 | TLS 終結處 HSTS | [SEC-06](../security/known-issues.md#sec-06-前端缺少瀏覽器端防護) | 目前文件驗證範圍為本機 HTTP／nginx，HSTS 放 TLS 終結處 | 隨 G-06 對外入口與 TLS 設計；有正式 HTTPS Ingress 時設定並用瀏覽器驗證 | Ingress、兩個前端部署與安全標頭 |
 | 圖片 CDN 與正式圖片物件對帳清理 | [圖片後續](backend/product-image-upload-implementation-plan.md#之後再處理)；[圖片設計](backend/product-image-upload-implementation-plan.md#商品圖片上傳設計實作與驗收)；[原後續章節](backend/product-image-upload-implementation-plan.md#image-design-之後再處理) | 物件儲存公開 URL 已足夠，未部署 CDN；Copy／DB 非原子，漏刪物件目前只記 log，tmp TTL 不清正式孤兒 | 正式儲存前定資料列／objectKey 對帳、預覽與安全刪除流程；跨區延遲／頻寬需求出現時規劃 CDN 快取與失效 | product_image、products/ 物件、排程與補償、public-base-url、CDN、CSP |
-| 剩餘安全驗證工作（Maven 依賴以外） | [未檢查清單](../security/known-issues.md#還沒有檢查的) | 現有證據不涵蓋全部攻擊面；不是已證實漏洞 | 對外環境前逐項安排：SQLi／XSS 模糊、圖片內容偽造、JWT 輪替演練、後台安全、密碼與 token 審查 | 後端／兩個前端／部署；若後續已驗證須回填來源 |
+| 剩餘安全驗證工作（CHK-01、02、04、05、06） | [未檢查清單](../security/known-issues.md#還沒有檢查的) | 現有證據不涵蓋全部攻擊面；不是已證實漏洞 | 對外環境前逐項安排：SQLi／XSS 模糊、圖片內容偽造、JWT 輪替演練、後台安全、密碼與 token 審查 | 後端／兩個前端／部署；若後續已驗證須回填來源 |
 
 ## 掃描後排除與現況判讀
 
