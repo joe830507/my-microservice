@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 
 import com.mymicroservice.user.dtos.register.RegisterReqDto;
 import com.mymicroservice.user.service.AuthService;
@@ -18,6 +19,7 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest(properties = {"spring.kafka.listener.auto-startup=false",
         "app.events.outbox-poll-interval=3600000"})
 @Import(TestcontainersConfiguration.class)
+@ActiveProfiles("test")
 class UserEventContractIntegrationTests {
     @Autowired AuthService auth;
     @Autowired JdbcTemplate jdbc;
