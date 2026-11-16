@@ -341,6 +341,8 @@ JWT 金鑰、開發管理員與環境變數需依設定準備，不要把別人�
 
 ### 測試分層與成本
 
+各模組的測試類別、外部資源與環境依賴見[測試策略與測試現況](../implementation-plans/dev-workflow/testing-overview.md)。
+
 | 層次 | 用途 | 限制 |
 |---|---|---|
 | 單元測試、前端 Vitest／MSW | 業務分支、畫面與 HTTP 行為 | 不證明真實 Kafka、SQL、SMTP 或瀏覽器部署可用 |
