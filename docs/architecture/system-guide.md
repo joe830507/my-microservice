@@ -337,7 +337,7 @@ docs/                         導讀、契約、設計、紀錄與安全事項
 
 JWT 金鑰、開發管理員與環境變數需依設定準備，不要把別人的 `secrets/` 當成版控內容。前後台的完整操作與 E2E 步驟集中在[商店紀錄](../implementation-plans/vue-customer/README.md#step-12)與[管理後台紀錄](../implementation-plans/vue-management/README.md#step-12)；kind 從[部署入口](../../infra/k8s/README.md)開始。
 
-已有的 `infra/scripts/local-backend.sh` 只啟動原本六個後端程序，**沒有啟動 notification-service**。要觀察完整寄信流程，還要依通知服務設定啟動它，並確認 Kafka、notification DB 與 Mailpit 都可連線。
+已有的 `infra/scripts/local-backend.sh` 只啟動原本六個後端程序，**沒有啟動 notification-service**。要觀察完整寄信流程，還要依通知服務設定啟動它，並確認 Kafka、notification DB 與 Mailpit 都可連線；指令與預設連線值見[本機開發與疑難排解](../operations/local-development.md)。
 
 ### 測試分層與成本
 

@@ -27,6 +27,8 @@
 
 ## 1.（高）下單流程圖與程式不一致
 
+> 2026-11-16 完成註記：流程圖第 1 步改為 `/api/v1/products/batch` 並補說明。對照 `ProductClient`、`InventoryClient`、payment `OrderClient` 的路徑，以及 order／payment／inventory／notification 的 `@KafkaListener`，另發現並修正三處：order 的 `/internal/v1/orders/{id}/paid` 已沒有呼叫方（payment 只呼叫 GET）、`order.events` 的消費者漏了 payment（只處理 `OrderCancelled`）、`payment.events` 漏了 notification（只處理 `PaymentFailed`）；`product.events` 的消費者改為 product 自己的搜尋索引 listener。「雛型階段」節標為歷史。
+
 現況：`docs/architecture/microservice-architecture.md`「服務互動：下單流程」的第 1 步寫 order 呼叫 `GET /internal/v1/products/batch`。實際上 `backend/spring-order-service/src/main/java/com/mymicroservice/order/clients/ProductClient.java` 第 43 行呼叫的是 `/api/v1/products/batch`。同一份文件「本機 port 分配」下方的說明，以及[暫緩清單](../deferred-items.md)的「商品批次讀取移至 internal API」，都說搬到 internal 是之後的事。
 
 要做的事：
@@ -36,6 +38,8 @@
 - 同一份文件的「雛型階段：同步 REST」與「階段 C：事件驅動」兩節，確認讀者看得出哪一段是歷史、哪一段是現況；看不出來就在節首加一行說明，不改寫歷史內容。
 
 ## 2.（高）架構參考缺 product-service 的 API 表
+
+> 2026-11-16 完成註記：依 `ProductController`、`ProductImageController`、`CategoryController`、`InternalProductSearchController` 與 `ProductQueryRequest` 新增 product-service API 表（含角色），並新增 notification-service 一節；其他四個服務的 API 表逐列對照 controller，沒有發現漏列。未啟動服務實測端點。
 
 現況：「各服務最小 API」只有 user、inventory、order、payment 四個服務與 Gateway 路由。product-service 是來源檔最多的服務（76 個），它的 API 只出現在「服務清單」的一格文字裡。notification-service 沒有對外 API，但文件沒有說明這一點。
 
@@ -48,11 +52,15 @@
 
 ## 3.（低）文件索引的分類說明過期
 
+> 2026-11-16 完成註記：改寫 `implementation-plans/` 一列；新文件已加進索引與根 README。
+
 現況：`docs/README.md` 分類表的 `implementation-plans/` 一列，還寫「跨層的後端部署計畫放在根目錄」。部署計畫已經搬到 `backend/`，這一列也沒有提到 `reviews/`、`evidence/`、`dev-workflow/`。
 
 要做的事：改寫這一列，跟下方「進行中的追蹤」一節的說明一致。本文件與第 6、7 項的新文件也要加進索引與根目錄 `README.md` 的「文件」表。
 
 ## 4.（低）系統缺口評估的過期數字
+
+> 2026-11-16 完成註記：移除「（28 項）」；「25 個 PR」改為標明日期 2026-11-13。
 
 現況：`docs/implementation-plans/system-gaps-assessment.md`
 
@@ -67,11 +75,15 @@
 
 ## 5.（低）管理後台紀錄的參考圖說明不一致
 
+> 2026-11-16 完成註記：第 339 行補上「只留在本機，不放進 repo」；沒有變動圖片或 `.gitignore`。
+
 現況：`.gitignore` 把 `docs/pictures/` 排除（設計參考圖是別人的作品，只留在本機）。`docs/implementation-plans/vue-management/README.md` 第 415 行引用 `dashboard_01.png` 時有註明「只留在本機，不放進 repo」，第 339 行引用登入頁參考圖時沒有註明，讀者會以為檔案遺失。
 
 要做的事：第 339 行補上同樣的註明。不要把圖片加進版控。
 
 ## 6.（高）測試策略與測試現況
+
+> 2026-11-16 完成註記：新增 [testing-overview.md](../dev-workflow/testing-overview.md)。實際執行：`common`（67 測試通過，51 秒）與兩個前端的 Vitest（vue-customer 344、vue-management 267 通過）；其他後端模組的數字是靜態計數，未執行。掃描發現 CI 計畫 P1～P4 以外的兩點，**僅記錄、未修改計畫或程式**：F1 瀏覽器測試用 `channel: 'chrome'`，與 CI 計畫安裝 chromium 的步驟不一致；F2 固定 dev server port。另補充 P4 實際是四個測試類別都會建置 ES 映像、固定 port 是 19200／19201。F1 需要決定是否更新 CI 計畫。
 
 現況：測試分層只在[系統導讀](../../architecture/system-guide.md)第 10 節有一張四列的表。各模組有哪些測試、哪些需要 Docker、哪些依賴本機狀態，都沒有集中記錄。[CI 計畫](../dev-workflow/ci-implementation-plan.md)的 P1～P4 就是在寫計畫時才臨時查出來的。
 
@@ -94,6 +106,8 @@
 
 ## 7.（中）本機開發與疑難排解
 
+> 2026-11-16 完成註記：新增 [local-development.md](../../operations/local-development.md)。notification 的預設連線值對照 `application.yml`、`local-backend.sh`、`docker-compose.yml`；**指令沒有實際執行**（撰寫時 compose 基礎設施沒有在執行）。疑難排解表每列連回來源。`local-backend.sh` 沒有修改，評估結果寫在該文件末尾（建議用 `WITH_NOTIFICATION=1` 控制）。
+
 現況：根目錄 `README.md` 有啟動步驟，但：
 
 - `infra/scripts/local-backend.sh` 不會啟動 notification-service。根 README 與系統導讀都只寫「需另外啟動」，沒有寫怎麼啟動。
@@ -112,6 +126,8 @@
 
 ## 8.（中）「文件維護」流水帳移出文件索引
 
+> 2026-11-16 完成註記：新增 [CHANGELOG.md](../../CHANGELOG.md)，原有 2026-11-12～13 的紀錄逐段原文搬入（含「整理驗證」一段），文件索引只留規則與連結；已結案審查文件中對「文件維護」的舊引用維持原文。
+
 現況：`docs/README.md` 的「文件維護」一節有 30 行逐次整理紀錄，比索引本身還長，而且每次整理都會再增加。
 
 要做的事：
@@ -122,6 +138,8 @@
 - 搬移後檢查有沒有其他文件引用「`docs/README.md` 的文件維護」（前一輪檢討有提到），依現況更新說法；已結案的審查文件內文不改，只在必要時加註。
 
 ## 9.（低）安全清單「還沒有檢查的」加上編號
+
+> 2026-11-16 完成註記：六項依序加上 CHK-01～06，章節標題不變；暫緩清單兩列改用編號引用，狀態沒有更動。
 
 現況：`docs/security/known-issues.md`「還沒有檢查的」有六項，沒有編號。暫緩清單只能整包引用成「剩餘安全驗證工作」，其中 Maven 依賴一項又另外拆給 G-03，對照起來不方便。
 
@@ -150,3 +168,11 @@
 - 第 6 項註明哪些模組的測試實際執行過；第 7 項註明哪些指令實際執行過。
 - 決定不做或改變做法的項目，在對應段落下方註明原因。
 - 除了文件以外不修改任何程式、腳本或設定；過程中發現的程式問題只記錄、不修正。
+
+## 本次完成與驗證紀錄（2026-11-16）
+
+- 提交：第 1～2 項、第 3／4／5／9 項、第 6 項（含系統導讀連結）、第 7／8 項各一個 commit。
+- 全庫 55 份 Markdown（含新文件）的 1,228 個本機連結與章節錨點檢查通過（自寫腳本，錨點規則仿 GitHub，非 GitHub 實際渲染）；UTF-8 無 BOM、無替代字元通過；`git diff --check` 通過。
+- 實際執行的測試只有 `common` 與兩個前端 Vitest；沒有執行其他後端模組、前端 lint／type-check／build／Playwright，沒有啟動任何服務，沒有渲染 Mermaid。
+- 除文件外沒有修改任何程式、腳本或設定。
+- 開放問題：F1（瀏覽器測試的 Chrome 通道）要不要更新 [CI 計畫](../dev-workflow/ci-implementation-plan.md)；是否讓 `local-backend.sh` 支援 `WITH_NOTIFICATION=1`。
