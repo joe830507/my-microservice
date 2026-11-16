@@ -11,7 +11,7 @@ afterEach(() => vi.useRealTimers())
 
 it('shares pending requests and caches successful counts for thirty seconds', async () => {
   const store = useDashboardCountsStore()
-  const loader = vi.fn().mockResolvedValueOnce(7).mockResolvedValue(9)
+  const loader = vi.fn<() => Promise<number>>().mockResolvedValueOnce(7).mockResolvedValue(9)
   expect(await Promise.all([store.get('paid', loader), store.get('paid', loader)])).toEqual([7, 7])
   expect(loader).toHaveBeenCalledTimes(1)
   vi.advanceTimersByTime(29_999)
@@ -23,7 +23,10 @@ it('shares pending requests and caches successful counts for thirty seconds', as
 
 it('does not cache failed requests', async () => {
   const store = useDashboardCountsStore()
-  const loader = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(2)
+  const loader = vi
+    .fn<() => Promise<number>>()
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValue(2)
   await expect(store.get('users', loader)).rejects.toThrow('offline')
   expect(await store.get('users', loader)).toBe(2)
 })
@@ -48,7 +51,7 @@ it('discards results from the previous account and clears cached values on logou
     createdAt: 'now',
     version: 0,
   }
-  const loader = vi.fn().mockResolvedValue(9)
+  const loader = vi.fn<() => Promise<number>>().mockResolvedValue(9)
   expect(await store.get('users', loader)).toBe(9)
   finish(3)
   await old

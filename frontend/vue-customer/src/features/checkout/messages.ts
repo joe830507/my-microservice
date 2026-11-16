@@ -67,7 +67,8 @@ export function createOrderFailure(error: unknown, lines: CartLine[]): CreateOrd
       return {
         ...base,
         uncertain: true,
-        message: '無法確認訂單是否已建立，可以再按一次「送出訂單」（同一次結帳不會重複下單），或先到「我的訂單」查看',
+        message:
+          '無法確認訂單是否已建立，可以再按一次「送出訂單」（同一次結帳不會重複下單），或先到「我的訂單」查看',
       }
     default:
       return { ...base, message: apiError.detail }

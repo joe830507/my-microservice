@@ -13,9 +13,12 @@ it('keeps the original if bitmap decoding is unavailable or fails', async () => 
 
 it('limits the long edge, uploads a smaller WebP and releases the bitmap', async () => {
   const file = new File([new Uint8Array(1000)], 'photo.png', { type: 'image/png' })
-  const bitmap = { width: 4000, height: 2000, close: vi.fn() }
-  vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue(bitmap))
-  const drawImage = vi.fn()
+  const bitmap = { width: 4000, height: 2000, close: vi.fn<() => void>() }
+  vi.stubGlobal(
+    'createImageBitmap',
+    vi.fn<() => Promise<typeof bitmap>>().mockResolvedValue(bitmap),
+  )
+  const drawImage = vi.fn<() => void>()
   const canvas = {
     width: 0,
     height: 0,
@@ -39,10 +42,13 @@ it('limits the long edge, uploads a smaller WebP and releases the bitmap', async
 
 it('retains the original when conversion increases size', async () => {
   const file = new File(['tiny'], 'photo.png', { type: 'image/png' })
-  const bitmap = { width: 10, height: 10, close: vi.fn() }
-  vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue(bitmap))
+  const bitmap = { width: 10, height: 10, close: vi.fn<() => void>() }
+  vi.stubGlobal(
+    'createImageBitmap',
+    vi.fn<() => Promise<typeof bitmap>>().mockResolvedValue(bitmap),
+  )
   const canvas = {
-    getContext: () => ({ drawImage: vi.fn() }),
+    getContext: () => ({ drawImage: vi.fn<() => void>() }),
     toBlob: (callback: BlobCallback) =>
       callback(new Blob([new Uint8Array(100)], { type: 'image/webp' })),
   }
