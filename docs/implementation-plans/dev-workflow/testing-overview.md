@@ -64,7 +64,7 @@ npm run test:e2e                               # 需要完整後端與管理員�
 
 #### 掃描時新發現（不在 CI 計畫 P1～P4 內）
 
-- **F1：兩個前端的免後端瀏覽器測試用系統 Chrome，不是 Playwright 內建 Chromium。** `playwright.optimization.config.ts` 設定 `channel: 'chrome'`。CI 計畫的步驟是 `npx playwright install --with-deps chromium`，兩者不一致。GitHub 的 `ubuntu-latest` 映像內建 Google Chrome，所以很可能仍能執行，但這是推測，**沒有驗證**。處理方向要由 Claude 決定：維持 `channel: 'chrome'` 並在 CI 依賴 runner 內建的 Chrome，或在 CI 步驟改成安裝 Chrome。
+- **F1：兩個前端的免後端瀏覽器測試用系統 Chrome，不是 Playwright 內建 Chromium。** `playwright.optimization.config.ts` 設定 `channel: 'chrome'`。CI 計畫的步驟是 `npx playwright install --with-deps chromium`，兩者不一致。GitHub 的 `ubuntu-latest` 映像內建 Google Chrome，所以很可能仍能執行，但這是推測，**沒有驗證**。**處理（使用者決定 2026-11-16）**：維持 `channel: 'chrome'`，CI 依賴 runner 內建的 Chrome，已更新 [CI 計畫](ci-implementation-plan.md)。
 - **F2：瀏覽器測試的 dev server 固定使用特定 port。** `test:browser` 使用 5184（vue-customer）與 5185（vue-management），`reuseExistingServer: true`；`test:e2e` 使用 5184（vue-customer）與 5183（vue-management）。兩個前端 job 各自在獨立 runner 上執行時沒有衝突，但同一台機器同時執行 vue-customer 的 `test:browser` 與 `test:e2e` 會共用 5184。
 
 ## 前端

@@ -83,7 +83,7 @@
 
 ## 6.（高）測試策略與測試現況
 
-> 2026-11-16 完成註記：新增 [testing-overview.md](../dev-workflow/testing-overview.md)。實際執行：`common`（67 測試通過，51 秒）與兩個前端的 Vitest（vue-customer 344、vue-management 267 通過）；其他後端模組的數字是靜態計數，未執行。掃描發現 CI 計畫 P1～P4 以外的兩點，**僅記錄、未修改計畫或程式**：F1 瀏覽器測試用 `channel: 'chrome'`，與 CI 計畫安裝 chromium 的步驟不一致；F2 固定 dev server port。另補充 P4 實際是四個測試類別都會建置 ES 映像、固定 port 是 19200／19201。F1 需要決定是否更新 CI 計畫。
+> 2026-11-16 完成註記：新增 [testing-overview.md](../dev-workflow/testing-overview.md)。實際執行：`common`（67 測試通過，51 秒）與兩個前端的 Vitest（vue-customer 344、vue-management 267 通過）；其他後端模組的數字是靜態計數，未執行。掃描發現 CI 計畫 P1～P4 以外的兩點，**僅記錄、未修改計畫或程式**：F1 瀏覽器測試用 `channel: 'chrome'`，與 CI 計畫安裝 chromium 的步驟不一致；F2 固定 dev server port。另補充 P4 實際是四個測試類別都會建置 ES 映像、固定 port 是 19200／19201。F1 已由使用者決定維持 `channel: 'chrome'`，CI 計畫已更新（使用 runner 內建 Chrome，不安裝瀏覽器；第一次執行驗證）；P4 的說明也已改正。
 
 現況：測試分層只在[系統導讀](../../architecture/system-guide.md)第 10 節有一張四列的表。各模組有哪些測試、哪些需要 Docker、哪些依賴本機狀態，都沒有集中記錄。[CI 計畫](../dev-workflow/ci-implementation-plan.md)的 P1～P4 就是在寫計畫時才臨時查出來的。
 
@@ -175,4 +175,4 @@
 - 全庫 55 份 Markdown（含新文件）的 1,228 個本機連結與章節錨點檢查通過（自寫腳本，錨點規則仿 GitHub，非 GitHub 實際渲染）；UTF-8 無 BOM、無替代字元通過；`git diff --check` 通過。
 - 實際執行的測試只有 `common` 與兩個前端 Vitest；沒有執行其他後端模組、前端 lint／type-check／build／Playwright，沒有啟動任何服務，沒有渲染 Mermaid。
 - 除文件外，只有 `infra/scripts/local-backend.sh` 加了 `WITH_NOTIFICATION=1`（使用者決定）。
-- 開放問題：F1（瀏覽器測試的 Chrome 通道）要不要更新 [CI 計畫](../dev-workflow/ci-implementation-plan.md)。
+- F1 已處理，沒有開放問題。
