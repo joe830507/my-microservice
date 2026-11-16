@@ -248,10 +248,29 @@ gh 目前沒有授權，以下由使用者在 GitHub 網頁上設定：
 
 兩份 log 在 `docs/logs/`（使用者放入，未納入版控）。
 
+### 修正後重跑的結果（2026-11-16，PR #31，`pull_request` synchronize，來自使用者提供的兩張截圖）
+
+狀態 Success，**總耗時 8 分 11 秒**。各 job 耗時：
+
+| Job | 耗時 | Job | 耗時 |
+|---|---|---|---|
+| `changes` | 5 秒 | `backend (spring-payment-service)` | 1 分 23 秒 |
+| `backend (common)` | 56 秒 | `backend (spring-notification-service)` | 2 分 14 秒 |
+| `backend (observability)` | 13 秒 | `backend (spring-order-service)` | 1 分 58 秒 |
+| `backend (spring-api-gateway)` | 1 分 15 秒 | `backend (spring-user-service)` | 2 分 12 秒 |
+| `backend (spring-inventory-service)` | 1 分 45 秒 | `backend (spring-product-service)` | **7 分 54 秒**（P4 的基準，決定整體耗時） |
+| `frontend (vue-customer)` | 50 秒 | `frontend (vue-management)` | 1 分 15 秒 |
+| `ci-result` | 3 秒 | | |
+
+- 前端 Vitest 摘要：vue-customer 30 檔、344 測試通過；vue-management 26 檔、267 測試通過，與本機 2026-11-16 的結果一致。
+- 兩個前端的 `test:browser` 在 job 內通過（job 為綠燈），上一節兩項修正在 GitHub 上生效；notification 的離線建置暖機也生效（該 job 2 分 14 秒通過，上一輪是 2 項錯誤、各等約 10 分鐘）。
+- **截圖看不到的**：`k8s-manifests` job（圖形在 `ci-result` 下方被截斷，且 `ci-result` 把 `skipped` 也算通過，無法由它確認）；`google-chrome --version` 的輸出；notification job 的 `setup-java` post step 是否有快取儲存警告；各測試數量。這些要再回報。
+- P4 初步結論：product 的 7 分 54 秒是其他模組的 3～4 倍，是整體耗時的瓶頸；是否快取 ES 映像，等拿到該 job 內「建置映像」實際花多少時間再決定，目前不處理。
+
 ### 待在 GitHub 驗證（步驟 5）
 
-- [ ] 9 個後端模組、2 個前端、K8s 全部通過，`ci-result` 綠燈，並記錄每個 job 的時間（特別是 product，P4）。
-- [ ] P3 的實際結果（notification 測試與快取儲存）。
+- [x] 9 個後端模組、2 個前端通過，`ci-result` 綠燈，各 job 時間已記錄；**K8s job 待確認**（見上）。
+- [ ] P3：測試已通過；**快取儲存是否有警告待確認**。
 - [ ] `google-chrome --version` 有輸出，`test:browser` 使用內建 Chrome 通過。
 - [ ] 故意失敗的 commit 讓 `ci-result` 變紅，再 revert。
 - [ ] 只改 `docs/` 的 PR，後端與前端 job 跳過、`ci-result` 綠燈。
