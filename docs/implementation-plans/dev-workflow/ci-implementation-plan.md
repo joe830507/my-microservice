@@ -204,8 +204,8 @@ gh 目前沒有授權，以下由使用者在 GitHub 網頁上設定：
 ## 驗收條件
 
 - [ ] `test:browser` 在 CI 上使用 runner 內建的 Chrome 通過，job 記錄印出 Chrome 版本。
-- [ ] 在沒有 `secrets/` 的乾淨環境，user-service 整個模組測試通過（P1）。
-- [ ] 兩個前端的 `lint:check`、`format:check` 不會修改檔案，且目前全部通過（P2）。
+- [x] 在沒有 `secrets/` 的乾淨環境，user-service 整個模組測試通過（P1）。
+- [x] 兩個前端的 `lint:check`、`format:check` 不會修改檔案，且目前全部通過（P2）。
 - [ ] 第一次完整執行：9 個後端模組、2 個前端、K8s 全部通過，`ci-result` 綠燈。
 - [ ] 故意失敗的 commit 讓 `ci-result` 變紅，revert 後恢復綠燈。
 - [ ] 只改 `docs/` 的 PR，後端與前端 job 都被跳過，`ci-result` 仍是綠燈（可以在下一個文件 PR 驗證，結果補進完成紀錄）。
@@ -215,4 +215,33 @@ gh 目前沒有授權，以下由使用者在 GitHub 網頁上設定：
 
 ## 完成紀錄
 
-（Codex 完成後填寫：每一步的 commit、GitHub Actions 執行的連結或 run ID、各 job 結果與時間、P3 結果、故意失敗的驗證結果）
+2026-11-16，分支 `feature/ci-pipeline`。步驟 1～4 與步驟 7 的文件已完成；**步驟 5（GitHub 驗證）、步驟 6（P3 修正，視需要）與 branch protection 尚未進行**，需要使用者開 PR 後才有結果。
+
+### 已完成
+
+| 步驟 | 結果 |
+|---|---|
+| 1 P1 | `UserEventContractIntegrationTests` 加上 `@ActiveProfiles("test")`。在沒有 `secrets/` 的乾淨 git worktree 執行 `./mvnw -B -ntp -pl spring-user-service -am test`：**170 項通過，2 分 35 秒**，log 顯示該測試以 `"test"` profile 啟動 |
+| 2 P2 | 兩個前端新增 `lint:check`（`oxlint . && eslint .`）與 `format:check`（`prettier --check --experimental-cli src/`），保留 `--experimental-cli`，沿用現有設定。注意：既有的 `npm run lint` 用 `run-s "lint:*"`，萬用字元也會比對到 `lint:check`，所以 `lint` 在自動修正後會再跑一次檢查，無害 |
+| 3 P2 既有問題 | `lint:check` 與 `format:check` 發現：vue-management `dashboard/__tests__/store.spec.ts`（3 處）、`products/images/__tests__/resize.spec.ts`（4 處）的 `vi.fn()` 缺型別參數（`vitest/require-mock-type-parameters`），補上型別參數修正；vue-customer `checkout/messages.ts` 一行過長字串依 prettier 換行。**沒有關閉任何規則**。修正後兩個前端的 `lint:check`、`format:check`、vue-management 的 `type-check` 與受影響的 31 項 Vitest 通過 |
+| 4 workflow | 新增 `.github/workflows/ci.yml`，內容依「Workflow 設計」；四個 action 用 commit SHA 釘選（`actions/checkout` v7.0.1、`setup-java` v6.3.0、`setup-node` v7.1.0、`upload-artifact` v7.0.2，SHA 來自各 repo 的輕量標籤）。與計畫的差異見下 |
+
+### 與計畫的差異
+
+- **不使用 jq**：`changes` 與 `ci-result` 用純 shell／grep 處理，讓邏輯能在本機測試。
+- **`mvnw` 沒有執行權限**（git 模式 100644），workflow 先 `chmod +x mvnw`，沒有更動 repo 內的檔案模式。
+- **瀏覽器**：依使用者決定（2026-11-16），維持 `channel: 'chrome'`，不安裝瀏覽器，並多一個印出 `google-chrome --version` 的步驟。
+
+### 本機驗證（不是 GitHub 執行結果）
+
+- `changes` 的判斷腳本從 workflow 取出，在本機以拋棄式分支模擬七種情境：只改文件、改 `common`、改單一服務、改 `infra/elasticsearch/`、改 `infra/k8s/`、改 workflow、改單一前端，輸出的模組、前端與 k8s 旗標全部符合「`changes`：變更判斷」表。
+- **沒有**用 actionlint 或 GitHub 驗證 workflow 語法；沒有執行 matrix、`fromJSON`、`ci-result` 的實際行為。
+
+### 待在 GitHub 驗證（步驟 5）
+
+- [ ] 9 個後端模組、2 個前端、K8s 全部通過，`ci-result` 綠燈，並記錄每個 job 的時間（特別是 product，P4）。
+- [ ] P3 的實際結果（notification 測試與快取儲存）。
+- [ ] `google-chrome --version` 有輸出，`test:browser` 使用內建 Chrome 通過。
+- [ ] 故意失敗的 commit 讓 `ci-result` 變紅，再 revert。
+- [ ] 只改 `docs/` 的 PR，後端與前端 job 跳過、`ci-result` 綠燈。
+- [ ] 使用者設定 branch protection，必要檢查只選 `ci-result`。
