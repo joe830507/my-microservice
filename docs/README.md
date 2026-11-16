@@ -84,6 +84,7 @@
 |---|---|
 | [codebase-optimization-review.md](implementation-plans/reviews/codebase-optimization-review.md) | 20 項完成、兩輪修正後審查結案；[驗證證據](implementation-plans/evidence/codebase-optimization-validation.md)，暫緩範圍見[集中清單](implementation-plans/deferred-items.md) |
 | [documentation-gaps-review.md](implementation-plans/reviews/documentation-gaps-review.md) | 四項文件缺口與完成註記，含告警手冊、安全總表、索引與暫緩清單 |
+| [documentation-gaps-review-2.md](implementation-plans/reviews/documentation-gaps-review-2.md) | 第二輪文件缺口九項（2026-11-16）：架構參考與程式不一致、測試現況、本機開發；待 Codex 處理 |
 | [deferred-now-tasks-review.md](implementation-plans/reviews/deferred-now-tasks-review.md) | T-01～T-03 審查：R1～R7 修正與複審驗證結果 |
 
 
