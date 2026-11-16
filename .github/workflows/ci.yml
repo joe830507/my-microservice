@@ -111,6 +111,14 @@ jobs:
           java-version: '21'
           cache: maven
           cache-dependency-path: backend/**/pom.xml
+      # NotificationEmailIntegrationTests 在容器內以離線模式（-o）執行 package，只能使用 runner 的 ~/.m2。
+      # 只跑 test 階段時 maven-jar-plugin 等 package 階段的外掛不會被下載，容器內建置會失敗，
+      # 所以先用相同範圍的 package 把它們下載好。
+      - name: Warm Maven repository for the in-container offline build
+        if: matrix.module == 'spring-notification-service'
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp -pl spring-notification-service -am -DskipTests package
       - name: Test ${{ matrix.module }}
         run: |
           chmod +x mvnw

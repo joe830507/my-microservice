@@ -237,6 +237,17 @@ gh 目前沒有授權，以下由使用者在 GitHub 網頁上設定：
 - `changes` 的判斷腳本從 workflow 取出，在本機以拋棄式分支模擬七種情境：只改文件、改 `common`、改單一服務、改 `infra/elasticsearch/`、改 `infra/k8s/`、改 workflow、改單一前端，輸出的模組、前端與 k8s 旗標全部符合「`changes`：變更判斷」表。
 - **沒有**用 actionlint 或 GitHub 驗證 workflow 語法；沒有執行 matrix、`fromJSON`、`ci-result` 的實際行為。
 
+### 第一次 GitHub 執行的失敗與修正（2026-11-16，使用者提供 notification 與 vue-management 兩份 log）
+
+只看到這兩份 log，其他 job 的結果還沒有回報。
+
+| Job | 現象 | 原因 | 修正 |
+|---|---|---|---|
+| backend／`spring-notification-service`（**P3 實際發生**） | `NotificationEmailIntegrationTests` 7 項中 2 項錯誤（共 12 項、2 錯誤），各等了約 10 分鐘（類別耗時 1,217 秒）。容器內的離線 Maven 報 `Cannot access central ... in offline mode and the artifact maven-jar-plugin:jar:3.5.1 has not been downloaded from it before` | CI 只執行 `test`，runner 的 `~/.m2` 沒有 `package` 階段的外掛；測試在容器內以 `-o` 執行 `package`，所以找不到。**不是權限問題**；Maven wrapper 的發行版有找到 | workflow 在 notification 模組先以相同範圍執行 `-pl spring-notification-service -am -DskipTests package` 暖機，不修改測試、不排除測試。**尚未在 GitHub 驗證**；容器以 root 寫入 `~/.m2`，之後 `setup-java` 儲存快取是否因權限失敗還要看下次的 post step |
+| frontend／`vue-management`，`test:browser` | `browser-tests/resize.spec.ts` 報 `page.evaluate: Execution context was destroyed, most likely because of a navigation` | **推測**：乾淨環境第一次載入時 Vite 重新優化依賴而整頁重載。本機清掉 `node_modules/.vite` 後**沒有重現**（通過），所以這是推論 | 測試用 `expect(...).toPass()` 包住 `goto` 與 `evaluate`，重載時重試（30 秒）。本機 `lint:check`、`format:check`、`type-check`、`test:browser` 通過；**尚未在 GitHub 驗證** |
+
+兩份 log 在 `docs/logs/`（使用者放入，未納入版控）。
+
 ### 待在 GitHub 驗證（步驟 5）
 
 - [ ] 9 個後端模組、2 個前端、K8s 全部通過，`ci-result` 綠燈，並記錄每個 job 的時間（特別是 product，P4）。
