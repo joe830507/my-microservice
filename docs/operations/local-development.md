@@ -6,7 +6,13 @@
 
 ## 啟動 notification-service
 
-`infra/scripts/local-backend.sh` 只啟動 user、product、inventory、order、payment 與 gateway 六個程序，**不包含 notification-service**。要觀察寄信流程，另外啟動：
+`infra/scripts/local-backend.sh` 只啟動 user、product、inventory、order、payment 與 gateway 六個程序，**不包含 notification-service**。要觀察寄信流程，加上 `WITH_NOTIFICATION=1`（log 在 `notification.log`）：
+
+```bash
+WITH_NOTIFICATION=1 infra/scripts/local-backend.sh start
+```
+
+或手動啟動：
 
 ```bash
 # 前提：compose 已啟動（需要 notification-db、kafka、mailpit），且已 ./mvnw -DskipTests package
@@ -35,6 +41,7 @@ infra/scripts/local-backend.sh start     # 依序啟動 user、product、invento
 infra/scripts/local-backend.sh stop
 infra/scripts/local-backend.sh restart   # stop、等 3 秒、start
 OBSERVE=1 infra/scripts/local-backend.sh start
+WITH_NOTIFICATION=1 infra/scripts/local-backend.sh start   # 一併啟動 notification-service
 ```
 
 | 項目 | 行為 |
@@ -47,7 +54,7 @@ OBSERVE=1 infra/scripts/local-backend.sh start
 | `stop` | Windows 以 PowerShell 找出命令列符合 `(api-gateway\|-service)-0.0.1-SNAPSHOT.jar` 的 `java.exe` 並結束；其他系統用 `pkill -f`。這個樣式**也會比對到 notification-service 的 jar**，所以 `stop` 會一併停掉手動啟動的通知服務 |
 | 啟動完成 | 約 1 分鐘後 `http://localhost:8080/actuator/health` 為 `UP` |
 
-要不要讓腳本也啟動 notification-service，評估見文末。
+`WITH_NOTIFICATION=1` 的說明見文末。
 
 ## 疑難排解
 
@@ -68,10 +75,6 @@ OBSERVE=1 infra/scripts/local-backend.sh start
 
 先前的安全探測與 API 對接檢查在開發資料庫留下測試帳號與訂單（`sec-*`、`flood-*`、`api-*`），沒有清除。內容與處理條件見[安全清單：探測遺留的測試資料](../security/known-issues.md#探測遺留的測試資料)。要清除需要使用者確認清單，本文件不提供清除指令。
 
-## 評估：讓 `local-backend.sh` 啟動 notification-service
+## 變更：`WITH_NOTIFICATION=1`
 
-**這次沒有修改腳本**，結論供使用者決定。
-
-- 可行：腳本的 `stop` 樣式已涵蓋 notification 的 jar，`start` 只需要多一個 `( cd backend/spring-notification-service && nohup java -jar target/notification-service-0.0.1-SNAPSHOT.jar > "$LOG_DIR/notification.log" 2>&1 & )`，預設連線值與 compose 一致。
-- 代價：notification 依賴 Kafka 與 Mailpit，且第一次啟動會從 topic 開頭消費；預設就多啟動，會讓只想跑前後台 E2E 的人多一個程序，也會在 Mailpit 累積信件。
-- 建議：用環境變數控制，例如 `WITH_NOTIFICATION=1 infra/scripts/local-backend.sh start`，預設行為不變。
+2026-11-16 依使用者決定，腳本加上 `WITH_NOTIFICATION=1`，預設行為不變；只多啟動一個程序，並把 log 寫到 `notification.log`。`stop` 的樣式原本就涵蓋 notification 的 jar。腳本只做了 `bash -n` 語法檢查，**沒有實際啟動**。代價是通知服務依賴 Kafka 與 Mailpit，第一次啟動會從 topic 開頭消費，Mailpit 會累積信件，所以才預設不啟動。

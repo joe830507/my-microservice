@@ -2,7 +2,7 @@
 
 文件整理與審查的逐次紀錄，新的在上。維護規則見[文件索引](README.md#文件維護)。歷史紀錄中的「現況」、文件數與測試數字是當時的結果，不代表目前狀態。
 
-2026-11-16 文件缺口第二輪（[審查](implementation-plans/reviews/documentation-gaps-review-2.md)）：更正架構參考與程式不一致之處並補 product-service／notification-service 的 API 說明；新增[測試策略與測試現況](implementation-plans/dev-workflow/testing-overview.md)與[本機開發與疑難排解](operations/local-development.md)；本紀錄由文件索引搬出；安全清單「還沒有檢查的」加上 CHK-01～06 編號。全庫 55 份 Markdown 的 1,228 個本機連結與章節錨點、UTF-8 無 BOM、`git diff --check` 檢查通過；實際只執行了 `common` 與兩個前端的 Vitest，其餘後端測試、前端 lint／type-check／build／Playwright 與服務啟動、Mermaid 渲染均未執行。
+2026-11-16 文件缺口第二輪（[審查](implementation-plans/reviews/documentation-gaps-review-2.md)）：更正架構參考與程式不一致之處並補 product-service／notification-service 的 API 說明；新增[測試策略與測試現況](implementation-plans/dev-workflow/testing-overview.md)與[本機開發與疑難排解](operations/local-development.md)；本紀錄由文件索引搬出；`local-backend.sh` 加上 `WITH_NOTIFICATION=1`（只做語法檢查）；安全清單「還沒有檢查的」加上 CHK-01～06 編號。全庫 55 份 Markdown 的 1,228 個本機連結與章節錨點、UTF-8 無 BOM、`git diff --check` 檢查通過；實際只執行了 `common` 與兩個前端的 Vitest，其餘後端測試、前端 lint／type-check／build／Playwright 與服務啟動、Mermaid 渲染均未執行。
 
 2026-11-13 完成文件缺口四項：新增 12 條告警手冊及 kind 原始查詢結果、集中 28 項暫緩／條件式工作、補 SEC-14／15 總表並整理 SEC-13～15 位置、補最佳化與文件審查入口。共異動 25 個檔案（24 份 Markdown、一份查詢 JSON）；全庫 47 份 Markdown 的 1,141 個本機連結、210 個章節引用與 UTF-8 無 BOM 檢查通過，git diff --check 通過。12 條告警的查詢／門檻／for 已對照產生設定，全部原始 A 查詢在 kind Prometheus 成功執行，但部分結果空集合或 NaN；未做故障注入、告警 firing／恢復／通知驗收，亦未執行手冊的修復命令、Loki／Tempo／通知 SQL、服務測試、建置或部署。
 

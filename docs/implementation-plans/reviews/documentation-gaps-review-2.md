@@ -106,7 +106,7 @@
 
 ## 7.（中）本機開發與疑難排解
 
-> 2026-11-16 完成註記：新增 [local-development.md](../../operations/local-development.md)。notification 的預設連線值對照 `application.yml`、`local-backend.sh`、`docker-compose.yml`；**指令沒有實際執行**（撰寫時 compose 基礎設施沒有在執行）。疑難排解表每列連回來源。`local-backend.sh` 沒有修改，評估結果寫在該文件末尾（建議用 `WITH_NOTIFICATION=1` 控制）。
+> 2026-11-16 完成註記：新增 [local-development.md](../../operations/local-development.md)。notification 的預設連線值對照 `application.yml`、`local-backend.sh`、`docker-compose.yml`；**指令沒有實際執行**（撰寫時 compose 基礎設施沒有在執行）。疑難排解表每列連回來源。`local-backend.sh` 原先沒有修改；使用者隨後決定採用 `WITH_NOTIFICATION=1`，已加入腳本（只做 `bash -n` 語法檢查，未實際啟動），這是本輪唯一的非文件變更。
 
 現況：根目錄 `README.md` 有啟動步驟，但：
 
@@ -174,5 +174,5 @@
 - 提交：第 1～2 項、第 3／4／5／9 項、第 6 項（含系統導讀連結）、第 7／8 項各一個 commit。
 - 全庫 55 份 Markdown（含新文件）的 1,228 個本機連結與章節錨點檢查通過（自寫腳本，錨點規則仿 GitHub，非 GitHub 實際渲染）；UTF-8 無 BOM、無替代字元通過；`git diff --check` 通過。
 - 實際執行的測試只有 `common` 與兩個前端 Vitest；沒有執行其他後端模組、前端 lint／type-check／build／Playwright，沒有啟動任何服務，沒有渲染 Mermaid。
-- 除文件外沒有修改任何程式、腳本或設定。
-- 開放問題：F1（瀏覽器測試的 Chrome 通道）要不要更新 [CI 計畫](../dev-workflow/ci-implementation-plan.md)；是否讓 `local-backend.sh` 支援 `WITH_NOTIFICATION=1`。
+- 除文件外，只有 `infra/scripts/local-backend.sh` 加了 `WITH_NOTIFICATION=1`（使用者決定）。
+- 開放問題：F1（瀏覽器測試的 Chrome 通道）要不要更新 [CI 計畫](../dev-workflow/ci-implementation-plan.md)。
