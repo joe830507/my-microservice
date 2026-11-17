@@ -1,2 +1,5 @@
 # 設計參考圖（別人的作品），只留在本機，不放進 repo
 docs/pictures/
+
+# 從 CI 下載的 log，只留在本機
+docs/logs/

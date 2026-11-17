@@ -139,9 +139,15 @@ cd backend
 ./mvnw clean test                          # 全部；整合測試使用 Testcontainers，需要 Docker
 
 cd frontend/vue-customer
-npm run test:unit    # Vitest
+npm run test:unit    # Vitest（watch 模式；一次性執行用 npx vitest run）
 npm run test:e2e     # Playwright，需要先啟動後端
+npm run lint:check   # oxlint＋eslint，不修改檔案（npm run lint 會自動修正）
+npm run format:check # prettier 檢查，不修改檔案（npm run format 會改檔）
 ```
+
+### CI
+
+`.github/workflows/ci.yml` 在 PR 與 `main` 的推送時自動執行：後端依變更的模組執行 `-pl <module> -am test`（含 Testcontainers），兩個前端執行 `lint:check`、`format:check`、`type-check`、`vitest run`、`build-only` 與免後端的 `test:browser`（使用 runner 內建的 Chrome），並確認 K8s manifest 能 render。只改文件的 PR 會跳過這些 job。需要完整後端的 `test:e2e`、映像檔建置與漏洞掃描不在其中。branch protection 只要求 `ci-result` 這一個檢查。計畫與驗收見 [G-01 CI 計畫](docs/implementation-plans/dev-workflow/ci-implementation-plan.md)，各模組測試與環境依賴見[測試現況](docs/implementation-plans/dev-workflow/testing-overview.md)。
 
 ## 文件
 

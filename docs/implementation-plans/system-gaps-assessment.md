@@ -36,7 +36,7 @@
 
 ### G-01 CI 流水線
 
-- **狀態**：實作計畫見 [G-01 CI 流水線實作計畫](dev-workflow/ci-implementation-plan.md)（2026-11-13 建立）。
+- **狀態**：實作計畫見 [G-01 CI 流水線實作計畫](dev-workflow/ci-implementation-plan.md)（2026-11-13 建立）。2026-11-16 workflow 與前置修正已實作，**尚待在 GitHub 上驗證與設定 branch protection**，驗證完成前不標為完成。
 - **現況證據**：`.github/` 底下只有 `modernize/java-upgrade/hooks`，沒有 `.github/workflows`，也沒有其他 CI 設定。
 - **影響**：後端 `./mvnw clean test`（含 Testcontainers）、前端 Vitest、type-check、lint 都靠手動執行。PR 合併前沒有自動檢查，2026-11-13 已經累積 25 個 PR。
 - **建議範圍**：

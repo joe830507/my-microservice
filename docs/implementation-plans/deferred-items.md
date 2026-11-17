@@ -30,8 +30,8 @@
 
 | 項目 | 隨哪一項 | 來源文件／章節 | 暫緩原因 | 預估影響範圍 |
 |---|---|---|---|---|
-| Gateway 測試設定共用與 Docker 分離 | G-01 CI | [Gateway 後續](backend/api-gateway-implementation-plan.md#之後再處理) | 原計畫記載重複 WireMock／JWKS／Redis 設定及全部依賴 TestRedis | Gateway 測試 base／annotation、CI |
-| Gateway Boot／Cloud 升級 | G-01 CI 建好之後 | [Gateway 後續](backend/api-gateway-implementation-plan.md#之後再處理) | 目前 POM 因相容性維持 Boot 4.0.9／Cloud 2025.1.4；有 CI 再升級較安全 | Gateway POM、OTel 相依、路由／JWT／限流測試 |
+| Gateway 測試設定共用與 Docker 分離 | G-01 CI | [Gateway 後續](backend/api-gateway-implementation-plan.md#之後再處理) | 原計畫記載重複 WireMock／JWKS／Redis 設定及全部依賴 TestRedis | Gateway 測試 base／annotation、CI；**2026-11-16 重新評估**：CI（`ubuntu-latest`）有 Docker，原本「依賴 Docker」的阻礙不成立；是否值得重構等 G-01 在 GitHub 的 gateway job 執行時間出來再決定，維持暫緩 |
+| Gateway Boot／Cloud 升級 | G-01 CI 建好之後 | [Gateway 後續](backend/api-gateway-implementation-plan.md#之後再處理) | 目前 POM 因相容性維持 Boot 4.0.9／Cloud 2025.1.4；有 CI 再升級較安全 | Gateway POM、OTel 相依、路由／JWT／限流測試；**2026-11-16 重新評估**：CI 已實作，前提只差 GitHub 上第一次全綠；通過後可另開任務排入 |
 | CDS／AOT cache | G-02 映像檔發佈 | [最佳化 #18](reviews/codebase-optimization-review.md#18低後端映像檔沒有分層啟動沒用-cdsaot-cache) | 已有映像分層；訓練啟動依賴環境，需要可重現基準 | 所有 Java Dockerfile、CI、啟動／訓練環境 |
 | 剩餘安全驗證工作：Maven 依賴漏洞（CHK-03） | G-03 漏洞掃描 | [未檢查清單 CHK-03](../security/known-issues.md#還沒有檢查的) | 只檢查過 vue-customer 的 npm 依賴；其餘驗證工作列在[上線前](#上線前) | 後端依賴；驗證後回填來源 |
 
@@ -88,6 +88,8 @@
 - 2026-11-13：T-01 已完成，OrderCancelled 將 PENDING 付款收斂為 CANCELLED；原始付款計畫與立即處理項目已更新，移出現在清單。
 
 - 2026-11-13：加入「處理時機」分類。Bloom filter／ETag、商品 SEO／SSR、前後台共用 workspace 套件三項原為條件式候選，移入[路線圖「暫不排入」](middleware/middleware-roadmap.md#暫不排入記錄理由)，原始來源已加註。「圖片 CDN」與「正式圖片物件對帳清理」合併為一列；「剩餘安全驗證工作」拆出 Maven 依賴，隨 G-03 處理。
+
+- 2026-11-16：G-01 CI 實作完成，兩項「隨開發流程」的 Gateway 項目重新評估並在表中註記結論（CI 驗證通過前不變更處理時機）。
 
 ## 維護規則
 
